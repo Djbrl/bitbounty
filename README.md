@@ -13,6 +13,9 @@ Built at **Code & Chain Dakar 2026** (Bitnob), 17–18 Oct 2026. Hacking starts 
 | [docs/product.md](docs/product.md) | Product definition, UX flows, edge cases, positioning |
 | [docs/bitnob-api.md](docs/bitnob-api.md) | Bitnob API cheat sheet |
 | [docs/setup.md](docs/setup.md) | Run locally, commands, deploy to Railway and Vercel |
+| [docs/backlog.md](docs/backlog.md) | "Price my backlog": Claude suggests which issues to fund, with criteria and a price |
+| [docs/agents.md](docs/agents.md) | Agents as funders: `bb_` keys, budgets, the `/v1` API and the MCP server for Claude Code |
+| [docs/api.md](docs/api.md) | Web ↔ server API: the switch from fixtures to the real server, routes, loading and error states |
 | [docs/auth.md](docs/auth.md) | Sign in with GitHub (Auth.js), session fields, env and one-time setup |
 
 Status: **monorepo scaffolded** (`apps/web`, `apps/server`). Run it with `pnpm install && pnpm dev`, see [docs/setup.md](docs/setup.md).
@@ -107,11 +110,19 @@ Status at Sat 17 Oct, 22:15, with rule 11 applied to every merged PR (per-PR aud
 Pending: D7 landing (Djbrl, 5), A3/A4/I1 (Kml221-bot), I2 (Rabatou), B2/B3 done-when (blocked: Wave/OM not usable), unclaimed A5, I3, I4, D1–D6.
 To settle (rule 9): whether the finisher of a pooled task (F1, F3, B1, B5 were completed by Djbrl in #51, #72/#74, #80, #78) earns any of its points, or they stay in the pool.
 
---- | --- | --- | --- |
-| Djbrl | F4, F6, W1–W9, G1–G5, A1, A2 (42) · F1 deploy + F3 finish (split to agree, up to 5) · D7 landing (5, pending trailer + review) | – | 42 (+ up to 10) |
-| Rabatou | F2, F5 (5) · B1–B5 open | – | 5 |
-| Kml221-bot | F1 monorepo #46 (split to agree, up to 3) · F3 base #49 (split to agree, up to 2) · A3, A4 open | – | 0 (+ up to 5) |
-| cheikhteej | – | – | 0 |
+#### Rule 11 verdicts on open PRs (Sat 17 Oct, 23:15)
+Each PR was tested as pushed (install, lint, typecheck, tests, build, built server boots) and its feature was exercised by hand. Points only count once the PR is merged (rule 4).
+
+| PR | Task (pts) | Author | Done-when at push | Bad break? | Verdict | Points once merged |
+| --- | --- | --- | --- | --- | --- | --- |
+| #90 | I1 (3) | Kml221-bot | Met: every page runs on live server data, with loading and error states (checked against a real server + Postgres) | No | **Full** | 3 |
+| #76 | A4 (3) | Kml221-bot | Met: an agent key posts a bounty over MCP within its budget; bad key, over budget and a repo it isn't allowed are all refused | No | **Full** | 3 |
+| #75 | A3 (3) | Kml221-bot | Met: issue, why it fits, criteria and an FCFA price on a real repo (offline heuristic; the Claude path was never run live) | No | **Full** | 3 |
+| #85 | I2 (3) | Rabatou | **Not met**: the done-when says "in sandbox", and the PR says `--sandbox` was never run. Offline it is green 3 times in a row | A `/hold` during the objection window doesn't stop the payout (latent while the window is 0) | **Zero** → 3 pts to the pool | 0 |
+
+Rabatou also posted A3 review fixes in #91 (23:09), after Djbrl had taken over the remaining open PRs. #97 superseded it; Djbrl granted **half credit**: +0.25 (half of a rule 6 review bonus).
+If all of them are merged as-is (before that +0.25): Kml221-bot **9**, Rabatou **6**, pool **28 pts → +7 each**.
+To settle (rule 9): Rabatou may ask the 2 members not involved whether the offline run meets I2's intent, since Wave/OM sandbox payouts are now impossible. If yes, the `/hold` bug argues for half (1.5), not full.
 
 ---
 

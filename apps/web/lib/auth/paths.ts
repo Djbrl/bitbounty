@@ -32,6 +32,11 @@ export function signInRedirectUrl(url: URL): URL {
   return target;
 }
 
+/** Relative `/signin?callbackUrl=<pathname>` (client side, no origin needed): signing in again brings the user back. */
+export function signInHref(pathname: string | null | undefined): string {
+  return `${SIGN_IN_PATH}?callbackUrl=${encodeURIComponent(safeCallbackUrl(pathname))}`;
+}
+
 /** Human message for the `?error=` code Auth.js appends when sending people back to /signin. */
 export function signInErrorMessage(code: string | null | undefined): string | null {
   if (!code) return null;
