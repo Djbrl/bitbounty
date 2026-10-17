@@ -3,6 +3,26 @@
 17 10 2026. Read with [docs/plan.md](docs/plan.md) (stack, contract, Bitnob calls) and [docs/product.md](docs/product.md).
 Principle: **contract first, then everything is built against mocks and interfaces**, so any task can be picked up without waiting on someone else.
 
+## The board, explained simply
+
+**What it is.** 33 small jobs, each with a points value (1 to 5 for how big it is). Nobody owns an area. You take a job, have your AI agent write it, test it, document it, open one pull request, and a teammate checks it. Once it's merged, the points are yours. Points decide 80% of the prize.
+
+**The 4 waves, in order.**
+- **Wave 0, the foundations (6 jobs, 15:00–16:15).** Things everyone else needs: the rulebook (F2, do it first), the empty project online (F1), the database (F3), fake data for every page (F4), Bitnob answering (F5), the GitHub bot hearing comments (F6). One person per job, all at once.
+- **Wave 1, the blocks (24 jobs, until midnight).** Four families you can pick from freely:
+  - **B, money:** take payment over Lightning, pay out to Wave, the small test payment, the naira route from Lagos, Bitnob's notifications.
+  - **G, GitHub:** understand the commands, write the bot's status comment, wire the two together, spot the fix and the merge, the 72-hour claim timer.
+  - **A, AI:** Claude's check on a fix, showing it in the pull request, "Price my backlog", the server agents use to fund tasks, the agent demo.
+  - **W, web pages:** the shared look, then one job per page from the mockups. All built on fake data, so they never wait for the back end.
+- **Wave 2, plugging it together (4 jobs, overnight).** Real data in the pages, a script that runs the whole story end to end, the failure cases for the demo, the Lagos route on the live screen.
+- **Wave 3, the show (6 jobs, Sunday morning).** The demo repo, the pitch slides, rehearsals, a backup video, the README, the submission.
+
+**How to pick.** Take a job whose "depends on" jobs are done (or that only needs fake data). If you're blocked, take a W job, D1 (demo repo) or D2 (pitch). Watch the two paths everything waits on: rulebook → Bitnob → Wave payout, and GitHub bot → commands → merge detection.
+
+**What counts.** One job = one pull request, tested and documented before you push, written by an AI agent. Otherwise no points.
+
+---
+
 ## Board rules
 1. **One GitHub issue per task**, labels `pts:N`, `wave:N`, `area:…`. (Bonus pitch line: we split our own prize the way BitBounty works.)
 2. **Claim** = assign yourself + comment "on it". **One task at a time** (two if one is blocked).

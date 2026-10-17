@@ -17,6 +17,32 @@ Status: **no product code yet**. The organisers' rule is that the project is bui
 
 ---
 
+## The plan, explained simply
+
+**The picture.** BitBounty is a notary with a safe, sitting between GitHub and Bitnob. GitHub is the workshop: issues, fixes and merges happen there. Bitnob is the bank: money comes in and goes out to Wave. BitBounty holds the money in its safe, watches the workshop, and when the job is done tells the bank to pay the developer.
+
+**The 5 building blocks.**
+1. **The rulebook (the contract).** The stages a bounty goes through: unfunded → funded → claimed → fix submitted → checked → paid. Written first, at 15:00. Everyone builds against it.
+2. **The GitHub bot.** Reads `/bounty` and `/claim`, keeps one status comment per issue up to date, notices when a fix is merged.
+3. **The cash desk (Bitnob).** Creates the Lightning invoice the maintainer pays, notices when the money arrives, pays the developer to Wave when the bot says so. Also handles a naira bank transfer from Lagos.
+4. **Claude.** "Price my backlog" reads the open issues and suggests which ones to fund, with criteria and a price. On every fix, it says whether each criterion is met.
+5. **The web pages.** Maintainer dashboard, payment page, developer Wave setup, public board, profile, and the big live screen for the demo.
+
+**How the blocks talk.** They don't call each other. They leave notes on a shared board ("money received", "fix merged", "check OK", "payment sent"), and each block watches for the notes it cares about. So everyone builds and tests their block alone with fake notes, and it all clicks together at the end. Web pages start on fake data too; the real data is plugged in overnight.
+
+**The order.**
+- **15:00–16:15, foundations:** the rulebook, the empty project already online, the fake data, Bitnob answering (invoice, Wave payout, naira account), the bot receiving GitHub's notifications.
+- **16:15–midnight, everyone builds a block.** Goal at midnight: one bounty that goes all the way from funded to paid in the sandbox.
+- **Midnight–08:00:** real data in the pages, the agent that funds a task itself, the Lagos route (naira → bitcoin → FCFA), a full test. Sleep in shifts.
+- **08:00–13:00:** polish, demo repo, pitch, 3 rehearsals, backup video, README.
+- **13:00 code freeze. 14:00 submitted. 15:00 demo.**
+
+**The 3 things that can block everything.** Paying out to Wave from Bitnob's sandbox (check it at their 11:00 demo). The GitHub bot receiving notifications (set up in the first hour). Venue Wi-Fi (deploy online right away, keep a phone hotspot, record a backup video). If one breaks, the rest can still be built, because every block runs on fake notes.
+
+The full technical plan is in [docs/plan.md](docs/plan.md).
+
+---
+
 ## Team agreement
 
 Every member agrees to this section before taking a task. Agree by adding your GitHub handle and the time under "Signed" in a commit or PR.
