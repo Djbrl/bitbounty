@@ -57,6 +57,8 @@ Points feed the prize split. The rules are in the [README](README.md#prize-agree
 
 ## Wave 1: parallel building (16:15 → 00:00)
 ### Money (Bitnob)
+> Sat 17 Oct, 22:30: the mentor confirmed Wave / Orange Money payouts are not possible. Developers are paid **in sats over Lightning**: B6 replaces B2's mobile-money rail, B7 replaces B3's test-payout target. B6/B7 points to be sized by 2 members (rule 7).
+
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
 | [B1](https://github.com/Djbrl/bitbounty/issues/7) | Lightning funding: create invoice + polling job → `funding.paid` (+ conversion to USDT if possible) | 3 | F2 F5 | sandbox invoice paid → event emitted |
@@ -64,6 +66,8 @@ Points feed the prize split. The rules are in the [README](README.md#prize-agree
 | [B3](https://github.com/Djbrl/bitbounty/issues/9) | Test payout for onboarding (random 100–199 F) + confirmation endpoint | 1 | B2 | amount sent, then validated |
 | [B4](https://github.com/Djbrl/bitbounty/issues/10) | NGN rail: customer + virtual account + simulate-deposit loop + NGN→BTC trade → `funding.paid` | 3 | F5 | NGN balance → BTC → event |
 | [B5](https://github.com/Djbrl/bitbounty/issues/11) | Bitnob webhook receiver (payouts, deposits) + verification + dedupe | 2 | F6 | sandbox webhook recorded |
+| [B6](https://github.com/Djbrl/bitbounty/issues/86) | **Lightning payouts** (replaces B2's Wave/OM rail): Lightning Address → LNURL-pay → BOLT11 → Bitnob `/api/lightning/pay`, never pay twice, `payout.*` events | 5 (proposed) | B1 B2 | sandbox Lightning payout paid, retry never pays twice |
+| [B7](https://github.com/Djbrl/bitbounty/issues/87) | **Test payout in sats** to the developer's Lightning Address (replaces B3's target) + `/me` asks for a Lightning Address | 2 (proposed) | B6 | random sats sent, amount validated, lock holds under parallel guesses |
 
 ### GitHub
 | ID | Task | Pts | Depends on | Done when |
