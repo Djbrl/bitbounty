@@ -37,11 +37,16 @@ The split covers any cash prize the team wins (overall placing or partner award)
 2. **80% is split in proportion to the points each member completed**, according to [TASKS.md](TASKS.md).
 3. **No freeloaders.** To receive the equal 20% share, a member must have completed **at least 10 points** and been present for the demo. If not, their equal share goes back into the 80% pool.
 4. **Points count when a task is done**: PR merged and checked by another member. Non-code tasks (pitch, video, demo, README, submission) earn points like any other.
-5. **Reviews are worth +0.5 points each**, capped at 5 points per person.
-6. **Task points are fixed before 15:30 on Saturday**, agreed by 2 members. A task added later is sized by 2 members before anyone takes it. Points don't change after the task is claimed.
-7. **Stale tasks:** a claimed task with no commit or message for 90 minutes goes back to the pool. Its points go to whoever finishes it.
-8. **Disputes** about a task are settled by the 2 members not involved in it. Their decision is final.
-9. The final points tally is written in this README before 14:00 on Sunday and agreed by all 4 members before any money is shared.
+5. **One PR per task, tested and documented before it's pushed. A PR that breaks this rule earns no points**, even if it gets merged. In practice:
+   - **One task = one PR.** No PR that mixes two tasks, no task split across several PRs (except a follow-up fix explicitly requested in review).
+   - **Tested:** code tasks ship with automated tests that pass (`pnpm test`). If something really can't be tested automatically (UI, sandbox calls), the PR gives the manual test steps and proof (screenshot, log, response).
+   - **Documented:** the PR description says what changes, why, and how to test it. If the behaviour, a command, an endpoint or a variable changes, the matching doc (`docs/`, README, `.env.example`) is updated in the same PR.
+   - Non-code tasks (pitch, video, demo): the PR or issue links the deliverable and says how it was checked.
+6. **Reviews are worth +0.5 points each**, capped at 5 points per person.
+7. **Task points are fixed before 15:30 on Saturday**, agreed by 2 members. A task added later is sized by 2 members before anyone takes it. Points don't change after the task is claimed.
+8. **Stale tasks:** a claimed task with no commit or message for 90 minutes goes back to the pool. Its points go to whoever finishes it.
+9. **Disputes** about a task are settled by the 2 members not involved in it. Their decision is final.
+10. The final points tally is written in this README before 14:00 on Sunday and agreed by all 4 members before any money is shared.
 
 **Formula.** For prize P, with your points p and the team total T:
 `your share = 0.20 × P / 4 + 0.80 × P × p / T`.
@@ -69,5 +74,6 @@ Example with P = $1,000 and points 30 / 28 / 25 / 17 (T = 100): $290, $274, $250
 1. Pick an open task from [TASKS.md](TASKS.md) (or its GitHub issue once created). Assign yourself and comment "on it".
 2. Branch `T-<ID>-short-name` (for example `T-B2-payouts`).
 3. Give your agent the task row, [docs/plan.md](docs/plan.md) and the contract in `packages/core`. Commits start with the task ID: `B2: retry payouts 3 times`.
-4. Open a PR saying which agent and model wrote it, ask another member to review, and merge once it's been checked.
-5. Standup every 2 hours, 5 minutes: done, in progress, blocked.
+4. Before pushing: tests pass (`pnpm test`) or manual proof is attached, and docs are updated if needed.
+5. Open **one PR for this task**, with the description: what changes, why, how to test it, which agent and model wrote it. Ask another member to review, and merge once it's been checked.
+6. Standup every 2 hours, 5 minutes: done, in progress, blocked.
