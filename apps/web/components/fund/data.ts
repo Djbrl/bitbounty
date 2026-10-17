@@ -5,6 +5,7 @@ import bounties from "../../../../fixtures/bounties.json";
 import dashboard from "../../../../fixtures/dashboard.json";
 import funding from "../../../../fixtures/funding.json";
 import type { BountyDetail, BountyStatus, FundingRail, FundingSession } from "../../../../fixtures/types";
+import { apiBaseUrl, apiGet } from "../../lib/api";
 import { handleMock, type Fixtures } from "../../lib/mock-api";
 
 export type { FundingRail, FundingSession };
@@ -33,4 +34,11 @@ export function getFundBounty(id: string): FundBounty | null {
   const res = handleMock(fx, "GET", ["bounties", id], new URLSearchParams());
   if (!("json" in res) || res.status !== 200) return null;
   return toFundBounty(res.json as BountyDetail);
+}
+
+/** The page's loader: real server when configured (I1), otherwise `getFundBounty` over the fixtures. */
+export async function fetchFundBounty(id: string): Promise<FundBounty | null> {
+  if (!apiBaseUrl()) return getFundBounty(id);
+  const d = await apiGet<BountyDetail>(`/api/bounties/${encodeURIComponent(id)}`);
+  return d ? toFundBounty(d) : null;
 }

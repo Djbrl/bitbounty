@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { LiveBoard } from "../../components/live/live-board";
 import { parseSpeed } from "../../components/live/live-data";
-import { getLiveSnapshot } from "../../components/live/live-snapshot";
+import { fetchLiveSnapshot } from "../../components/live/live-snapshot";
+
+// Rendered per request: the data comes from the server (I1), never baked in at build time.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "BitBounty · live",
@@ -13,5 +16,5 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 /** /live: full-screen projector board. `?speed=4` fast-forwards the mock stream. */
 export default async function LivePage({ searchParams }: Props) {
   const { speed } = await searchParams;
-  return <LiveBoard initial={getLiveSnapshot()} speed={parseSpeed(speed)} />;
+  return <LiveBoard initial={await fetchLiveSnapshot()} speed={parseSpeed(speed)} />;
 }

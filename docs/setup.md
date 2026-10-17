@@ -89,7 +89,12 @@ docker compose logs tunnel | grep trycloudflare   # the public API URL
 ### Web on Vercel
 1. **Add New Project** → import `Djbrl/bitbounty`.
 2. **Root Directory**: `apps/web` (framework detected: Next.js). Keep the default install and build commands.
-3. Set `NEXT_PUBLIC_API_URL` to the Railway server URL. For sign-in with GitHub also set `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` (see [auth.md](auth.md)).
-4. Deploy. The home page must show "hello".
+3. Set `NEXT_PUBLIC_API_URL` (or `BITBOUNTY_API_URL`) to the server URL: every page then reads the real server (unset = fixtures, see [api.md](api.md)). For sign-in with GitHub also set `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` (see [auth.md](auth.md)).
+4. **Before deploying, set `INTERNAL_API_TOKEN` to the same value on Vercel and on the server** (the server's `.env`, then `docker compose up -d --build server`). Use one long random string, for example `openssl rand -hex 32`. The web sends it with the signed-in GitHub login, and the server trusts that login only when the token matches. Otherwise, as soon as `NEXT_PUBLIC_API_URL` is set:
+   - **Missing on Vercel, or a different value:** the server answers 401, so `/dashboard` and `/me` show "Session expirée ou accès refusé" for everyone, even when signed in.
+   - **Missing on the server:** `/me` is always 401, and `/dashboard` is no longer per maintainer: anyone who opens it sees every maintainer's bounties.
+
+   After changing it on Vercel, redeploy the web (env changes only apply to new deployments).
+5. Deploy. The home page must show "hello".
 
 Every variable lives in `.env.example`. A task that adds one updates that file in the same PR.
