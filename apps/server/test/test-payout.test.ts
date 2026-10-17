@@ -6,6 +6,7 @@ import {
   InMemoryPayoutAccountStore,
   InMemoryTestPayoutStore,
   TestPayoutService,
+  maskPhone,
   parseTypedAmount,
   testPayoutRoutes,
 } from "../src/onboarding/index.js";
@@ -121,6 +122,39 @@ describe("send", () => {
     expect((await service.send("u-awa")).reference).toBe("test-u-awa-2");
   });
 
+  it("needs the SMS step first: a pending account → SMS_NOT_VERIFIED, nothing sent", async () => {
+    const { service, accounts, rails } = setup();
+    await accounts.save({ ...ACCOUNT, status: "pending" });
+    await expect(service.send("u-awa")).rejects.toMatchObject({ code: "SMS_NOT_VERIFIED" });
+    expect(rails.sent).toHaveLength(0);
+    // smsVerifiedThenSend moves it to sms_ok and sends.
+    await service.smsVerifiedThenSend("u-awa");
+    expect((await accounts.get("u-awa"))!.status).toBe("sms_ok");
+    expect(rails.sent).toHaveLength(1);
+  });
+
+  it("failed sends don't use up the quota and can be retried", async () => {
+    const { service, rails, accounts } = setup([137, 152, 188, 101, 120, 130]);
+    rails.fail = new BitnobError("provider down", 503, "HTTP_503");
+    for (let i = 0; i < 3; i++) await expect(service.send("u-awa")).rejects.toMatchObject({ code: "SEND_FAILED" });
+    rails.fail = null;
+    for (const phone of ["+221771111111", "+221772222222", "+221773333333"]) {
+      await accounts.save({ ...ACCOUNT, phoneE164: phone });
+      await service.send("u-awa");
+    }
+    expect(rails.sent.map((s) => s.reference)).toEqual(["test-u-awa-4", "test-u-awa-5", "test-u-awa-6"]);
+    await accounts.save({ ...ACCOUNT, phoneE164: "+221774444444" });
+    await expect(service.send("u-awa")).rejects.toMatchObject({ code: "TOO_MANY_TESTS" });
+  });
+
+  it("doesn't pass Bitnob's raw error text to the caller", async () => {
+    const { service, rails, tests } = setup();
+    rails.fail = new BitnobError("internal: wallet 0xdeadbeef balance 3.2 USDT", 500, "HTTP_500");
+    const err = (await service.send("u-awa").catch((e: unknown) => e)) as Error;
+    expect(err.message).not.toContain("wallet");
+    expect((await tests.list("u-awa"))[0]!.error).toContain("wallet");
+  });
+
   it("at most 3 test payouts per account", async () => {
     const { service, accounts } = setup();
     for (const phone of ["+221771111111", "+221772222222", "+221773333333"]) {
@@ -145,8 +179,8 @@ describe("confirm (reviewer checklist)", () => {
   it("a wrong amount says how many tries are left", async () => {
     const { service } = setup();
     await service.send("u-awa");
-    await expect(service.confirm("u-awa", "136")).rejects.toMatchObject({ code: "WRONG_AMOUNT", triesLeft: 2 });
-    await expect(service.confirm("u-awa", "138")).rejects.toMatchObject({ code: "WRONG_AMOUNT", triesLeft: 1 });
+    await expect(service.confirm("u-awa", "136")).rejects.toMatchObject({ code: "WRONG_AMOUNT", attemptsLeft: 2 });
+    await expect(service.confirm("u-awa", "138")).rejects.toMatchObject({ code: "WRONG_AMOUNT", attemptsLeft: 1 });
     expect((await service.confirm("u-awa", "137")).status).toBe("verified");
   });
 
@@ -155,7 +189,7 @@ describe("confirm (reviewer checklist)", () => {
     await service.send("u-awa");
     await expect(service.confirm("u-awa", "1")).rejects.toMatchObject({ code: "WRONG_AMOUNT" });
     await expect(service.confirm("u-awa", "2")).rejects.toMatchObject({ code: "WRONG_AMOUNT" });
-    await expect(service.confirm("u-awa", "3")).rejects.toMatchObject({ code: "LOCKED", triesLeft: 0 });
+    await expect(service.confirm("u-awa", "3")).rejects.toMatchObject({ code: "LOCKED", attemptsLeft: 0 });
     await expect(service.confirm("u-awa", "137")).rejects.toMatchObject({ code: "LOCKED" });
     await expect(service.send("u-awa")).rejects.toMatchObject({ code: "LOCKED" });
     expect((await accounts.get("u-awa"))!.status).not.toBe("verified");
@@ -208,6 +242,42 @@ describe("confirm (reviewer checklist)", () => {
   );
 });
 
+describe("confirm under concurrency (review blocker)", () => {
+  it("100 parallel guesses 100..199: 3 wrong then locked, never verified", async () => {
+    const { service, accounts, tests } = setup([137]);
+    await service.send("u-awa");
+    // Put the right answer last so the lock must be hit before it is tried.
+    const guesses = Array.from({ length: 100 }, (_, i) => 100 + i).filter((n) => n !== 137);
+    guesses.push(137);
+    const results = await Promise.allSettled(guesses.map((n) => service.confirm("u-awa", String(n))));
+    const codes = results.map((r) => (r.status === "fulfilled" ? "OK" : (r.reason as { code: string }).code));
+    expect(codes.filter((c) => c === "OK")).toHaveLength(0);
+    expect(codes.filter((c) => c === "WRONG_AMOUNT")).toHaveLength(2);
+    expect(codes.filter((c) => c === "LOCKED")).toHaveLength(98);
+    expect(codes[2]).toBe("LOCKED");
+    const account = (await accounts.get("u-awa"))!;
+    expect(account.status).not.toBe("verified");
+    expect(account.lockedUntil).not.toBeNull();
+    // No stale write resets the test to "sent".
+    expect((await tests.list("u-awa")).at(-1)).toMatchObject({ status: "locked", wrongTries: 3 });
+  });
+
+  it("parallel right answers verify once and the test isn't reopened", async () => {
+    const { service, tests } = setup([137]);
+    await service.send("u-awa");
+    const res = await Promise.all(Array.from({ length: 20 }, () => service.confirm("u-awa", "137")));
+    expect(res.every((a) => a.status === "verified")).toBe(true);
+    expect((await tests.list("u-awa")).at(-1)!.status).toBe("confirmed");
+  });
+});
+
+describe("maskPhone", () => {
+  it("never shows the full number", () => {
+    expect(maskPhone("+221771234567")).toBe("+221 77 ••• •• 67");
+    expect(maskPhone("+33612345678")).not.toContain("612345");
+  });
+});
+
 describe("parseTypedAmount", () => {
   it.each([
     ["137", 137],
@@ -225,38 +295,73 @@ describe("parseTypedAmount", () => {
   });
 });
 
-describe("routes", () => {
+describe("routes (W4 contract)", () => {
   function app(userId: string | null = "u-awa") {
     const ctx = setup();
-    return { ...ctx, http: testPayoutRoutes({ service: ctx.service, getUserId: () => userId }) };
+    void ctx.accounts.save({ ...ACCOUNT, status: "pending" });
+    const http = testPayoutRoutes({
+      service: ctx.service,
+      getUserId: () => userId,
+      checkSmsCode: (_u, code) => code === "424242",
+    });
+    return { ...ctx, http };
   }
   const post = (http: ReturnType<typeof app>["http"], path: string, body?: unknown) =>
-    http.request(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body), headers: { "content-type": "application/json" } });
+    http.request(`/api/me/payout-account${path}`, {
+      method: "POST",
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+    });
 
-  it("send never reveals the amount; confirm verifies", async () => {
-    const { http } = app();
-    const sent = await post(http, "/api/me/payout-account/test");
-    expect(sent.status).toBe(200);
-    const json = await sent.json();
-    expect(json).toMatchObject({ status: "sent", provider: "wave" });
+  it("POST /sms with the right code sends the test and returns Me, without the amount or the full number", async () => {
+    const { http, rails } = app();
+    expect((await post(http, "/sms", { code: "000000" })).status).toBe(422);
+    expect(rails.sent).toHaveLength(0);
+    const res = await post(http, "/sms", { code: "424242" });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toMatchObject({ testPayoutSent: true, payoutAccount: { status: "sms_ok", phoneMasked: "+221 77 ••• •• 67" } });
     expect(JSON.stringify(json)).not.toContain("137");
-    const ok = await post(http, "/api/me/payout-account/confirm", { amount: "137" });
-    expect(await ok.json()).toMatchObject({ status: "verified" });
+    expect(JSON.stringify(json)).not.toContain("771234567");
+    expect(rails.sent).toHaveLength(1);
   });
 
-  it("maps errors to HTTP codes", async () => {
+  it("wrong amount → 422 wrong_amount + attemptsLeft; 3rd → 423 locked; right → Me verified", async () => {
     const { http } = app();
-    await post(http, "/api/me/payout-account/test");
-    const wrong = await post(http, "/api/me/payout-account/confirm", { amount: "1" });
+    await post(http, "/sms", { code: "424242" });
+    const wrong = await post(http, "/confirm", { amount: 1 });
     expect(wrong.status).toBe(422);
-    expect(await wrong.json()).toMatchObject({ code: "WRONG_AMOUNT", triesLeft: 2 });
-    await post(http, "/api/me/payout-account/confirm", { amount: "2" });
-    expect((await post(http, "/api/me/payout-account/confirm", { amount: "3" })).status).toBe(423);
-    expect((await post(http, "/api/me/payout-account/confirm", { amount: "x" })).status).toBe(423);
+    expect(await wrong.json()).toMatchObject({ error: "wrong_amount", attemptsLeft: 2 });
+    expect(await (await post(http, "/confirm", { amount: 2 })).json()).toMatchObject({ error: "wrong_amount", attemptsLeft: 1 });
+    const locked = await post(http, "/confirm", { amount: 3 });
+    expect(locked.status).toBe(423);
+    expect(await locked.json()).toMatchObject({ error: "locked", attemptsLeft: 0 });
+    expect((await post(http, "/confirm", { amount: 137 })).status).toBe(423);
+  });
+
+  it("right amount → 200 with Me (payoutAccount verified)", async () => {
+    const { http } = app();
+    await post(http, "/sms", { code: "424242" });
+    const ok = await post(http, "/confirm", { amount: 137 });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ payoutAccount: { status: "verified", verifiedAt: NOW.toISOString() } });
+  });
+
+  it("a failed send is 502 send_failed with no Bitnob text, and POST /sms again resends", async () => {
+    const { http, rails } = app();
+    rails.fail = new BitnobError("internal: wallet 0xdeadbeef", 500, "HTTP_500");
+    const failed = await post(http, "/sms", { code: "424242" });
+    expect(failed.status).toBe(502);
+    const body = await failed.json();
+    expect(body).toMatchObject({ error: "send_failed" });
+    expect(JSON.stringify(body)).not.toContain("wallet");
+    rails.fail = null;
+    expect((await post(http, "/sms", { code: "424242" })).status).toBe(200);
+    expect(rails.sent).toHaveLength(1);
   });
 
   it("401 when not signed in, 400 on bad JSON", async () => {
-    expect((await post(app(null).http, "/api/me/payout-account/test")).status).toBe(401);
+    expect((await post(app(null).http, "/sms", { code: "424242" })).status).toBe(401);
     const { http } = app();
     const res = await http.request("/api/me/payout-account/confirm", { method: "POST", body: "{nope" });
     expect(res.status).toBe(400);

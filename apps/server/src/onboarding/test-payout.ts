@@ -6,6 +6,11 @@ import { BankCodes, toBitnobBeneficiary, type PayoutRails } from "../payouts/rai
  * B3: proves a developer's mobile money number works before any bounty depends on it.
  * We send a random 100–199 FCFA; they type what they received. Right → account `verified`.
  * 3 wrong answers → locked for `lockMs`. Changing the number cancels the pending test.
+ *
+ * Every send/confirm for one user runs through a per-user queue, so parallel guesses
+ * can't each read `wrongTries = 0` and race past the lock. This is single-process only:
+ * with several server instances the stores must do the check-and-update atomically
+ * (e.g. `UPDATE … WHERE wrong_tries = $n`). The in-memory stores below are for tests/demo.
  */
 
 export const MIN_TEST_XOF = 100;
@@ -31,15 +36,16 @@ export interface PayoutAccountStore {
 }
 
 export interface TestPayoutStore {
-  /** Most recent test for this user. */
-  latest(userId: string): Promise<TestPayout | undefined>;
-  count(userId: string): Promise<number>;
+  /** Every test for this user, oldest first. */
+  list(userId: string): Promise<TestPayout[]>;
+  /** Inserts, or replaces the row with the same `reference`. */
   save(test: TestPayout): Promise<void>;
 }
 
 export type TestPayoutErrorCode =
   | "NO_ACCOUNT"
   | "ALREADY_VERIFIED"
+  | "SMS_NOT_VERIFIED"
   | "LOCKED"
   | "TOO_MANY_TESTS"
   | "SEND_FAILED"
@@ -52,7 +58,7 @@ export class TestPayoutError extends Error {
   constructor(
     readonly code: TestPayoutErrorCode,
     message: string,
-    readonly triesLeft?: number,
+    readonly attemptsLeft?: number,
     readonly lockedUntil?: string,
   ) {
     super(message);
@@ -66,7 +72,7 @@ export interface TestPayoutServiceOptions {
   tests: TestPayoutStore;
   callbackUrl: string;
   fromAsset?: "USDT" | "BTC";
-  /** Test payouts a user may receive in total (each one costs us real money in production). */
+  /** Test payouts a user may receive in total (each one costs us real money in production). Failed sends don't count. */
   maxSends?: number;
   lockMs?: number;
   now?: () => Date;
@@ -89,30 +95,52 @@ export class TestPayoutService {
     this.randomAmount = opts.randomAmount ?? (() => randomInt(MIN_TEST_XOF, MAX_TEST_XOF + 1));
   }
 
-  /** Sends the test amount. Idempotent while a test to the same number is waiting for an answer. */
-  send(userId: string): Promise<TestPayout> {
-    // A double click must not send two test payouts.
-    const running = this.sending.get(userId);
-    if (running) return running;
-    const p = this.doSend(userId).finally(() => this.sending.delete(userId));
-    this.sending.set(userId, p);
-    return p;
+  /** Tail of each user's queue: send/confirm for one user never interleave. */
+  private readonly queues = new Map<string, Promise<unknown>>();
+
+  private serialize<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.queues.get(userId) ?? Promise.resolve();
+    const run = prev.then(fn, fn);
+    const tail = run.catch(() => undefined);
+    this.queues.set(userId, tail);
+    void tail.then(() => {
+      if (this.queues.get(userId) === tail) this.queues.delete(userId);
+    });
+    return run;
   }
 
-  private readonly sending = new Map<string, Promise<TestPayout>>();
+  /**
+   * Called once the SMS code checked out (W4 step 2): moves the account to `sms_ok`, then sends the test.
+   * Calling it again on an `sms_ok` account just (re)sends, which is how a failed send is retried.
+   */
+  smsVerifiedThenSend(userId: string): Promise<TestPayout> {
+    return this.serialize(userId, async () => {
+      const account = await this.account(userId);
+      if (account.status === "pending") await this.opts.accounts.save({ ...account, status: "sms_ok" });
+      return this.doSend(userId);
+    });
+  }
+
+  /** Sends the test amount. Idempotent while a test to the same number is waiting for an answer. */
+  send(userId: string): Promise<TestPayout> {
+    return this.serialize(userId, () => this.doSend(userId));
+  }
 
   private async doSend(userId: string): Promise<TestPayout> {
     const account = await this.account(userId);
     if (account.status === "verified") throw new TestPayoutError("ALREADY_VERIFIED", "this number is already verified");
+    if (account.status !== "sms_ok") throw new TestPayoutError("SMS_NOT_VERIFIED", "confirm the SMS code first");
     this.assertNotLocked(account);
 
-    const last = await this.opts.tests.latest(userId);
+    const all = await this.opts.tests.list(userId);
+    const last = all.at(-1);
     if (last?.status === "sent") {
       if (sameDestination(last, account)) return last;
       await this.opts.tests.save({ ...last, status: "cancelled" });
     }
-    const n = (await this.opts.tests.count(userId)) + 1;
-    if (n > this.maxSends) {
+    // References stay unique across failures; only tests that actually went out use up the quota.
+    const n = all.length + 1;
+    if (all.filter((t) => t.status !== "failed").length >= this.maxSends) {
       throw new TestPayoutError("TOO_MANY_TESTS", `no more than ${this.maxSends} test payouts per account`);
     }
 
@@ -155,9 +183,11 @@ export class TestPayoutService {
       });
       await this.opts.rails.finalizePayout(quote.quote_id);
     } catch (err) {
+      // The raw Bitnob error stays in our store and logs; the client gets a generic message.
       const failed = { ...test, status: "failed" as const, error: err instanceof Error ? err.message : String(err) };
       await this.opts.tests.save(failed);
-      throw new TestPayoutError("SEND_FAILED", `the test payout could not be sent: ${failed.error}`);
+      console.error(`[B3] test payout ${test.reference} failed: ${failed.error}`);
+      throw new TestPayoutError("SEND_FAILED", "the test payout could not be sent, try again in a moment");
     }
 
     await this.opts.tests.save(test);
@@ -166,12 +196,16 @@ export class TestPayoutService {
   }
 
   /** Checks the amount the developer typed ("137", "137 F", "137 FCFA", "1 3 7"). */
-  async confirm(userId: string, typed: unknown): Promise<PayoutAccount> {
+  confirm(userId: string, typed: unknown): Promise<PayoutAccount> {
+    return this.serialize(userId, () => this.doConfirm(userId, typed));
+  }
+
+  private async doConfirm(userId: string, typed: unknown): Promise<PayoutAccount> {
     const account = await this.account(userId);
     if (account.status === "verified") return account;
     this.assertNotLocked(account);
 
-    const test = await this.opts.tests.latest(userId);
+    const test = (await this.opts.tests.list(userId)).at(-1);
     if (!test || test.status !== "sent") throw new TestPayoutError("NO_TEST", "no test payout is waiting for confirmation");
     if (!sameDestination(test, account)) {
       await this.opts.tests.save({ ...test, status: "cancelled" });
@@ -205,6 +239,12 @@ export class TestPayoutService {
     throw new TestPayoutError("WRONG_AMOUNT", `that's not the amount we sent (${left} ${left === 1 ? "try" : "tries"} left)`, left);
   }
 
+  /** The account as the API shows it: masked number, never the test amount. */
+  async accountView(userId: string): Promise<PayoutAccountView | null> {
+    const account = await this.opts.accounts.get(userId);
+    return account ? toPayoutAccountView(account) : null;
+  }
+
   private async account(userId: string): Promise<PayoutAccount> {
     const account = await this.opts.accounts.get(userId);
     if (!account) throw new TestPayoutError("NO_ACCOUNT", "link a mobile money number first");
@@ -234,6 +274,22 @@ export function parseTypedAmount(typed: unknown): number | null {
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
+/** Same shape as `PayoutAccountView` in fixtures/types.ts (what W4 reads in `Me.payoutAccount`). */
+export type PayoutAccountView = Omit<PayoutAccount, "phoneE164" | "testAmountXof"> & { phoneMasked: string };
+
+export function toPayoutAccountView(account: PayoutAccount): PayoutAccountView {
+  const { phoneE164, testAmountXof: _amount, ...rest } = account;
+  return { ...rest, phoneMasked: maskPhone(phoneE164) };
+}
+
+/** "+221771234567" → "+221 77 ••• •• 67". The API never returns the full number. */
+export function maskPhone(e164: string): string {
+  const m = /^\+221(\d{2})\d{5}(\d{2})$/.exec(e164);
+  if (m) return `+221 ${m[1]} ••• •• ${m[2]}`;
+  return e164.length > 4 ? `${"•".repeat(Math.max(0, e164.length - 2))}${e164.slice(-2)}` : "••";
+}
+
+/** In-memory, single-process stores: tests and the offline demo only (F3 has no table for test payouts yet). */
 export class InMemoryPayoutAccountStore implements PayoutAccountStore {
   rows = new Map<string, PayoutAccount>();
   async get(userId: string) {
@@ -247,12 +303,8 @@ export class InMemoryPayoutAccountStore implements PayoutAccountStore {
 
 export class InMemoryTestPayoutStore implements TestPayoutStore {
   rows: TestPayout[] = [];
-  async latest(userId: string) {
-    const r = this.rows.filter((t) => t.userId === userId).at(-1);
-    return r && { ...r };
-  }
-  async count(userId: string) {
-    return new Set(this.rows.filter((t) => t.userId === userId).map((t) => t.reference)).size;
+  async list(userId: string) {
+    return this.rows.filter((t) => t.userId === userId).map((t) => ({ ...t }));
   }
   async save(test: TestPayout) {
     const i = this.rows.findIndex((t) => t.reference === test.reference);

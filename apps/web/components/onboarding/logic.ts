@@ -109,6 +109,19 @@ export function attemptsLeftAfterFailure(failedSoFar: number, serverLeft?: numbe
   return typeof serverLeft === "number" ? Math.max(0, Math.min(local, serverLeft)) : local;
 }
 
+export type AmountFailure = { kind: "wrong"; attemptsLeft: number } | { kind: "locked" } | { kind: "other" };
+
+/**
+ * What a failed POST /confirm means on screen. The server answers 422 `wrong_amount` + `attemptsLeft`,
+ * and 423 `locked` once 3 wrong amounts are in (also for any request made while locked).
+ */
+export function classifyAmountFailure(res: { status: number; error: string; attemptsLeft?: number }, failedSoFar: number): AmountFailure {
+  if (res.status === 423 || res.error === "locked") return { kind: "locked" };
+  if (res.error !== "wrong_amount") return { kind: "other" };
+  const left = attemptsLeftAfterFailure(failedSoFar, res.attemptsLeft);
+  return left === 0 ? { kind: "locked" } : { kind: "wrong", attemptsLeft: left };
+}
+
 // ---------- dates (UTC = Dakar time; no Intl so server and client agree) ----------
 
 const MONTHS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];

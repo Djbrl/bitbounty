@@ -8,6 +8,7 @@ import { onboardingApi } from "./api";
 import { loadMe } from "./load-me";
 import {
   attemptsLeftAfterFailure,
+  classifyAmountFailure,
   formatCountdown,
   formatDateFr,
   formatSnPhone,
@@ -94,6 +95,20 @@ describe("OTP, amount, attempts", () => {
     expect(parseMeState(["new", "x"])).toBe("new");
     expect(parseMeState("hacked")).toBeUndefined();
     expect(formatDateFr("2026-10-17T14:32:00Z")).toBe("17 oct. 2026 à 14:32");
+  });
+});
+
+describe("classifyAmountFailure (server contract: 422 wrong_amount, 423 locked)", () => {
+  it("shows attempts left on 422 wrong_amount", () => {
+    expect(classifyAmountFailure({ status: 422, error: "wrong_amount", attemptsLeft: 2 }, 0)).toEqual({ kind: "wrong", attemptsLeft: 2 });
+    expect(classifyAmountFailure({ status: 422, error: "wrong_amount", attemptsLeft: 0 }, 0)).toEqual({ kind: "locked" });
+  });
+  it("locks the screen on 423, whatever the local count", () => {
+    expect(classifyAmountFailure({ status: 423, error: "locked", attemptsLeft: 0 }, 0)).toEqual({ kind: "locked" });
+    expect(classifyAmountFailure({ status: 423, error: "locked" }, 0)).toEqual({ kind: "locked" });
+  });
+  it("anything else is a plain error", () => {
+    expect(classifyAmountFailure({ status: 502, error: "send_failed" }, 0)).toEqual({ kind: "other" });
   });
 });
 

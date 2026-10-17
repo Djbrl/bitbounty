@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "dev:webhook": "tsx --env-file-if-exists=../../.env src/github/dev-server.ts",
     "payout:smoke": "tsx --env-file-if-exists=../../.env scripts/payout-smoke.ts",
+    "test-payout:smoke": "tsx --env-file-if-exists=../../.env scripts/test-payout-smoke.ts",
     "verify:fixtures": "tsx --env-file-if-exists=../../.env src/ai/verifier/run-fixtures.ts"
   },
   "dependencies": {
