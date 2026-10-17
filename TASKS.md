@@ -23,6 +23,8 @@ Principle: **contract first, then everything is built against mocks and interfac
 
 ---
 
+**Task IDs:** the letter is the area, the number is the order within it. F = Foundations, B = Money (Bitnob), G = GitHub bot, A = AI, W = Web page, I = Integration, D = Demo & submission. Issue titles spell it out, e.g. "Money (Bitnob) · B2 · Payout pipeline with retries".
+
 ## Board rules
 1. **One GitHub issue per task** (linked from each ID below), labels `pts:N`, `wave:N`, `area:…`. (Bonus pitch line: we split our own prize the way BitBounty works.)
 2. **Claim** = assign yourself + comment "on it". **One task at a time** (two if one is blocked).
