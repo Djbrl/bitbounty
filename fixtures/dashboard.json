@@ -1,0 +1,185 @@
+{
+  "maintainer": "Djbrl",
+  "repos": [
+    {
+      "fullName": "teranga-labs/bitnob-js",
+      "openIssues": 40,
+      "activeBounties": 6,
+      "paidPct": 86
+    },
+    {
+      "fullName": "teranga-labs/xof",
+      "openIssues": 7,
+      "activeBounties": 2,
+      "paidPct": 100
+    },
+    {
+      "fullName": "galsen-oss/wolof-i18n",
+      "openIssues": 12,
+      "activeBounties": 1,
+      "paidPct": 75
+    }
+  ],
+  "stats": {
+    "budgetXof": 150000,
+    "heldXof": 60500,
+    "spentXof": 10000,
+    "activeCount": 6,
+    "paidCount": 1,
+    "medianMinutesMergeToPay": 6
+  },
+  "bountyIds": [
+    "b-101",
+    "b-102",
+    "b-103",
+    "b-104",
+    "b-105",
+    "b-106",
+    "b-107",
+    "b-108",
+    "b-109",
+    "b-110",
+    "b-111",
+    "b-112"
+  ],
+  "needsAction": [
+    {
+      "bountyId": "b-101",
+      "action": "confirm_criteria",
+      "text": "Claude drafted 3 criteria for #21 — reply /criteria ok"
+    },
+    {
+      "bountyId": "b-101",
+      "action": "fund",
+      "text": "#21 is waiting for funding (15 000 FCFA)"
+    },
+    {
+      "bountyId": "b-104",
+      "action": "pay_or_reject",
+      "text": "PR #31: Claude says 2/3 criteria — /pay or /reject"
+    },
+    {
+      "bountyId": "b-109",
+      "action": "pay_or_reject",
+      "text": "PR #8 on hold (decimals rounded) — /pay or /reject"
+    },
+    {
+      "bountyId": "b-108",
+      "action": "update_account",
+      "text": "Payout to @moussa-diop failed 3× — waiting for them to update their account"
+    }
+  ],
+  "backlog": [
+    {
+      "id": "sug-1",
+      "repoFullName": "teranga-labs/bitnob-js",
+      "issueNumber": 25,
+      "issueTitle": "Add virtualAccounts.simulateDeposit() for sandbox",
+      "criteria": [
+        {
+          "text": "Calls POST /api/virtual-accounts/:id/simulate-deposit"
+        },
+        {
+          "text": "Throws outside sandbox"
+        },
+        {
+          "text": "Test with recorded response"
+        }
+      ],
+      "priceXof": 7500,
+      "reason": "Small, testable, one endpoint. Good first paid issue.",
+      "confidence": "high",
+      "selected": true
+    },
+    {
+      "id": "sug-2",
+      "repoFullName": "teranga-labs/bitnob-js",
+      "issueNumber": 26,
+      "issueTitle": "Pagination helper for list endpoints",
+      "criteria": [
+        {
+          "text": "paginate() async iterator over cursor-based endpoints"
+        },
+        {
+          "text": "Works for payouts and invoices lists"
+        },
+        {
+          "text": "Stops on empty page"
+        }
+      ],
+      "priceXof": 12000,
+      "reason": "Clear scope, reused by 6 endpoints.",
+      "confidence": "high",
+      "selected": true
+    },
+    {
+      "id": "sug-3",
+      "repoFullName": "teranga-labs/bitnob-js",
+      "issueNumber": 28,
+      "issueTitle": "Document every payout error code",
+      "criteria": [
+        {
+          "text": "docs/errors.md lists all payout error codes"
+        },
+        {
+          "text": "Each code has cause and fix"
+        }
+      ],
+      "priceXof": 5000,
+      "reason": "Docs task, easy to verify.",
+      "confidence": "medium",
+      "selected": true
+    },
+    {
+      "id": "sug-4",
+      "repoFullName": "teranga-labs/xof",
+      "issueNumber": 8,
+      "issueTitle": "Convert XOF ↔ GHS / NGN with a rates provider",
+      "criteria": [
+        {
+          "text": "convert(amount, from, to, rates) returns an integer in the target minor unit"
+        },
+        {
+          "text": "Rounding documented"
+        }
+      ],
+      "priceXof": 10000,
+      "reason": "Needed for multi-country payouts. Criteria testable.",
+      "confidence": "medium",
+      "selected": true
+    },
+    {
+      "id": "sug-5",
+      "repoFullName": "galsen-oss/wolof-i18n",
+      "issueNumber": 9,
+      "issueTitle": "Wolof strings for error messages",
+      "criteria": [
+        {
+          "text": "All keys in locales/en/errors.json translated"
+        },
+        {
+          "text": "Reviewed by a second speaker"
+        }
+      ],
+      "priceXof": 6000,
+      "reason": "Needs a human speaker — agents can't verify tone.",
+      "confidence": "high",
+      "selected": true
+    },
+    {
+      "id": "sug-6",
+      "repoFullName": "teranga-labs/bitnob-js",
+      "issueNumber": 30,
+      "issueTitle": "Rewrite the client in Rust",
+      "criteria": [
+        {
+          "text": "Feature parity"
+        }
+      ],
+      "priceXof": 150000,
+      "reason": "Too large and vague for a bounty — split it first.",
+      "confidence": "low",
+      "selected": false
+    }
+  ]
+}
