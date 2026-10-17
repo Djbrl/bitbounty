@@ -135,7 +135,7 @@ Helpers: `toPayoutUpdate(env)` → `{bitnobPayoutId, quoteId, reference, outcome
 
 ### How to verify live (done-when for B5, not yet run)
 Needs dashboard access to the Bitnob sandbox account, and a server running this branch (the Docker `server` image must be rebuilt after merge).
-1. Bitnob dashboard (sandbox) → Paramètres → Webhooks: URL `https://hostel-classifieds-aspects-correlation.trycloudflare.com/webhooks/bitnob` (the quick tunnel URL changes when the `tunnel` container restarts: `docker compose logs tunnel | grep trycloudflare`).
+1. Bitnob dashboard (sandbox) → Paramètres → Webhooks: URL `https://kruger-alerts-platform-must.trycloudflare.com/webhooks/bitnob` (the quick tunnel URL changes when the `tunnel` container restarts: `docker compose logs tunnel | grep trycloudflare`).
 2. Copy the webhook secret shown there into the repo-root `.env` as `BITNOB_WEBHOOK_SECRET`, then restart the server (`docker compose up -d server`). Without it the route answers 503.
 3. Trigger an event: simulate a deposit on a sandbox virtual account (`pnpm smoke` in `packages/bitnob`), or a test-webhook button if the dashboard has one.
 4. Check it was verified and stored (a bad signature is 401 and stores nothing, so a row proves the HMAC matched):
