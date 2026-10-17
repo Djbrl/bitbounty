@@ -9,12 +9,16 @@ import { InMemoryBountyRepo } from "./bounties/repo.js";
 import { createGithubApp } from "./github/app-client.js";
 import { installationWriterFactory, registerCommentWiring } from "./github/wiring/index.js";
 import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
+import { backlogRoutes } from "./ai/backlog/index.js";
 
 export const app = new Hono();
 
 app.get("/", (c) => c.json({ name: "bitbounty-server", message: "hello" }));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
+
+// A3: "Price my backlog" suggestions for a repo (Claude, or the offline heuristic without ANTHROPIC_API_KEY).
+app.route("/", backlogRoutes());
 
 /** G3, G4 and A2 register their handlers here: `githubDispatcher.on("issue_comment", …)`. */
 export const githubDispatcher = new GithubDispatcher();
