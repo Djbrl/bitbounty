@@ -156,3 +156,7 @@ pnpm --filter @bitbounty/server payout:smoke -- --dry-run +221XXXXXXXXX wave "<n
 pnpm --filter @bitbounty/server payout:smoke -- +221XXXXXXXXX wave "<name>" 137
 ```
 Result: _not run yet_. Blocked on the SN bank codes (sandbox lists none) and on the IP whitelist.
+
+## B1: Lightning funding
+`apps/server/src/funding/` (see its README). Calls: `POST /api/customers` (once per funder, invoices need `customer_id`), `POST /api/lightning/invoices` (sats, `reference: fund-<bountyId>-<n>`, expiry 900 s), `GET /api/lightning/invoices/:id` polled (no Lightning webhook). Rates: `GET /api/exchange-rates?from=USDT&to=XOF`, `GET /api/trading/prices?base_currency=BTC&quote_currency=USDT` (new client methods `getExchangeRate`, `getTradingPrice`).
+Invoice statuses we read: `paid`/`settled` → paid, `expired`/`cancelled` → expired, anything else pending. To confirm against the sandbox: `pnpm --filter @bitbounty/server lightning:smoke -- 1000`. Result (2026-10-17): rates OK, 1000 FCFA → 2218 sats, invoice created with a 15-min testnet BOLT11 (`lntb…`), polled `pending`. Paying it (testnet wallet, by a human) is still to do. A duplicate `reference` returns `409 DUPLICATE_KEY_ERROR`.

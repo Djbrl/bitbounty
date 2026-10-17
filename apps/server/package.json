@@ -10,8 +10,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "dev:webhook": "tsx --env-file-if-exists=../../.env src/github/dev-server.ts",
+    "verify:fixtures": "tsx --env-file-if-exists=../../.env src/ai/verifier/run-fixtures.ts",
     "payout:smoke": "tsx --env-file-if-exists=../../.env scripts/payout-smoke.ts",
-    "verify:fixtures": "tsx --env-file-if-exists=../../.env src/ai/verifier/run-fixtures.ts"
+    "lightning:smoke": "tsx --env-file-if-exists=../../.env scripts/lightning-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
