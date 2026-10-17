@@ -1,0 +1,47 @@
+{
+  "name": "unsure: a runtime performance criterion the diff cannot prove, CI pending",
+  "expected": [
+    "unsure"
+  ],
+  "input": {
+    "issue": {
+      "title": "Speed up the product page",
+      "body": "The product page is slow on 3G. Make it fast."
+    },
+    "criteria": [
+      {
+        "text": "Product images are lazy-loaded"
+      },
+      {
+        "text": "Product page p95 load time is under 1.5 s on the production dashboard"
+      }
+    ],
+    "diff": "diff --git a/web/src/pages/product.tsx b/web/src/pages/product.tsx\nindex 5555555..6666666 100644\n--- a/web/src/pages/product.tsx\n+++ b/web/src/pages/product.tsx\n@@ -21,7 +21,7 @@ export function ProductPage({ product }: Props) {\n       {product.images.map((src) => (\n-        <img key={src} src={src} alt={product.name} />\n+        <img key={src} src={src} alt={product.name} loading=\"lazy\" decoding=\"async\" />\n       ))}\n",
+    "ci": {
+      "status": "pending",
+      "checks": [
+        "build: in_progress"
+      ]
+    }
+  },
+  "fakeAnswer": {
+    "criteria": [
+      {
+        "text": "Product images are lazy-loaded",
+        "met": true,
+        "evidence": "web/src/pages/product.tsx adds loading=\"lazy\" to product <img>"
+      },
+      {
+        "text": "Product page p95 load time is under 1.5 s on the production dashboard",
+        "met": false,
+        "evidence": "A production latency metric cannot be checked from a diff"
+      }
+    ],
+    "verdict": "unsure",
+    "summary": "Lazy loading is added, but the p95 criterion needs production measurements. CI is still pending.",
+    "risk_flags": [
+      "CI pending",
+      "criterion needs runtime evidence"
+    ]
+  }
+}

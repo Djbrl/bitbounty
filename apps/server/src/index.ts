@@ -1,5 +1,12 @@
+import { runMigrations } from "@bitbounty/db";
 import { serve } from "@hono/node-server";
-import { app } from "./app.js";
+import { app, database } from "./app.js";
+
+// Apply pending migrations before taking traffic (idempotent; the Docker server relies on it).
+if (database) {
+  await runMigrations(database.db);
+  console.log("[db] migrations applied");
+}
 
 const port = Number(process.env.PORT ?? 8787);
 
