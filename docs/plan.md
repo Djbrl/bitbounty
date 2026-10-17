@@ -38,6 +38,7 @@ packages/db     Drizzle schema + migrations
 `unfunded → funded → claimed → submitted → verified → paying → paid`
 Side states: `refunded`, `cancelled`, `on_hold`, `payout_failed` (retry).
 Allowed transitions in `packages/core/src/machine.ts`; **only `transition()` writes the status** and records an event. AI never changes a status.
+Details, the full transition table and the event list: [packages/core/README.md](../packages/core/README.md).
 
 ### Tables (Drizzle)
 - `users` (id, github_id, login, avatar_url, created_at)
