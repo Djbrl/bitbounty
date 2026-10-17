@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { HeaderUser } from "../auth/HeaderUser";
 import { cx } from "./tone";
 
 /** The BitBounty mark: green "B" tile + wordmark. */
@@ -54,7 +55,7 @@ export function AppNav({ items = [], active, initials, right }: AppNavProps) {
 
 export interface PageProps {
   children: ReactNode;
-  /** Renders an AppNav above the content. */
+  /** Renders an AppNav above the content; its `right` slot defaults to the GitHub sign-in / user menu. */
   nav?: AppNavProps;
   /** Max content width: narrow 576px (forms), default 1180px, wide 1440px (projector). */
   width?: "narrow" | "default" | "wide";
@@ -67,7 +68,7 @@ const WIDTH = { narrow: "max-w-xl", default: "max-w-[1180px]", wide: "max-w-[144
 export function Page({ children, nav, width = "default", className }: PageProps) {
   return (
     <div className={cx("mx-auto grid w-full gap-8 px-4 pb-16 pt-6 sm:px-6", WIDTH[width], className)}>
-      {nav && <AppNav {...nav} />}
+      {nav && <AppNav right={<HeaderUser />} {...nav} />}
       <main className="grid min-w-0 gap-12">{children}</main>
     </div>
   );
