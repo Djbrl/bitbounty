@@ -2,7 +2,7 @@
 // Pure: takes the fixtures as an argument, so it runs under Next (route.ts) and under
 // `node --test` (fixtures/mock-api.test.ts) without a bundler.
 // I1 replaces this with the real server API; page code should only depend on the URLs.
-// Types: replace `../../../fixtures/types` with `@bitbounty/core` once F2 merges.
+// Types: fixtures/types.ts mirrors the F2 contract (#44); replace with import from @bitbounty/core once #44 merges.
 import type {
   Board,
   BountyDetail,
@@ -13,7 +13,7 @@ import type {
   Live,
   Me,
   Profile,
-  Rail,
+  FundingRail,
   Receipt,
 } from '../../../fixtures/types';
 
@@ -21,8 +21,8 @@ export interface Fixtures {
   bounties: BountyDetail[];
   board: Board;
   dashboard: Dashboard;
-  funding: Record<Rail, FundingSession>;
-  me: { mock: { sms_code: string; test_amount_xof: number; default_state: MeState }; states: Record<MeState, Me> };
+  funding: Record<FundingRail, FundingSession>;
+  me: { mock: { smsCode: string; testAmountXof: number; defaultState: MeState }; states: Record<MeState, Me> };
   users: Record<string, Profile>;
   receipts: Record<string, Receipt>;
   live: Live;
@@ -41,21 +41,22 @@ const polls = new Map<string, number>();
 export function toSummary(d: BountyDetail): BountySummary {
   const { fundings: _f, claims, submission, payout: _p, timeline: _t, ...b } = d;
   const c = claims.find((x) => x.status === 'active' || x.status === 'done');
-  return { ...b, claimed_by: c?.user_login ?? null, pr_number: submission?.pr_number ?? null };
+  return { ...b, claimedBy: c?.userLogin ?? null, prNumber: submission?.prNumber ?? null };
 }
 
-function fundingSession(fx: Fixtures, d: BountyDetail, rail: Rail, now: Date): FundingSession {
+function fundingSession(fx: Fixtures, d: { amountXof: number }, rail: FundingRail, now: Date): FundingSession {
   const tpl = fx.funding[rail];
-  const ratio = d.amount_xof / tpl.amount_xof;
-  const amount_xof = d.amount_xof;
-  const fee_xof = Math.round(amount_xof * 0.05);
-  const buffer_xof = Math.round(amount_xof * 0.03);
-  const base = { amount_xof, fee_xof, buffer_xof, total_xof: amount_xof + fee_xof + buffer_xof };
-  const expires_at = new Date(now.getTime() + 15 * 60_000).toISOString();
-  if (tpl.rail === 'lightning') return { ...tpl, ...base, amount_sats: Math.round(tpl.amount_sats * ratio), expires_at };
-  if (tpl.rail === 'usdt') return { ...tpl, ...base, amount_usdt_cents: Math.ceil(tpl.amount_usdt_cents * ratio), expires_at };
+  const ratio = d.amountXof / tpl.amountXof;
+  const amountXof = d.amountXof;
+  const feeXof = Math.round(amountXof * 0.05);
+  const bufferXof = Math.round(amountXof * 0.03);
+  const base = { amountXof, feeXof, bufferXof, totalXof: amountXof + feeXof + bufferXof };
+  const expiresAt = new Date(now.getTime() + 15 * 60_000).toISOString();
+  if (tpl.rail === 'lightning') return { ...tpl, ...base, amountSats: Math.round(tpl.amountSats * ratio), expiresAt };
+  // USDT base units (1 USDT = 1_000_000), rounded up to the cent
+  if (tpl.rail === 'usdt') return { ...tpl, ...base, amountUsdtUnits: Math.ceil((tpl.amountUsdtUnits * ratio) / 10_000) * 10_000, expiresAt };
   // naira: whole ₦1,000 steps (sandbox simulate-deposit credits ₦1,000 per call)
-  return { ...tpl, ...base, amount_kobo: Math.ceil((tpl.amount_kobo * ratio) / 100_000) * 100_000, expires_at };
+  return { ...tpl, ...base, amountKobo: Math.ceil((tpl.amountKobo * ratio) / 100_000) * 100_000, expiresAt };
 }
 
 export function handleMock(
@@ -75,8 +76,8 @@ export function handleMock(
     const funder = query.get('funder');
     const rows = fx.bounties
       .filter((b) => !statuses?.length || statuses.includes(b.status))
-      .filter((b) => !repo || b.repo === repo)
-      .filter((b) => !funder || b.funder_login === funder)
+      .filter((b) => !repo || b.repoFullName === repo)
+      .filter((b) => !funder || b.funderLogin === funder)
       .map(toSummary);
     return ok(rows);
   }
@@ -86,24 +87,24 @@ export function handleMock(
     if (!d) return err(404, 'bounty_not_found', { id });
     if (method === 'GET' && !sub) return ok(d);
     if (sub === 'funding' && method === 'POST') {
-      const rail = (body.rail ?? 'lightning') as Rail;
+      const rail = (body.rail ?? 'lightning') as FundingRail;
       if (!fx.funding[rail]) return err(400, 'invalid_rail', { rail });
       if (d.status !== 'unfunded') return err(409, 'already_funded', { status: d.status });
       polls.delete(id);
       return ok(fundingSession(fx, d, rail, now));
     }
     if (sub === 'funding' && method === 'GET') {
-      if (d.status !== 'unfunded') return ok({ status: 'paid', bounty_status: d.status });
+      if (d.status !== 'unfunded') return ok({ status: 'paid', bountyStatus: d.status });
       const n = (polls.get(id) ?? 0) + 1;
       polls.set(id, n);
-      return n >= POLLS_BEFORE_PAID ? ok({ status: 'paid', bounty_status: 'funded' }) : ok({ status: 'pending', bounty_status: 'unfunded' });
+      return n >= POLLS_BEFORE_PAID ? ok({ status: 'paid', bountyStatus: 'funded' }) : ok({ status: 'pending', bountyStatus: 'unfunded' });
     }
   }
 
   if (method === 'GET' && root === 'board') return ok(fx.board);
 
   if (method === 'GET' && root === 'dashboard') {
-    const bounties = fx.dashboard.bounty_ids.map(find).filter(Boolean).map((b) => toSummary(b as BountyDetail));
+    const bounties = fx.dashboard.bountyIds.map(find).filter(Boolean).map((b) => toSummary(b as BountyDetail));
     return ok({ ...fx.dashboard, bounties });
   }
 
@@ -111,26 +112,25 @@ export function handleMock(
     const ids = Array.isArray(body.ids) ? (body.ids as string[]) : fx.dashboard.backlog.filter((s) => s.selected).map((s) => s.id);
     const picked = fx.dashboard.backlog.filter((s) => ids.includes(s.id));
     if (!picked.length) return err(400, 'nothing_selected');
-    const amount = picked.reduce((s, x) => s + x.price_xof, 0);
-    const virtual = { amount_xof: amount } as BountyDetail;
-    return ok({ count: picked.length, suggestions: picked.map((s) => s.id), session: fundingSession(fx, virtual, (body.rail as Rail) ?? 'lightning', now) });
+    const amount = picked.reduce((s, x) => s + x.priceXof, 0);
+    return ok({ count: picked.length, suggestions: picked.map((s) => s.id), session: fundingSession(fx, { amountXof: amount }, (body.rail as FundingRail) ?? 'lightning', now) });
   }
 
   if (root === 'me') {
     const S = fx.me.states;
     if (method === 'GET' && !id) {
-      const state = (query.get('state') ?? fx.me.mock.default_state) as MeState;
+      const state = (query.get('state') ?? fx.me.mock.defaultState) as MeState;
       return S[state] ? ok(S[state]) : err(400, 'invalid_state', { state });
     }
     if (method === 'POST' && id === 'payout-account' && !sub) {
       if (!body.phone || !body.provider) return err(400, 'phone_and_provider_required');
-      return ok({ ...S.pending, sms_sent: true });
+      return ok({ ...S.pending, smsSent: true });
     }
     if (method === 'POST' && id === 'payout-account' && sub === 'sms') {
-      return String(body.code) === fx.me.mock.sms_code ? ok({ ...S.sms_ok, test_payout_sent: true }) : err(422, 'wrong_code');
+      return String(body.code) === fx.me.mock.smsCode ? ok({ ...S.sms_ok, testPayoutSent: true }) : err(422, 'wrong_code');
     }
     if (method === 'POST' && id === 'payout-account' && sub === 'confirm') {
-      return Number(body.amount) === fx.me.mock.test_amount_xof ? ok(S.verified) : err(422, 'wrong_amount', { attempts_left: 2 });
+      return Number(body.amount) === fx.me.mock.testAmountXof ? ok(S.verified) : err(422, 'wrong_amount', { attemptsLeft: 2 });
     }
   }
 
@@ -166,7 +166,7 @@ export function liveStream(live: Live, { loop = true, speed = 1 } = {}): Readabl
         timer = setTimeout(() => {
           send('transition', live.events[i]);
           run(i + 1);
-        }, live.events[i].delay_ms / speed);
+        }, live.events[i].delayMs / speed);
       };
       run(0);
     },

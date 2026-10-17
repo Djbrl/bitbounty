@@ -5,6 +5,7 @@ import { writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { TRANSITIONS } from './types.ts';
 
 const OUT = process.argv[2] ?? dirname(fileURLToPath(import.meta.url));
 const hex = (seed, n = 64) => createHash('sha256').update(seed).digest('hex').slice(0, n);
@@ -14,7 +15,7 @@ const fee = (a) => Math.round(a * 0.05);
 const buf = (a) => Math.round(a * 0.03);
 const SATS_PER_XOF = 1.618; // BTC ≈ $110k, $1 ≈ 562 FCFA
 const toSats = (xof) => Math.round(xof * SATS_PER_XOF);
-const toUsdtCents = (xof) => Math.ceil((xof / 562) * 100);
+const toUsdtUnits = (xof) => Math.ceil((xof / 562) * 100) * 10_000; // 1 USDT = 1_000_000 units, cent precision
 const toKobo = (xof) => Math.ceil((xof * 2.633) / 1000) * 1000 * 100; // ₦1,000 steps (simulate-deposit)
 const label = (a) => `💰 ${a.toLocaleString('fr-FR').replace(/ | /g, ' ')} FCFA`;
 
@@ -33,12 +34,12 @@ const userObj = (login) => {
   const u = users[login];
   return {
     id: `usr_${hex(login, 10)}`,
-    github_id: u.gid,
+    githubId: u.gid,
     login,
+    avatarUrl: `https://avatars.githubusercontent.com/u/${u.gid}?v=4`,
+    createdAt: '2021-03-14T10:22:00Z',
     name: u.name,
-    avatar_url: `https://avatars.githubusercontent.com/u/${u.gid}?v=4`,
     city: u.city,
-    created_at: '2021-03-14T10:22:00Z',
   };
 };
 const phones = {
@@ -52,102 +53,131 @@ const phones = {
 
 // ---------------- bounties ----------------
 const REPO = 'teranga-labs/bitnob-js';
+const funderId = (kind, login) => (kind === 'agent' ? `agt_${hex(login, 10)}` : `usr_${hex(login, 10)}`);
 function base(id, repo, issue, title, amount, status, criteria, opts = {}) {
   const created = opts.created ?? T(17, 15, 10);
+  const kind = opts.funderKind ?? 'human';
+  const funder = opts.funder ?? 'Djbrl';
   return {
+    // core Bounty
     id,
-    repo,
-    issue_number: issue,
-    issue_title: title,
-    issue_url: `https://github.com/${repo}/issues/${issue}`,
-    amount_xof: amount,
+    repoFullName: repo,
+    issueNumber: issue,
+    issueTitle: title,
+    amountXof: amount,
     status,
-    criteria,
-    criteria_confirmed: opts.criteria_confirmed ?? true,
-    funder_kind: opts.funder_kind ?? 'human',
-    funder_login: opts.funder ?? 'Djbrl',
+    criteria: criteria.map((text) => ({ text })),
+    funderKind: kind,
+    funderId: funderId(kind, funder),
+    verdict: null, // set by detail() from the timeline
+    statusCommentId: 2400000000 + issue * 7,
+    createdAt: created,
+    expiresAt: opts.expiresAt ?? addH(created, 24 * 60),
+    // view
+    issueUrl: `https://github.com/${repo}/issues/${issue}`,
+    criteriaConfirmed: opts.criteriaConfirmed ?? true,
+    funderLogin: funder,
     labels: status === 'unfunded' || status === 'cancelled' ? ['bounty'] : ['bounty', label(amount)],
-    status_comment_id: 2400000000 + issue * 7,
-    created_at: created,
-    updated_at: opts.updated ?? created,
-    expires_at: opts.expires_at ?? addH(created, 24 * 60),
+    updatedAt: created,
   };
 }
 function funding(b, rail, at, status = 'paid') {
-  const total = b.amount_xof + fee(b.amount_xof) + buf(b.amount_xof);
+  const total = b.amountXof + fee(b.amountXof) + buf(b.amountXof);
   const [amt, cur] =
-    rail === 'lightning' ? [toSats(total), 'SAT'] : rail === 'usdt' ? [toUsdtCents(total), 'USDT_CENT'] : [toKobo(total), 'NGN_KOBO'];
+    rail === 'lightning' ? [toSats(total), 'BTC'] : rail === 'usdt' ? [toUsdtUnits(total), 'USDT'] : [toKobo(total), 'NGN'];
   return {
     id: `fnd_${b.id.slice(2)}_1`,
-    bounty_id: b.id,
+    bountyId: b.id,
     rail,
-    source_amount: amt,
-    source_currency: cur,
-    fee_xof: fee(b.amount_xof),
-    buffer_xof: buf(b.amount_xof),
-    bitnob_ref: `fund-${b.id}-1`,
-    payment_hash: rail === 'lightning' ? hex(`ph-${b.id}`) : null,
+    sourceAmount: amt,
+    sourceCurrency: cur,
+    bitnobRef: `fund-${b.id}-1`,
+    paymentHash: rail === 'lightning' ? hex(`ph-${b.id}`) : null,
     status,
-    created_at: addH(at, -0.1),
-    paid_at: status === 'pending' || status === 'expired' ? null : at,
+    paidAt: status === 'paid' ? at : null,
+    feeXof: fee(b.amountXof),
+    bufferXof: buf(b.amountXof),
+    createdAt: addH(at, -0.1),
   };
 }
 const claim = (b, login, at, status, extended = false) => ({
   id: `clm_${b.id.slice(2)}_${login.split('-')[0]}`,
-  bounty_id: b.id,
-  user_login: login,
+  bountyId: b.id,
+  userId: `usr_${hex(login, 10)}`,
   status,
+  expiresAt: addH(at, extended ? 96 : 72),
+  userLogin: login,
   extended,
-  created_at: at,
-  expires_at: addH(at, extended ? 96 : 72),
+  createdAt: at,
 });
-function submission(b, pr, login, at, ci, verdict, report, merged_at = null, spam = 4) {
+function submission(b, pr, login, at, ci, verdict, report, mergedAt = null, spam = 4) {
   return {
     id: `sub_${b.id.slice(2)}_${pr}`,
-    bounty_id: b.id,
-    pr_number: pr,
-    pr_url: `https://github.com/${b.repo}/pull/${pr}`,
-    author_login: login,
-    head_sha: hex(`sha-${b.id}-${pr}`, 40),
-    ci,
+    bountyId: b.id,
+    prNumber: pr,
+    authorLogin: login,
+    headSha: hex(`sha-${b.id}-${pr}`, 40),
     verdict,
     report,
-    spam_score: spam,
-    created_at: at,
-    merged_at,
+    spamScore: spam,
+    mergedAt,
+    prUrl: `https://github.com/${b.repoFullName}/pull/${pr}`,
+    ci,
+    createdAt: at,
   };
 }
 const report = (b, mets, verdict, summary, flags = []) => ({
-  criteria: b.criteria.map((text, i) => ({ text, met: mets[i][0], evidence: mets[i][1] })),
+  criteria: b.criteria.map(({ text }, i) => ({ text, met: mets[i][0], evidence: mets[i][1] })),
   verdict,
   summary,
-  risk_flags: flags,
+  riskFlags: flags,
 });
-function payout(b, login, at, status, attempts, last_error = null, paid_at = null) {
+function payout(b, login, at, status, attempts, lastError = null, paidAt = null) {
   const [provider, phone] = phones[login];
   return {
     id: `pyt_${b.id.slice(2)}`,
-    bounty_id: b.id,
-    user_login: login,
-    amount_xof: b.amount_xof,
-    provider,
-    phone_masked: phone,
-    quote_id: `qt_${hex(`q-${b.id}`, 16)}`,
-    bitnob_payout_id: status === 'pending' ? null : `PAYOUT_${hex(`p-${b.id}`, 10).toUpperCase()}`,
+    bountyId: b.id,
+    userId: `usr_${hex(login, 10)}`,
+    amountXof: b.amountXof,
+    quoteId: `qt_${hex(`q-${b.id}`, 16)}`,
+    bitnobPayoutId: status === 'pending' ? null : `PAYOUT_${hex(`p-${b.id}`, 10).toUpperCase()}`,
     reference: `pay-${b.id}`,
     status,
     attempts,
-    last_error,
-    created_at: at,
-    paid_at,
+    lastError,
+    paidAt,
+    userLogin: login,
+    provider,
+    phoneMasked: phone,
+    createdAt: at,
   };
 }
-const ev = (at, type, actor, text) => ({ at, type, actor, text });
+const ev = (occurredAt, type, actor, text) => ({ occurredAt, type, actor, text });
+
+// Replays the timeline through core's TRANSITIONS (mirrored in types.ts): fills `to` on each
+// event and bounty.verdict, and throws if the fixture is not a legal path to bounty.status.
+function replay(d) {
+  let status = 'unfunded';
+  let verdict = null;
+  for (const e of d.timeline) {
+    if (e.type === 'bounty.created') { e.to = 'unfunded'; continue; }
+    const targets = TRANSITIONS[status]?.[e.type] ?? [];
+    if (!targets.length) throw new Error(`${d.id}: ${e.type} is illegal from ${status}`);
+    let to = targets[0];
+    if (e.type === 'verify.done') verdict = d.submission.verdict;
+    if (e.type === 'pr.linked' || e.type === 'maintainer.reject') verdict = null;
+    if (e.type === 'pr.merged') to = verdict === 'pass' && d.submission.ci === 'success' ? 'verified' : 'on_hold';
+    e.to = status = to;
+  }
+  if (status !== d.status) throw new Error(`${d.id}: timeline ends in ${status}, bounty says ${d.status}`);
+  d.verdict = verdict;
+}
 
 const B = [];
 function detail(b, { fundings = [], claims = [], submission = null, payout = null, timeline = [] }) {
   const d = { ...b, fundings, claims, submission, payout, timeline };
-  if (timeline.length) d.updated_at = timeline[timeline.length - 1].at;
+  if (timeline.length) d.updatedAt = timeline[timeline.length - 1].occurredAt;
+  replay(d);
   B.push(d);
   return d;
 }
@@ -158,7 +188,7 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
     'finalize() retries up to 3 times on HTTP 5xx with 1 s, 2 s, 4 s delays',
     'The same idempotency reference is reused on every retry',
     'Unit test simulates two 503 responses then a 200',
-  ], { criteria_confirmed: false, created: T(17, 15, 40) });
+  ], { criteriaConfirmed: false, created: T(17, 15, 40) });
   detail(b, { timeline: [ev(T(17, 15, 40), 'bounty.created', 'Djbrl', '/bounty 15000 — criteria drafted by Claude, waiting for /criteria ok')] });
 }
 // b-102 funded (lightning)
@@ -169,14 +199,24 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
     'README example updated',
   ], { created: T(17, 15, 20) });
   const f = funding(b, 'lightning', T(17, 15, 26));
+  const r = report(b, [
+    [true, 'src/format.ts:7 uses \\u202F'],
+    [false, 'formatXOF(-500) returns "500- FCFA"'],
+    [false, 'README.md unchanged'],
+  ], 'fail', 'Separator fixed, but negative amounts are broken and the README was not updated.');
   detail(b, {
     fundings: [f],
-    claims: [claim(b, 'ibou-fall', T(17, 16, 10), 'released')],
+    claims: [claim(b, 'ibou-fall', T(17, 16, 10), 'released'), claim(b, 'cheikh-ba', T(17, 17, 10), 'released')],
+    submission: submission(b, 4, 'cheikh-ba', T(17, 18, 0), 'success', 'fail', r),
     timeline: [
       ev(T(17, 15, 20), 'bounty.created', 'Djbrl', '/bounty 5000'),
-      ev(T(17, 15, 26), 'funding.paid', 'bitnob', `Funded over Lightning: ${f.source_amount.toLocaleString('en')} sats`),
+      ev(T(17, 15, 26), 'funding.paid', 'bitnob', `Funded over Lightning: ${f.sourceAmount.toLocaleString('en')} sats`),
       ev(T(17, 16, 10), 'claim.created', 'ibou-fall', '/claim'),
       ev(T(17, 17, 2), 'claim.released', 'ibou-fall', '/unclaim — bounty open again'),
+      ev(T(17, 17, 10), 'claim.created', 'cheikh-ba', '/claim'),
+      ev(T(17, 18, 0), 'pr.linked', 'cheikh-ba', 'PR #4 "Fixes #3"'),
+      ev(T(17, 18, 3), 'verify.done', 'bitbounty', 'Claude: ❌ 1/3 criteria met'),
+      ev(T(17, 18, 30), 'maintainer.reject', 'Djbrl', '/reject negative amounts broken — bounty open again'),
     ],
   });
 }
@@ -314,27 +354,30 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
   const r = report(b, [
     [true, 'README.fr.md, 3 sections'],
     [true, 'README.md:5'],
-  ], 'pass', 'French quick start complete and linked.');
+  ], 'unsure', 'French quick start complete and linked. Claude cannot judge the quality of the French prose.', ['natural-language quality not machine-checkable']);
   detail(b, {
     fundings: [funding(b, 'lightning', T(17, 15, 48))],
     claims: [claim(b, 'moussa-diop', T(17, 16, 20), 'done')],
-    submission: submission(b, 32, 'moussa-diop', T(17, 17, 30), 'success', 'pass', r, T(17, 19, 0)),
+    submission: submission(b, 32, 'moussa-diop', T(17, 17, 30), 'success', 'unsure', r, T(17, 18, 58)),
     payout: payout(b, 'moussa-diop', T(17, 19, 1), 'failed', 3, 'withdrawal.expired: recipient account not reachable (Orange Money)'),
     timeline: [
       ev(T(17, 15, 45), 'bounty.created', 'Djbrl', '/bounty 3000'),
       ev(T(17, 15, 48), 'funding.paid', 'bitnob', 'Funded over Lightning'),
       ev(T(17, 16, 20), 'claim.created', 'moussa-diop', '/claim'),
       ev(T(17, 17, 30), 'pr.linked', 'moussa-diop', 'PR #32 "Fixes #19"'),
-      ev(T(17, 17, 33), 'verify.done', 'bitbounty', 'Claude: ✅ 2/2 criteria met'),
-      ev(T(17, 19, 0), 'pr.merged', 'Djbrl', 'PR #32 merged'),
-      ev(T(17, 19, 1), 'payout.started', 'bitbounty', 'Payout to Orange Money +221 78 ••• •• 19'),
+      ev(T(17, 17, 33), 'verify.done', 'bitbounty', 'Claude: ⚠️ unsure — 2/2 criteria met, prose quality not checkable'),
+      ev(T(17, 18, 58), 'pr.merged', 'Djbrl', 'PR #32 merged — verdict unsure, on hold for the maintainer'),
+      ev(T(17, 19, 0), 'maintainer.pay', 'Djbrl', '/pay — French reviewed by hand'),
+      ev(T(17, 19, 1), 'payout.started', 'bitbounty', 'Payout to Orange Money +221 78 ••• •• 19 (attempt 1)'),
       ev(T(17, 19, 2), 'payout.failed', 'bitnob', 'Attempt 1/3 failed: withdrawal.expired'),
+      ev(T(17, 19, 3), 'payout.started', 'bitbounty', 'Retry (attempt 2)'),
       ev(T(17, 19, 4), 'payout.failed', 'bitnob', 'Attempt 2/3 failed: withdrawal.expired'),
+      ev(T(17, 19, 8), 'payout.started', 'bitbounty', 'Retry (attempt 3)'),
       ev(T(17, 19, 9), 'payout.failed', 'bitnob', 'Attempt 3/3 failed — @moussa-diop asked to update their account. The 3 000 FCFA stay reserved for them.'),
     ],
   });
 }
-// b-109 on_hold — merged, verifier unsure, maintainer /hold
+// b-109 on_hold — verifier unsure, maintainer /hold before merging
 {
   const b = base('b-109', 'teranga-labs/xof', 5, 'parseXOF(): accept "10.000 F" and "10 000 FCFA"', 6000, 'on_hold', [
     'parseXOF accepts dot, space and U+202F separators',
@@ -349,15 +392,14 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
   detail(b, {
     fundings: [funding(b, 'lightning', T(17, 15, 27))],
     claims: [claim(b, 'ibou-fall', T(17, 15, 55), 'done')],
-    submission: submission(b, 8, 'ibou-fall', T(17, 18, 5), 'success', 'unsure', r, T(17, 20, 40), 12),
+    submission: submission(b, 8, 'ibou-fall', T(17, 18, 5), 'success', 'unsure', r, null, 12),
     timeline: [
       ev(T(17, 15, 25), 'bounty.created', 'Djbrl', '/bounty 6000'),
       ev(T(17, 15, 27), 'funding.paid', 'bitnob', 'Funded over Lightning'),
       ev(T(17, 15, 55), 'claim.created', 'ibou-fall', '/claim'),
       ev(T(17, 18, 5), 'pr.linked', 'ibou-fall', 'PR #8 "Fixes #5"'),
       ev(T(17, 18, 8), 'verify.done', 'bitbounty', 'Claude: ⚠️ unsure — decimals rounded instead of rejected'),
-      ev(T(17, 20, 40), 'pr.merged', 'Djbrl', 'PR #8 merged'),
-      ev(T(17, 20, 52), 'bounty.held', 'Djbrl', '/hold — rounding regression reported in #11'),
+      ev(T(17, 20, 52), 'maintainer.hold', 'Djbrl', '/hold — rounding change needs a decision (see #11)'),
     ],
   });
 }
@@ -367,13 +409,13 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
     'All /v1 endpoints are reachable through client.legacy',
     'Deprecation warning logged once per process',
   ], { created: T(17, 15, 2) });
-  const f = funding(b, 'lightning', T(17, 15, 6), 'refunded');
+  const f = funding(b, 'lightning', T(17, 15, 6));
   detail(b, {
     fundings: [f],
     timeline: [
       ev(T(17, 15, 2), 'bounty.created', 'Djbrl', '/bounty 20000'),
       ev(T(17, 15, 6), 'funding.paid', 'bitnob', 'Funded over Lightning'),
-      ev(T(17, 17, 0), 'bounty.refunded', 'Djbrl', 'Issue closed as not planned before any claim — 21 600 FCFA returned to the funder balance'),
+      ev(T(17, 17, 0), 'bounty.cancelled', 'bitbounty', 'Issue closed as not planned before any claim — 21 600 FCFA returned to the funder balance'),
     ],
   });
 }
@@ -381,7 +423,7 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
 {
   const b = base('b-111', 'galsen-oss/wolof-i18n', 2, 'Pulaar locale scaffolding', 5000, 'cancelled', [
     'locales/ff/ folder with the same keys as locales/en/',
-  ], { created: T(17, 16, 0), criteria_confirmed: true });
+  ], { created: T(17, 16, 0) });
   detail(b, {
     timeline: [
       ev(T(17, 16, 0), 'bounty.created', 'Djbrl', '/bounty 5000'),
@@ -397,7 +439,7 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
     'CI job runs a smoke test with both module systems',
   ], { created: T(17, 15, 30) });
   const c = claim(b, 'cheikh-ba', T(17, 15, 40), 'expired');
-  c.expires_at = T(17, 15, 45); // demo timer 5 min
+  c.expiresAt = T(17, 15, 45); // demo timer 5 min
   detail(b, {
     fundings: [funding(b, 'usdt', T(17, 15, 33))],
     claims: [c],
@@ -444,7 +486,7 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
     'The 4 SMS templates in sms/fr.json have a Wolof version in sms/wo.json',
     'Each message stays under 160 characters',
     'Native speaker confirms the tone is polite (comment in the PR)',
-  ], { created: T(18, 2, 10), funder_kind: 'agent', funder: 'claude-code@Djbrl' });
+  ], { created: T(18, 2, 10), funderKind: 'agent', funder: 'claude-code@Djbrl' });
   detail(b, {
     fundings: [funding(b, 'lightning', T(18, 2, 11))],
     claims: [claim(b, 'seynabou-gueye', T(18, 2, 20), 'active')],
@@ -460,7 +502,7 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
 const summary = (d) => {
   const { fundings, claims, submission, payout, timeline, ...b } = d;
   const active = claims.find((c) => c.status === 'active' || c.status === 'done');
-  return { ...b, claimed_by: active?.user_login ?? null, pr_number: submission?.pr_number ?? null };
+  return { ...b, claimedBy: active?.userLogin ?? null, prNumber: submission?.prNumber ?? null };
 };
 const byId = Object.fromEntries(B.map((d) => [d.id, d]));
 const paid = B.filter((d) => d.status === 'paid');
@@ -471,21 +513,21 @@ const receipts = Object.fromEntries(
     const f = d.fundings.find((x) => x.status === 'paid');
     const r = {
       id: `r-${d.id.slice(2)}`,
-      bounty_id: d.id,
-      repo: d.repo,
-      issue_number: d.issue_number,
-      issue_title: d.issue_title,
-      pr_number: d.submission.pr_number,
-      pr_url: d.submission.pr_url,
-      recipient_login: d.payout.user_login,
-      amount_xof: d.amount_xof,
+      bountyId: d.id,
+      repoFullName: d.repoFullName,
+      issueNumber: d.issueNumber,
+      issueTitle: d.issueTitle,
+      prNumber: d.submission.prNumber,
+      prUrl: d.submission.prUrl,
+      recipientLogin: d.payout.userLogin,
+      amountXof: d.amountXof,
       provider: d.payout.provider,
-      phone_masked: d.payout.phone_masked,
-      funded_with: { rail: f.rail, source_amount: f.source_amount, source_currency: f.source_currency, funder_login: d.funder_login },
-      merged_at: d.submission.merged_at,
-      paid_at: d.payout.paid_at,
-      minutes_merge_to_pay: minutes(d.submission.merged_at, d.payout.paid_at),
-      bitnob_reference: d.payout.bitnob_payout_id,
+      phoneMasked: d.payout.phoneMasked,
+      fundedWith: { rail: f.rail, sourceAmount: f.sourceAmount, sourceCurrency: f.sourceCurrency, funderLogin: d.funderLogin },
+      mergedAt: d.submission.mergedAt,
+      paidAt: d.payout.paidAt,
+      minutesMergeToPay: minutes(d.submission.mergedAt, d.payout.paidAt),
+      bitnobReference: d.payout.bitnobPayoutId,
       signature: `ed25519:${hex(`sig-${d.id}`, 64)}`,
     };
     return [r.id, r];
@@ -495,76 +537,80 @@ const receipts = Object.fromEntries(
 const publicStatuses = ['funded', 'claimed', 'submitted', 'verified', 'paying', 'paid'];
 const board = {
   stats: {
-    paid_count: 23,
-    paid_total_xof: 187500,
-    median_minutes_merge_to_pay: 6,
-    developers_paid: 9,
+    paidCount: 23,
+    paidTotalXof: 187500,
+    medianMinutesMergeToPay: 6,
+    developersPaid: 9,
   },
   bounties: B.filter((d) => publicStatuses.includes(d.status)).map(summary),
   external: [
-    { title: 'Add BOLT12 offer decoding', repo: 'lightningdevkit/ldk-node', url: 'https://github.com/lightningdevkit/ldk-node/issues', amount_usd_cents: 50000, source: 'external — paid in dollars elsewhere' },
-    { title: 'Fix fee estimation on signet', repo: 'bitcoindevkit/bdk', url: 'https://github.com/bitcoindevkit/bdk/issues', amount_usd_cents: 30000, source: 'external — paid in dollars elsewhere' },
+    { title: 'Add BOLT12 offer decoding', repoFullName: 'lightningdevkit/ldk-node', url: 'https://github.com/lightningdevkit/ldk-node/issues', amountUsdCents: 50000, source: 'external — paid in dollars elsewhere' },
+    { title: 'Fix fee estimation on signet', repoFullName: 'bitcoindevkit/bdk', url: 'https://github.com/bitcoindevkit/bdk/issues', amountUsdCents: 30000, source: 'external — paid in dollars elsewhere' },
   ],
 };
 
+const mine = (d) => d.funderLogin === 'Djbrl';
+const crit = (...xs) => xs.map((text) => ({ text }));
 const dashboard = {
   maintainer: 'Djbrl',
   repos: [
-    { full_name: 'teranga-labs/bitnob-js', open_issues: 40, active_bounties: 6, paid_pct: 86 },
-    { full_name: 'teranga-labs/xof', open_issues: 7, active_bounties: 2, paid_pct: 100 },
-    { full_name: 'galsen-oss/wolof-i18n', open_issues: 12, active_bounties: 1, paid_pct: 75 },
+    { fullName: 'teranga-labs/bitnob-js', openIssues: 40, activeBounties: 6, paidPct: 86 },
+    { fullName: 'teranga-labs/xof', openIssues: 7, activeBounties: 2, paidPct: 100 },
+    { fullName: 'galsen-oss/wolof-i18n', openIssues: 12, activeBounties: 1, paidPct: 75 },
   ],
   stats: {
-    budget_xof: 150000,
-    held_xof: B.filter((d) => ['funded', 'claimed', 'submitted', 'verified', 'paying', 'payout_failed', 'on_hold'].includes(d.status) && d.funder_login === 'Djbrl').reduce((s, d) => s + d.amount_xof, 0),
-    spent_xof: B.filter((d) => d.status === 'paid' && d.funder_login === 'Djbrl').reduce((s, d) => s + d.amount_xof, 0),
-    active_count: B.filter((d) => ['funded', 'claimed', 'submitted', 'verified', 'paying'].includes(d.status) && d.funder_login === 'Djbrl').length,
-    paid_count: B.filter((d) => d.status === 'paid' && d.funder_login === 'Djbrl').length,
-    median_minutes_merge_to_pay: 6,
+    budgetXof: 150000,
+    heldXof: B.filter((d) => ['funded', 'claimed', 'submitted', 'verified', 'paying', 'payout_failed', 'on_hold'].includes(d.status) && mine(d)).reduce((s, d) => s + d.amountXof, 0),
+    spentXof: B.filter((d) => d.status === 'paid' && mine(d)).reduce((s, d) => s + d.amountXof, 0),
+    activeCount: B.filter((d) => ['funded', 'claimed', 'submitted', 'verified', 'paying'].includes(d.status) && mine(d)).length,
+    paidCount: B.filter((d) => d.status === 'paid' && mine(d)).length,
+    medianMinutesMergeToPay: 6,
   },
-  bounty_ids: B.filter((d) => d.funder_login === 'Djbrl').map((d) => d.id),
-  needs_action: [
-    { bounty_id: 'b-101', action: 'confirm_criteria', text: 'Claude drafted 3 criteria for #21 — reply /criteria ok' },
-    { bounty_id: 'b-101', action: 'fund', text: '#21 is waiting for funding (15 000 FCFA)' },
-    { bounty_id: 'b-104', action: 'pay_or_reject', text: 'PR #31: Claude says 2/3 criteria — /pay or /reject' },
-    { bounty_id: 'b-108', action: 'update_account', text: 'Payout to @moussa-diop failed 3× — waiting for them to update their account' },
+  bountyIds: B.filter(mine).map((d) => d.id),
+  needsAction: [
+    { bountyId: 'b-101', action: 'confirm_criteria', text: 'Claude drafted 3 criteria for #21 — reply /criteria ok' },
+    { bountyId: 'b-101', action: 'fund', text: '#21 is waiting for funding (15 000 FCFA)' },
+    { bountyId: 'b-104', action: 'pay_or_reject', text: 'PR #31: Claude says 2/3 criteria — /pay or /reject' },
+    { bountyId: 'b-109', action: 'pay_or_reject', text: 'PR #8 on hold (decimals rounded) — /pay or /reject' },
+    { bountyId: 'b-108', action: 'update_account', text: 'Payout to @moussa-diop failed 3× — waiting for them to update their account' },
   ],
   backlog: [
-    { id: 'sug-1', repo: REPO, issue_number: 25, issue_title: 'Add virtualAccounts.simulateDeposit() for sandbox', criteria: ['Calls POST /api/virtual-accounts/:id/simulate-deposit', 'Throws outside sandbox', 'Test with recorded response'], price_xof: 7500, reason: 'Small, testable, one endpoint. Good first paid issue.', confidence: 'high', selected: true },
-    { id: 'sug-2', repo: REPO, issue_number: 26, issue_title: 'Pagination helper for list endpoints', criteria: ['paginate() async iterator over cursor-based endpoints', 'Works for payouts and invoices lists', 'Stops on empty page'], price_xof: 12000, reason: 'Clear scope, reused by 6 endpoints.', confidence: 'high', selected: true },
-    { id: 'sug-3', repo: REPO, issue_number: 28, issue_title: 'Document every payout error code', criteria: ['docs/errors.md lists all payout error codes', 'Each code has cause and fix'], price_xof: 5000, reason: 'Docs task, easy to verify.', confidence: 'medium', selected: true },
-    { id: 'sug-4', repo: 'teranga-labs/xof', issue_number: 8, issue_title: 'Convert XOF ↔ GHS / NGN with a rates provider', criteria: ['convert(amount, from, to, rates) returns an integer in the target minor unit', 'Rounding documented'], price_xof: 10000, reason: 'Needed for multi-country payouts. Criteria testable.', confidence: 'medium', selected: true },
-    { id: 'sug-5', repo: 'galsen-oss/wolof-i18n', issue_number: 9, issue_title: 'Wolof strings for error messages', criteria: ['All keys in locales/en/errors.json translated', 'Reviewed by a second speaker'], price_xof: 6000, reason: 'Needs a human speaker — agents can\'t verify tone.', confidence: 'high', selected: true },
-    { id: 'sug-6', repo: REPO, issue_number: 30, issue_title: 'Rewrite the client in Rust', criteria: ['Feature parity'], price_xof: 150000, reason: 'Too large and vague for a bounty — split it first.', confidence: 'low', selected: false },
+    { id: 'sug-1', repoFullName: REPO, issueNumber: 25, issueTitle: 'Add virtualAccounts.simulateDeposit() for sandbox', criteria: crit('Calls POST /api/virtual-accounts/:id/simulate-deposit', 'Throws outside sandbox', 'Test with recorded response'), priceXof: 7500, reason: 'Small, testable, one endpoint. Good first paid issue.', confidence: 'high', selected: true },
+    { id: 'sug-2', repoFullName: REPO, issueNumber: 26, issueTitle: 'Pagination helper for list endpoints', criteria: crit('paginate() async iterator over cursor-based endpoints', 'Works for payouts and invoices lists', 'Stops on empty page'), priceXof: 12000, reason: 'Clear scope, reused by 6 endpoints.', confidence: 'high', selected: true },
+    { id: 'sug-3', repoFullName: REPO, issueNumber: 28, issueTitle: 'Document every payout error code', criteria: crit('docs/errors.md lists all payout error codes', 'Each code has cause and fix'), priceXof: 5000, reason: 'Docs task, easy to verify.', confidence: 'medium', selected: true },
+    { id: 'sug-4', repoFullName: 'teranga-labs/xof', issueNumber: 8, issueTitle: 'Convert XOF ↔ GHS / NGN with a rates provider', criteria: crit('convert(amount, from, to, rates) returns an integer in the target minor unit', 'Rounding documented'), priceXof: 10000, reason: 'Needed for multi-country payouts. Criteria testable.', confidence: 'medium', selected: true },
+    { id: 'sug-5', repoFullName: 'galsen-oss/wolof-i18n', issueNumber: 9, issueTitle: 'Wolof strings for error messages', criteria: crit('All keys in locales/en/errors.json translated', 'Reviewed by a second speaker'), priceXof: 6000, reason: 'Needs a human speaker — agents can\'t verify tone.', confidence: 'high', selected: true },
+    { id: 'sug-6', repoFullName: REPO, issueNumber: 30, issueTitle: 'Rewrite the client in Rust', criteria: crit('Feature parity'), priceXof: 150000, reason: 'Too large and vague for a bounty — split it first.', confidence: 'low', selected: false },
   ],
 };
 
-const BRK = { amount_xof: 10000, fee_xof: 500, buffer_xof: 300, total_xof: 10800 };
+const BRK = { amountXof: 10000, feeXof: 500, bufferXof: 300, totalXof: 10800 };
 const fundingSessions = {
-  lightning: { ...BRK, rail: 'lightning', invoice: 'lntbs174740n1pn' + hex('inv', 180).replace(/[^a-z0-9]/g, 'q') + 'cqpjsp5', payment_hash: hex('ph-session'), amount_sats: 17474, expires_at: T(17, 15, 20) },
-  usdt: { ...BRK, rail: 'usdt', address: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE', network: 'TRON', amount_usdt_cents: 1922, expires_at: T(17, 15, 20) },
-  ngn: { ...BRK, rail: 'ngn', virtual_account: { bank_name: 'Wema Bank (sandbox)', account_number: '9930481276', account_name: 'BitBounty / Chidi Okafor' }, amount_kobo: 2900000, expires_at: T(17, 15, 20) },
+  lightning: { ...BRK, rail: 'lightning', invoice: 'lntbs174740n1pn' + hex('inv', 180).replace(/[^a-z0-9]/g, 'q') + 'cqpjsp5', paymentHash: hex('ph-session'), amountSats: 17474, expiresAt: T(17, 15, 20) },
+  usdt: { ...BRK, rail: 'usdt', address: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE', network: 'TRON', amountUsdtUnits: 19_220_000, expiresAt: T(17, 15, 20) },
+  ngn: { ...BRK, rail: 'ngn', virtualAccount: { bankName: 'Wema Bank (sandbox)', accountNumber: '9930481276', accountName: 'BitBounty / Chidi Okafor' }, amountKobo: 2900000, expiresAt: T(17, 15, 20) },
 };
 
+// PayoutAccountView: core PayoutAccount minus phoneE164/testAmountXof (never sent to the browser), plus phoneMasked.
 const meAccount = (status) => ({
-  user_id: userObj('awa-ndiaye').id,
+  userId: userObj('awa-ndiaye').id,
   country: 'SN',
   provider: 'wave',
-  phone_masked: '+221 77 ••• •• 42',
-  account_name: 'AWA NDIAYE',
+  accountName: 'AWA NDIAYE',
   status,
-  verified_at: status === 'verified' ? T(17, 14, 32) : null,
-  locked_until: status === 'verified' ? T(20, 14, 32) : null,
+  verifiedAt: status === 'verified' ? T(17, 14, 32) : null,
+  lockedUntil: status === 'verified' ? T(20, 14, 32) : null,
+  phoneMasked: '+221 77 ••• •• 42',
 });
 const meBase = (account, verified) => ({
   user: userObj('awa-ndiaye'),
-  payout_account: account,
-  earnings: verified ? { total_xof: 10000, paid_count: 1 } : { total_xof: 0, paid_count: 0 },
-  active_claims: verified ? [{ bounty_id: 'b-103', issue_title: byId['b-103'].issue_title, repo: byId['b-103'].repo, expires_at: byId['b-103'].claims[0].expires_at }] : [],
-  payouts: verified ? [{ bounty_id: 'b-107', amount_xof: 10000, status: 'succeeded', paid_at: T(17, 18, 26), receipt_id: 'r-107' }] : [],
+  payoutAccount: account,
+  earnings: verified ? { totalXof: 10000, paidCount: 1 } : { totalXof: 0, paidCount: 0 },
+  activeClaims: verified ? [{ bountyId: 'b-103', issueTitle: byId['b-103'].issueTitle, repoFullName: byId['b-103'].repoFullName, expiresAt: byId['b-103'].claims[0].expiresAt }] : [],
+  payouts: verified ? [{ bountyId: 'b-107', amountXof: 10000, status: 'succeeded', paidAt: T(17, 18, 26), receiptId: 'r-107' }] : [],
 });
 const me = {
-  mock: { sms_code: '424242', test_amount_xof: 137, default_state: 'verified' },
+  mock: { smsCode: '424242', testAmountXof: 137, defaultState: 'verified' },
   states: {
     new: meBase(null, false),
     pending: meBase(meAccount('pending'), false),
@@ -573,30 +619,29 @@ const me = {
   },
 };
 
-const profile = (login, extra = {}) => {
+const profile = (login) => {
   const work = paid
-    .filter((d) => d.payout.user_login === login)
-    .map((d) => ({ bounty_id: d.id, repo: d.repo, issue_title: d.issue_title, pr_number: d.submission.pr_number, amount_xof: d.amount_xof, paid_at: d.payout.paid_at, receipt_id: `r-${d.id.slice(2)}` }));
+    .filter((d) => d.payout.userLogin === login)
+    .map((d) => ({ bountyId: d.id, repoFullName: d.repoFullName, issueTitle: d.issueTitle, prNumber: d.submission.prNumber, amountXof: d.amountXof, paidAt: d.payout.paidAt, receiptId: `r-${d.id.slice(2)}` }));
   return {
     user: userObj(login),
     stats: {
-      paid_count: work.length,
-      total_xof: work.reduce((s, w) => s + w.amount_xof, 0),
-      repos: new Set(work.map((w) => w.repo)).size,
-      accepted_pct: 100,
-      median_minutes_merge_to_pay: 5,
-      ...extra,
+      paidCount: work.length,
+      totalXof: work.reduce((s, w) => s + w.amountXof, 0),
+      repos: new Set(work.map((w) => w.repoFullName)).size,
+      acceptedPct: 100,
+      medianMinutesMergeToPay: 5,
     },
     languages: users[login].langs,
     work,
   };
 };
 const profiles = Object.fromEntries(['awa-ndiaye', 'fatou-sall', 'moussa-diop', 'seynabou-gueye'].map((l) => [l, profile(l)]));
-profiles['moussa-diop'].stats.accepted_pct = 50;
+profiles['moussa-diop'].stats.acceptedPct = 50;
 
 const card = (d, status = d.status) => {
-  const who = d.claims.find((c) => c.status !== 'expired' && c.status !== 'released')?.user_login ?? null;
-  return { bounty_id: d.id, status, repo: d.repo, issue_title: d.issue_title, amount_xof: d.amount_xof, who, city: who ? users[who].city : null };
+  const who = d.claims.find((c) => c.status === 'active' || c.status === 'done')?.userLogin ?? null;
+  return { bountyId: d.id, status, repoFullName: d.repoFullName, issueTitle: d.issueTitle, amountXof: d.amountXof, who, city: who ? users[who].city : null };
 };
 const live = {
   columns: ['funded', 'claimed', 'submitted', 'verified', 'paying', 'paid'],
@@ -612,12 +657,12 @@ const live = {
     { ...card(byId['b-113'], 'funded'), who: null, city: null },
   ],
   events: [
-    { delay_ms: 2500, bounty_id: 'b-113', from: 'funded', to: 'claimed', text: '@fatou-sall claimed naija-rails/ngn-kit#41 (funded in naira from Lagos)' },
-    { delay_ms: 3000, bounty_id: 'b-106', from: 'paying', to: 'paid', text: '💸 7 500 FCFA paid to @seynabou-gueye on Wave' },
-    { delay_ms: 3000, bounty_id: 'b-113', from: 'claimed', to: 'submitted', text: 'PR #44 opened on naija-rails/ngn-kit' },
-    { delay_ms: 2500, bounty_id: 'b-113', from: 'submitted', to: 'verified', text: 'Claude: ✅ 3/3 criteria met · merged' },
-    { delay_ms: 2000, bounty_id: 'b-113', from: 'verified', to: 'paying', text: 'Payout started: BTC → XOF, Wave' },
-    { delay_ms: 3500, bounty_id: 'b-113', from: 'paying', to: 'paid', text: '💸 Lagos → Dakar: ₦29 000 in, 10 000 FCFA out on Wave' },
+    { delayMs: 2500, bountyId: 'b-113', event: 'claim.created', from: 'funded', to: 'claimed', text: '@fatou-sall claimed naija-rails/ngn-kit#41 (funded in naira from Lagos)' },
+    { delayMs: 3000, bountyId: 'b-106', event: 'payout.succeeded', from: 'paying', to: 'paid', text: '💸 7 500 FCFA paid to @seynabou-gueye on Wave' },
+    { delayMs: 3000, bountyId: 'b-113', event: 'pr.linked', from: 'claimed', to: 'submitted', text: 'PR #44 opened on naija-rails/ngn-kit' },
+    { delayMs: 2500, bountyId: 'b-113', event: 'pr.merged', from: 'submitted', to: 'verified', text: 'Claude: ✅ 3/3 criteria met · merged' },
+    { delayMs: 2000, bountyId: 'b-113', event: 'payout.started', from: 'verified', to: 'paying', text: 'Payout started: BTC → XOF, Wave' },
+    { delayMs: 3500, bountyId: 'b-113', event: 'payout.succeeded', from: 'paying', to: 'paid', text: '💸 Lagos → Dakar: ₦29 000 in, 10 000 FCFA out on Wave' },
   ],
 };
 

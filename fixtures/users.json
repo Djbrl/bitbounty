@@ -2,19 +2,19 @@
   "awa-ndiaye": {
     "user": {
       "id": "usr_48c43e1947",
-      "github_id": 81234567,
+      "githubId": 81234567,
       "login": "awa-ndiaye",
+      "avatarUrl": "https://avatars.githubusercontent.com/u/81234567?v=4",
+      "createdAt": "2021-03-14T10:22:00Z",
       "name": "Awa Ndiaye",
-      "avatar_url": "https://avatars.githubusercontent.com/u/81234567?v=4",
-      "city": "Dakar",
-      "created_at": "2021-03-14T10:22:00Z"
+      "city": "Dakar"
     },
     "stats": {
-      "paid_count": 1,
-      "total_xof": 10000,
+      "paidCount": 1,
+      "totalXof": 10000,
       "repos": 1,
-      "accepted_pct": 100,
-      "median_minutes_merge_to_pay": 5
+      "acceptedPct": 100,
+      "medianMinutesMergeToPay": 5
     },
     "languages": [
       "TypeScript",
@@ -22,32 +22,32 @@
     ],
     "work": [
       {
-        "bounty_id": "b-107",
-        "repo": "teranga-labs/bitnob-js",
-        "issue_title": "Add payouts.quote() for SN mobile money",
-        "pr_number": 34,
-        "amount_xof": 10000,
-        "paid_at": "2026-10-17T18:26:00Z",
-        "receipt_id": "r-107"
+        "bountyId": "b-107",
+        "repoFullName": "teranga-labs/bitnob-js",
+        "issueTitle": "Add payouts.quote() for SN mobile money",
+        "prNumber": 34,
+        "amountXof": 10000,
+        "paidAt": "2026-10-17T18:26:00Z",
+        "receiptId": "r-107"
       }
     ]
   },
   "fatou-sall": {
     "user": {
       "id": "usr_e078f07052",
-      "github_id": 93311802,
+      "githubId": 93311802,
       "login": "fatou-sall",
+      "avatarUrl": "https://avatars.githubusercontent.com/u/93311802?v=4",
+      "createdAt": "2021-03-14T10:22:00Z",
       "name": "Fatou Sall",
-      "avatar_url": "https://avatars.githubusercontent.com/u/93311802?v=4",
-      "city": "Dakar",
-      "created_at": "2021-03-14T10:22:00Z"
+      "city": "Dakar"
     },
     "stats": {
-      "paid_count": 1,
-      "total_xof": 10000,
+      "paidCount": 1,
+      "totalXof": 10000,
       "repos": 1,
-      "accepted_pct": 100,
-      "median_minutes_merge_to_pay": 5
+      "acceptedPct": 100,
+      "medianMinutesMergeToPay": 5
     },
     "languages": [
       "TypeScript",
@@ -55,32 +55,32 @@
     ],
     "work": [
       {
-        "bounty_id": "b-113",
-        "repo": "naija-rails/ngn-kit",
-        "issue_title": "Validate NUBAN account numbers (check digit)",
-        "pr_number": 44,
-        "amount_xof": 10000,
-        "paid_at": "2026-10-18T01:35:00Z",
-        "receipt_id": "r-113"
+        "bountyId": "b-113",
+        "repoFullName": "naija-rails/ngn-kit",
+        "issueTitle": "Validate NUBAN account numbers (check digit)",
+        "prNumber": 44,
+        "amountXof": 10000,
+        "paidAt": "2026-10-18T01:35:00Z",
+        "receiptId": "r-113"
       }
     ]
   },
   "moussa-diop": {
     "user": {
       "id": "usr_c0ee3f31ca",
-      "github_id": 70456123,
+      "githubId": 70456123,
       "login": "moussa-diop",
+      "avatarUrl": "https://avatars.githubusercontent.com/u/70456123?v=4",
+      "createdAt": "2021-03-14T10:22:00Z",
       "name": "Moussa Diop",
-      "avatar_url": "https://avatars.githubusercontent.com/u/70456123?v=4",
-      "city": "Thiès",
-      "created_at": "2021-03-14T10:22:00Z"
+      "city": "Thiès"
     },
     "stats": {
-      "paid_count": 0,
-      "total_xof": 0,
+      "paidCount": 0,
+      "totalXof": 0,
       "repos": 0,
-      "accepted_pct": 50,
-      "median_minutes_merge_to_pay": 5
+      "acceptedPct": 50,
+      "medianMinutesMergeToPay": 5
     },
     "languages": [
       "TypeScript",
@@ -91,19 +91,19 @@
   "seynabou-gueye": {
     "user": {
       "id": "usr_7375412e7e",
-      "github_id": 102938475,
+      "githubId": 102938475,
       "login": "seynabou-gueye",
+      "avatarUrl": "https://avatars.githubusercontent.com/u/102938475?v=4",
+      "createdAt": "2021-03-14T10:22:00Z",
       "name": "Seynabou Guèye",
-      "avatar_url": "https://avatars.githubusercontent.com/u/102938475?v=4",
-      "city": "Dakar",
-      "created_at": "2021-03-14T10:22:00Z"
+      "city": "Dakar"
     },
     "stats": {
-      "paid_count": 0,
-      "total_xof": 0,
+      "paidCount": 0,
+      "totalXof": 0,
       "repos": 0,
-      "accepted_pct": 100,
-      "median_minutes_merge_to_pay": 5
+      "acceptedPct": 100,
+      "medianMinutesMergeToPay": 5
     },
     "languages": [
       "Wolof",

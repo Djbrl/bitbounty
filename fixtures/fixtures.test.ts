@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleMock, liveStream, POLLS_BEFORE_PAID, type Fixtures } from '../apps/web/lib/mock-api.ts';
-import { BOUNTY_STATUSES } from './types.ts';
+import { BOUNTY_STATUSES, EVENT_TYPES, TRANSITIONS, type BountyDetail } from './types.ts';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const read = (n: string) => JSON.parse(readFileSync(join(dir, `${n}.json`), 'utf8'));
@@ -37,20 +37,32 @@ test('every bounty state is served by GET /api/bounties/:id', () => {
   assert.equal(get('bounties/b-999').status, 404);
 });
 
+test('timelines follow the F2 TRANSITIONS table and only use F2 events', () => {
+  for (const b of fx.bounties as BountyDetail[]) {
+    let from = b.timeline[0].to;
+    for (const e of b.timeline.slice(1)) {
+      assert.ok(EVENT_TYPES.includes(e.type), `${b.id}: ${e.type} is not an F2 event`);
+      assert.ok((TRANSITIONS[from][e.type] ?? []).includes(e.to), `${b.id}: ${from} --${e.type}--> ${e.to}`);
+      from = e.to;
+    }
+    assert.equal(from, b.status, b.id);
+  }
+});
+
 test('list filters by status, repo, funder', () => {
   assert.equal(json(get('bounties', 'status=paid,paying')).length, 3);
-  assert.ok(json(get('bounties', 'repo=teranga-labs/xof')).every((b: any) => b.repo === 'teranga-labs/xof'));
-  assert.ok(json(get('bounties', 'funder=chidi-okafor')).every((b: any) => b.funder_login === 'chidi-okafor'));
+  assert.ok(json(get('bounties', 'repo=teranga-labs/xof')).every((b: any) => b.repoFullName === 'teranga-labs/xof'));
+  assert.ok(json(get('bounties', 'funder=chidi-okafor')).every((b: any) => b.funderLogin === 'chidi-okafor'));
   assert.equal(json(get('bounties'))[0].timeline, undefined, 'list rows are summaries');
 });
 
 test('funding: session per rail scaled to the bounty, then polling flips to paid', () => {
   const ln = json(post('bounties/b-101/funding', { rail: 'lightning' })); // 15 000 FCFA
-  assert.equal(ln.total_xof, 15000 + 750 + 450);
-  assert.equal(ln.amount_sats, Math.round(17474 * 1.5));
-  assert.equal(ln.expires_at, '2026-10-17T15:15:00.000Z');
+  assert.equal(ln.totalXof, 15000 + 750 + 450);
+  assert.equal(ln.amountSats, Math.round(17474 * 1.5));
+  assert.equal(ln.expiresAt, '2026-10-17T15:15:00.000Z');
   const ngn = json(post('bounties/b-101/funding', { rail: 'ngn' }));
-  assert.equal(ngn.amount_kobo % 100_000, 0);
+  assert.equal(ngn.amountKobo % 100_000, 0);
   assert.equal(post('bounties/b-101/funding', { rail: 'paypal' }).status, 400);
   assert.equal(post('bounties/b-107/funding', { rail: 'usdt' }).status, 409);
   for (let i = 1; i < POLLS_BEFORE_PAID; i++) assert.equal(json(get('bounties/b-101/funding')).status, 'pending');
@@ -60,14 +72,14 @@ test('funding: session per rail scaled to the bounty, then polling flips to paid
 test('pages: board, dashboard, backlog, users, receipts, live', () => {
   assert.ok(json(get('board')).bounties.length > 0);
   const d = json(get('dashboard'));
-  assert.equal(d.bounties.length, d.bounty_ids.length);
+  assert.equal(d.bounties.length, d.bountyIds.length);
   const batch = json(post('backlog/fund', {}));
   assert.equal(batch.count, 5);
-  assert.equal(batch.session.amount_xof, 7500 + 12000 + 5000 + 10000 + 6000);
+  assert.equal(batch.session.amountXof, 7500 + 12000 + 5000 + 10000 + 6000);
   assert.equal(post('backlog/fund', { ids: [] }).status, 400);
-  assert.equal(json(get('users/awa-ndiaye')).work[0].receipt_id, 'r-107');
+  assert.equal(json(get('users/awa-ndiaye')).work[0].receiptId, 'r-107');
   assert.equal(get('users/nobody').status, 404);
-  assert.equal(json(get('receipts/r-113')).funded_with.rail, 'ngn');
+  assert.equal(json(get('receipts/r-113')).fundedWith.rail, 'ngn');
   assert.equal(get('receipts/r-1').status, 404);
   assert.ok('stream' in get('live'));
   assert.ok(json(get('live', 'format=json')).events.length > 0);
@@ -75,15 +87,15 @@ test('pages: board, dashboard, backlog, users, receipts, live', () => {
 });
 
 test('/me onboarding: new → pending → sms_ok → verified', () => {
-  assert.equal(json(get('me', 'state=new')).payout_account, null);
-  assert.equal(json(get('me')).payout_account.status, 'verified');
+  assert.equal(json(get('me', 'state=new')).payoutAccount, null);
+  assert.equal(json(get('me')).payoutAccount.status, 'verified');
   assert.equal(post('me/payout-account', { provider: 'wave' }).status, 400);
-  assert.equal(json(post('me/payout-account', { provider: 'wave', phone: '+221770000042' })).payout_account.status, 'pending');
+  assert.equal(json(post('me/payout-account', { provider: 'wave', phone: '+221770000042' })).payoutAccount.status, 'pending');
   assert.equal(post('me/payout-account/sms', { code: '000000' }).status, 422);
-  assert.equal(json(post('me/payout-account/sms', { code: '424242' })).payout_account.status, 'sms_ok');
+  assert.equal(json(post('me/payout-account/sms', { code: '424242' })).payoutAccount.status, 'sms_ok');
   const wrong = post('me/payout-account/confirm', { amount: 173 });
   assert.equal(wrong.status, 422);
-  assert.equal(json(post('me/payout-account/confirm', { amount: 137 })).payout_account.status, 'verified');
+  assert.equal(json(post('me/payout-account/confirm', { amount: 137 })).payoutAccount.status, 'verified');
 });
 
 test('live SSE: snapshot then transitions', async () => {

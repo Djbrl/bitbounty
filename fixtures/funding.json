@@ -1,38 +1,38 @@
 {
   "lightning": {
-    "amount_xof": 10000,
-    "fee_xof": 500,
-    "buffer_xof": 300,
-    "total_xof": 10800,
+    "amountXof": 10000,
+    "feeXof": 500,
+    "bufferXof": 300,
+    "totalXof": 10800,
     "rail": "lightning",
     "invoice": "lntbs174740n1pn89270a50341bb8e83734ee062603c63c219320ed4a40fb9fb8c2792358548e8acqpjsp5",
-    "payment_hash": "e94801a81662d0dfc8454a5638690941a5e5637bff84cb88a85cb957c61781cf",
-    "amount_sats": 17474,
-    "expires_at": "2026-10-17T15:20:00Z"
+    "paymentHash": "e94801a81662d0dfc8454a5638690941a5e5637bff84cb88a85cb957c61781cf",
+    "amountSats": 17474,
+    "expiresAt": "2026-10-17T15:20:00Z"
   },
   "usdt": {
-    "amount_xof": 10000,
-    "fee_xof": 500,
-    "buffer_xof": 300,
-    "total_xof": 10800,
+    "amountXof": 10000,
+    "feeXof": 500,
+    "bufferXof": 300,
+    "totalXof": 10800,
     "rail": "usdt",
     "address": "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE",
     "network": "TRON",
-    "amount_usdt_cents": 1922,
-    "expires_at": "2026-10-17T15:20:00Z"
+    "amountUsdtUnits": 19220000,
+    "expiresAt": "2026-10-17T15:20:00Z"
   },
   "ngn": {
-    "amount_xof": 10000,
-    "fee_xof": 500,
-    "buffer_xof": 300,
-    "total_xof": 10800,
+    "amountXof": 10000,
+    "feeXof": 500,
+    "bufferXof": 300,
+    "totalXof": 10800,
     "rail": "ngn",
-    "virtual_account": {
-      "bank_name": "Wema Bank (sandbox)",
-      "account_number": "9930481276",
-      "account_name": "BitBounty / Chidi Okafor"
+    "virtualAccount": {
+      "bankName": "Wema Bank (sandbox)",
+      "accountNumber": "9930481276",
+      "accountName": "BitBounty / Chidi Okafor"
     },
-    "amount_kobo": 2900000,
-    "expires_at": "2026-10-17T15:20:00Z"
+    "amountKobo": 2900000,
+    "expiresAt": "2026-10-17T15:20:00Z"
   }
 }

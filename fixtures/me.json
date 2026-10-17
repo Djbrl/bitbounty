@@ -1,121 +1,121 @@
 {
   "mock": {
-    "sms_code": "424242",
-    "test_amount_xof": 137,
-    "default_state": "verified"
+    "smsCode": "424242",
+    "testAmountXof": 137,
+    "defaultState": "verified"
   },
   "states": {
     "new": {
       "user": {
         "id": "usr_48c43e1947",
-        "github_id": 81234567,
+        "githubId": 81234567,
         "login": "awa-ndiaye",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/81234567?v=4",
+        "createdAt": "2021-03-14T10:22:00Z",
         "name": "Awa Ndiaye",
-        "avatar_url": "https://avatars.githubusercontent.com/u/81234567?v=4",
-        "city": "Dakar",
-        "created_at": "2021-03-14T10:22:00Z"
+        "city": "Dakar"
       },
-      "payout_account": null,
+      "payoutAccount": null,
       "earnings": {
-        "total_xof": 0,
-        "paid_count": 0
+        "totalXof": 0,
+        "paidCount": 0
       },
-      "active_claims": [],
+      "activeClaims": [],
       "payouts": []
     },
     "pending": {
       "user": {
         "id": "usr_48c43e1947",
-        "github_id": 81234567,
+        "githubId": 81234567,
         "login": "awa-ndiaye",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/81234567?v=4",
+        "createdAt": "2021-03-14T10:22:00Z",
         "name": "Awa Ndiaye",
-        "avatar_url": "https://avatars.githubusercontent.com/u/81234567?v=4",
-        "city": "Dakar",
-        "created_at": "2021-03-14T10:22:00Z"
+        "city": "Dakar"
       },
-      "payout_account": {
-        "user_id": "usr_48c43e1947",
+      "payoutAccount": {
+        "userId": "usr_48c43e1947",
         "country": "SN",
         "provider": "wave",
-        "phone_masked": "+221 77 ••• •• 42",
-        "account_name": "AWA NDIAYE",
+        "accountName": "AWA NDIAYE",
         "status": "pending",
-        "verified_at": null,
-        "locked_until": null
+        "verifiedAt": null,
+        "lockedUntil": null,
+        "phoneMasked": "+221 77 ••• •• 42"
       },
       "earnings": {
-        "total_xof": 0,
-        "paid_count": 0
+        "totalXof": 0,
+        "paidCount": 0
       },
-      "active_claims": [],
+      "activeClaims": [],
       "payouts": []
     },
     "sms_ok": {
       "user": {
         "id": "usr_48c43e1947",
-        "github_id": 81234567,
+        "githubId": 81234567,
         "login": "awa-ndiaye",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/81234567?v=4",
+        "createdAt": "2021-03-14T10:22:00Z",
         "name": "Awa Ndiaye",
-        "avatar_url": "https://avatars.githubusercontent.com/u/81234567?v=4",
-        "city": "Dakar",
-        "created_at": "2021-03-14T10:22:00Z"
+        "city": "Dakar"
       },
-      "payout_account": {
-        "user_id": "usr_48c43e1947",
+      "payoutAccount": {
+        "userId": "usr_48c43e1947",
         "country": "SN",
         "provider": "wave",
-        "phone_masked": "+221 77 ••• •• 42",
-        "account_name": "AWA NDIAYE",
+        "accountName": "AWA NDIAYE",
         "status": "sms_ok",
-        "verified_at": null,
-        "locked_until": null
+        "verifiedAt": null,
+        "lockedUntil": null,
+        "phoneMasked": "+221 77 ••• •• 42"
       },
       "earnings": {
-        "total_xof": 0,
-        "paid_count": 0
+        "totalXof": 0,
+        "paidCount": 0
       },
-      "active_claims": [],
+      "activeClaims": [],
       "payouts": []
     },
     "verified": {
       "user": {
         "id": "usr_48c43e1947",
-        "github_id": 81234567,
+        "githubId": 81234567,
         "login": "awa-ndiaye",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/81234567?v=4",
+        "createdAt": "2021-03-14T10:22:00Z",
         "name": "Awa Ndiaye",
-        "avatar_url": "https://avatars.githubusercontent.com/u/81234567?v=4",
-        "city": "Dakar",
-        "created_at": "2021-03-14T10:22:00Z"
+        "city": "Dakar"
       },
-      "payout_account": {
-        "user_id": "usr_48c43e1947",
+      "payoutAccount": {
+        "userId": "usr_48c43e1947",
         "country": "SN",
         "provider": "wave",
-        "phone_masked": "+221 77 ••• •• 42",
-        "account_name": "AWA NDIAYE",
+        "accountName": "AWA NDIAYE",
         "status": "verified",
-        "verified_at": "2026-10-17T14:32:00Z",
-        "locked_until": "2026-10-20T14:32:00Z"
+        "verifiedAt": "2026-10-17T14:32:00Z",
+        "lockedUntil": "2026-10-20T14:32:00Z",
+        "phoneMasked": "+221 77 ••• •• 42"
       },
       "earnings": {
-        "total_xof": 10000,
-        "paid_count": 1
+        "totalXof": 10000,
+        "paidCount": 1
       },
-      "active_claims": [
+      "activeClaims": [
         {
-          "bounty_id": "b-103",
-          "issue_title": "lightning.createInvoice(): return expires_at as an ISO date",
-          "repo": "teranga-labs/bitnob-js",
-          "expires_at": "2026-10-20T16:05:00Z"
+          "bountyId": "b-103",
+          "issueTitle": "lightning.createInvoice(): return expires_at as an ISO date",
+          "repoFullName": "teranga-labs/bitnob-js",
+          "expiresAt": "2026-10-20T16:05:00Z"
         }
       ],
       "payouts": [
         {
-          "bounty_id": "b-107",
-          "amount_xof": 10000,
+          "bountyId": "b-107",
+          "amountXof": 10000,
           "status": "succeeded",
-          "paid_at": "2026-10-17T18:26:00Z",
-          "receipt_id": "r-107"
+          "paidAt": "2026-10-17T18:26:00Z",
+          "receiptId": "r-107"
         }
       ]
     }
