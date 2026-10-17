@@ -12,8 +12,9 @@ Built at **Code & Chain Dakar 2026** (Bitnob), 17–18 Oct 2026. Hacking starts 
 | [docs/plan.md](docs/plan.md) | Stack, contract, data model, exact Bitnob calls, timeline, demo script |
 | [docs/product.md](docs/product.md) | Product definition, UX flows, edge cases, positioning |
 | [docs/bitnob-api.md](docs/bitnob-api.md) | Bitnob API cheat sheet |
+| [docs/setup.md](docs/setup.md) | Run locally, commands, deploy to Railway and Vercel |
 
-Status: **no product code yet**. The organisers' rule is that the project is built during the hackathon, so this repo holds only the plan until Saturday 15:00.
+Status: **monorepo scaffolded** (`apps/web`, `apps/server`). Run it with `pnpm install && pnpm dev`, see [docs/setup.md](docs/setup.md).
 
 ---
 
