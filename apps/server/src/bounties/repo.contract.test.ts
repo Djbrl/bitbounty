@@ -46,6 +46,7 @@ function claim(b: Bounty, login = "awa-dev"): ClaimRecord {
     login,
     status: "active",
     expiresAt: "2026-10-20T20:00:00.000Z",
+    extensions: 0,
   };
 }
 
@@ -154,12 +155,33 @@ function contract(name: string, h: Harness) {
       expect(await after.activeClaim(b.id)).toEqual(c);
     });
 
+    it("lists active claims, finds one by id and extends it (G5 claim timer)", async () => {
+      const repo = h.repo();
+      const b = bounty({ status: "funded" });
+      await repo.create(b);
+      const c = claim(b);
+      await repo.createClaim(c);
+      expect(await repo.findClaim(c.id)).toEqual(c);
+      expect((await repo.listActiveClaims()).filter((x) => x.bountyId === b.id)).toEqual([c]);
+
+      await repo.extendClaim(c.id, "2026-10-21T20:00:00.000Z", 1);
+      const extended = { ...c, expiresAt: "2026-10-21T20:00:00.000Z", extensions: 1 };
+      expect(await repo.findClaim(c.id)).toEqual(extended);
+      expect(await h.reopen().activeClaim(b.id)).toEqual(extended);
+
+      await h.repo().setClaimStatus(c.id, "expired");
+      expect(await h.repo().findClaim(c.id)).toEqual({ ...extended, status: "expired" });
+      expect((await h.repo().listActiveClaims()).some((x) => x.id === c.id)).toBe(false);
+    });
+
     it("ignores unknown ids", async () => {
       const repo = h.repo();
       expect(await repo.findById(randomUUID())).toBeUndefined();
       expect(await repo.activeClaim(randomUUID())).toBeUndefined();
       await repo.setStatusCommentId(randomUUID(), 1);
       await repo.setClaimStatus(randomUUID(), "released");
+      expect(await repo.findClaim(randomUUID())).toBeUndefined();
+      await repo.extendClaim(randomUUID(), "2026-10-21T20:00:00.000Z", 1);
     });
   });
 }

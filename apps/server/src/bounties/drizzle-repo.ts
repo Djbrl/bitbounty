@@ -17,6 +17,7 @@ import type { BountyRepo, ClaimRecord, CreateResult } from "./repo.js";
  * - A repo, its owner's installation or a user seen for the first time (G3 gets them from a
  *   webhook) is inserted with a placeholder GitHub id: negative, derived from the name, so it
  *   never clashes with a real one. Installation sync can replace it later.
+ * - `ClaimRecord.extensions` ↔ `claims.extensions` (0 when never extended).
  * - Submission ids: readable ids (`sub-<bountyId>-<pr>`) map to a stable uuid (`toUuid`).
  */
 
@@ -176,6 +177,7 @@ export class DrizzleBountyRepo implements BountyRepo {
       userId,
       status: claim.status,
       expiresAt: new Date(claim.expiresAt),
+      extensions: claim.extensions ?? 0,
     });
     return (await this.findClaim(claim.id))!;
   }
@@ -196,6 +198,18 @@ export class DrizzleBountyRepo implements BountyRepo {
     if (!isUuid(claimId)) return undefined;
     const [row] = await this.claimSelect().where(eq(claims.id, claimId)).limit(1);
     return row ? toClaim(row) : undefined;
+  }
+
+  // --- claim timer (G5) ---
+
+  async listActiveClaims() {
+    const rows = await this.claimSelect().where(eq(claims.status, "active")).orderBy(claims.expiresAt);
+    return rows.map(toClaim);
+  }
+
+  async extendClaim(claimId: string, expiresAt: string, extensions: number) {
+    if (!isUuid(claimId)) return;
+    await this.db.update(claims).set({ expiresAt: new Date(expiresAt), extensions }).where(eq(claims.id, claimId));
   }
 
   private claimSelect() {
@@ -305,6 +319,7 @@ function toClaim(row: { claim: typeof claims.$inferSelect; login: string }): Cla
     login: row.login,
     status: row.claim.status,
     expiresAt: row.claim.expiresAt.toISOString(),
+    extensions: row.claim.extensions,
   };
 }
 
