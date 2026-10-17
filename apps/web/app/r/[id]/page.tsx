@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getReceipt, receiptIds } from "@/components/bounty/data";
+import { getReceipt } from "@/components/bounty/data";
 import { ReceiptView } from "@/components/bounty/receipt-view";
 import { formatDuration, PROVIDER_LABEL } from "@/components/bounty/shape";
 import { formatXof, Mark, Page } from "@/components/ui";
 
 type Props = { params: Promise<{ id: string }> };
 
-export function generateStaticParams() {
-  return receiptIds().map((id) => ({ id }));
-}
+// Rendered per request: the data comes from the server (I1), never baked in at build time.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const r = await getReceipt((await params).id);

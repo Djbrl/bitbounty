@@ -3,6 +3,7 @@
 import receipts from "../../../../fixtures/receipts.json";
 import users from "../../../../fixtures/users.json";
 import type { PayoutProvider, Profile, Receipt } from "../../../../fixtures/types";
+import { apiBaseUrl, apiGet } from "../../lib/api";
 import { handleMock, type Fixtures } from "../../lib/mock-api";
 
 const fx = { users, receipts } as unknown as Fixtures;
@@ -115,3 +116,15 @@ export function formatMinutes(m: number): string {
 }
 
 export const PROVIDER_LABEL: Record<PayoutProvider, string> = { wave: "Wave", orange: "Orange Money", free: "Free Money" };
+
+/** The page's loader: the real server when configured (profile + one receipt per paid bounty), else fixtures. */
+export async function fetchProfile(login: string, now: Date = new Date()): Promise<ProfileView | null> {
+  if (!apiBaseUrl()) return loadProfile(login, now);
+  const p = await apiGet<Profile>(`/api/users/${encodeURIComponent(login)}`);
+  if (!p) return null;
+  const receipts = new Map<string, Receipt | null>();
+  await Promise.all(
+    p.work.map(async (w) => receipts.set(w.receiptId, await apiGet<Receipt>(`/api/receipts/${encodeURIComponent(w.receiptId)}`))),
+  );
+  return shapeProfile(p, (id) => receipts.get(id) ?? null, now);
+}

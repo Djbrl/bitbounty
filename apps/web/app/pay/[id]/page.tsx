@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Page } from "@/components/ui";
-import { getFundBounty } from "@/components/fund/data";
+import { fetchFundBounty } from "@/components/fund/data";
 import { FundView } from "@/components/fund/fund-view";
 
 type Props = { params: Promise<{ id: string }> };
@@ -9,13 +9,13 @@ type Props = { params: Promise<{ id: string }> };
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const bounty = getFundBounty((await params).id);
+  const bounty = await fetchFundBounty((await params).id);
   return { title: bounty ? `Fund ${bounty.repoFullName} #${bounty.issueNumber} · BitBounty` : "Fund · BitBounty" };
 }
 
 /** /pay/[id]: opened from the bot's "Fund this bounty" link. Methods left, order summary right. */
 export default async function FundPage({ params }: Props) {
-  const bounty = getFundBounty((await params).id);
+  const bounty = await fetchFundBounty((await params).id);
   if (!bounty) notFound();
   return (
     <Page

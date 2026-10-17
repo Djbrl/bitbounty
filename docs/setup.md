@@ -89,7 +89,7 @@ docker compose logs tunnel | grep trycloudflare   # the public API URL
 ### Web on Vercel
 1. **Add New Project** → import `Djbrl/bitbounty`.
 2. **Root Directory**: `apps/web` (framework detected: Next.js). Keep the default install and build commands.
-3. Set `NEXT_PUBLIC_API_URL` to the Railway server URL. For sign-in with GitHub also set `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` (see [auth.md](auth.md)).
+3. Set `NEXT_PUBLIC_API_URL` (or `BITBOUNTY_API_URL`) to the server URL: every page then reads the real server (unset = fixtures, see [api.md](api.md)). Set the same `INTERNAL_API_TOKEN` on the web and the server so `/me` and the dashboard know who is signed in. For sign-in with GitHub also set `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` (see [auth.md](auth.md)).
 4. Deploy. The home page must show "hello".
 
 Every variable lives in `.env.example`. A task that adds one updates that file in the same PR.
