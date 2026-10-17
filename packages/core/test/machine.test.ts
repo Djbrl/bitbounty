@@ -289,6 +289,11 @@ describe("the AI only sends signals", () => {
     const b = run(at("claimed", { verdict: "pass" }), [SAMPLE["pr.linked"]]);
     expect(b.verdict).toBeNull();
   });
+
+  it("a new push on a submitted PR stays submitted and clears the verdict", () => {
+    const r = transition(at("submitted", { verdict: "pass" }), SAMPLE["pr.linked"]);
+    expect(r).toMatchObject({ ok: true, to: "submitted", bounty: { verdict: null } });
+  });
 });
 
 describe("maintainer and failure paths", () => {

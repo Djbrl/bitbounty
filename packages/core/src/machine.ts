@@ -36,6 +36,8 @@ export const TRANSITIONS: Readonly<
     "maintainer.pay": ["verified"],
     "maintainer.hold": ["on_hold"],
     "maintainer.reject": ["funded"],
+    // New push (or a new PR) from the claimant: the verdict is reset, status unchanged.
+    "pr.linked": ["submitted"],
     // No bounty.cancelled: once a PR is in, the funder can't take the money back.
   },
   verified: {
