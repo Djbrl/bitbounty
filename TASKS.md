@@ -24,7 +24,7 @@ Principle: **contract first, then everything is built against mocks and interfac
 ---
 
 ## Board rules
-1. **One GitHub issue per task**, labels `pts:N`, `wave:N`, `area:…`. (Bonus pitch line: we split our own prize the way BitBounty works.)
+1. **One GitHub issue per task** (linked from each ID below), labels `pts:N`, `wave:N`, `area:…`. (Bonus pitch line: we split our own prize the way BitBounty works.)
 2. **Claim** = assign yourself + comment "on it". **One task at a time** (two if one is blocked).
 3. **Stale:** no commit or message for 90 min → the task goes back to the pool (points go to whoever finishes it).
 4. **Done** = **one PR per task**, **tested** (passing tests or manual proof) and **documented** (PR description + docs updated) **before the push**, then **adversarial review** by **another** member (they try to break it and post what they tried) and merge. **No points otherwise.** The task ID prefixes every branch and commit: `B2: payout retries`.
@@ -46,71 +46,71 @@ Points feed the prize split. The rules are in the [README](README.md#prize-agree
 ## Wave 0: foundations (15:00 → 16:15, the 4 in parallel)
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
-| F1 | Monorepo (pnpm, TS, lint) + Railway (server, Postgres) + Vercel (web) deploy + `.env.example` | 3 | – | "hello" deployed at both URLs |
-| F2 | **Contract**: `packages/core` types + `transition()` + allowed-transitions table + events + unit tests | 3 | – | tests green, merged **first** |
-| F3 | Drizzle schema + migrations + seed (bounties in every state) | 2 | F2 (types) | `pnpm db:seed` fills the DB |
-| F4 | `fixtures/*.json` for every page + Next mock route `/api/*` serving them | 2 | F2 | every page can fetch its data |
-| F5 | Bitnob: account, sandbox keys, HMAC client, `whoami` + test of the **4 key calls** (invoice, SN payout quote, VA simulate, NGN quote), results written in the README | 2 | – | 4 calls documented OK/KO |
-| F6 | GitHub App: registration, permissions, webhook receiver (smee) + signature check + `events` table (dedupe) | 2 | F1 | a test comment shows up in `events` |
+| [F1](https://github.com/Djbrl/bitbounty/issues/1) | Monorepo (pnpm, TS, lint) + Railway (server, Postgres) + Vercel (web) deploy + `.env.example` | 3 | – | "hello" deployed at both URLs |
+| [F2](https://github.com/Djbrl/bitbounty/issues/2) | **Contract**: `packages/core` types + `transition()` + allowed-transitions table + events + unit tests | 3 | – | tests green, merged **first** |
+| [F3](https://github.com/Djbrl/bitbounty/issues/3) | Drizzle schema + migrations + seed (bounties in every state) | 2 | F2 (types) | `pnpm db:seed` fills the DB |
+| [F4](https://github.com/Djbrl/bitbounty/issues/4) | `fixtures/*.json` for every page + Next mock route `/api/*` serving them | 2 | F2 | every page can fetch its data |
+| [F5](https://github.com/Djbrl/bitbounty/issues/5) | Bitnob: account, sandbox keys, HMAC client, `whoami` + test of the **4 key calls** (invoice, SN payout quote, VA simulate, NGN quote), results written in the README | 2 | – | 4 calls documented OK/KO |
+| [F6](https://github.com/Djbrl/bitbounty/issues/6) | GitHub App: registration, permissions, webhook receiver (smee) + signature check + `events` table (dedupe) | 2 | F1 | a test comment shows up in `events` |
 
 ## Wave 1: parallel building (16:15 → 00:00)
 ### Money (Bitnob)
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
-| B1 | Lightning funding: create invoice + polling job → `funding.paid` (+ conversion to USDT if possible) | 3 | F2 F5 | sandbox invoice paid → event emitted |
-| B2 | Payout pipeline: quote → initialize → finalize, retries ×3, idempotency (`pay-<bounty>`), → `payout.succeeded/failed` | 5 | F2 F5 | sandbox payout OK + failure simulated |
-| B3 | Test payout for onboarding (random 100–199 F) + confirmation endpoint | 1 | B2 | amount sent, then validated |
-| B4 | NGN rail: customer + virtual account + simulate-deposit loop + NGN→BTC trade → `funding.paid` | 3 | F5 | NGN balance → BTC → event |
-| B5 | Bitnob webhook receiver (payouts, deposits) + verification + dedupe | 2 | F6 | sandbox webhook recorded |
+| [B1](https://github.com/Djbrl/bitbounty/issues/7) | Lightning funding: create invoice + polling job → `funding.paid` (+ conversion to USDT if possible) | 3 | F2 F5 | sandbox invoice paid → event emitted |
+| [B2](https://github.com/Djbrl/bitbounty/issues/8) | Payout pipeline: quote → initialize → finalize, retries ×3, idempotency (`pay-<bounty>`), → `payout.succeeded/failed` | 5 | F2 F5 | sandbox payout OK + failure simulated |
+| [B3](https://github.com/Djbrl/bitbounty/issues/9) | Test payout for onboarding (random 100–199 F) + confirmation endpoint | 1 | B2 | amount sent, then validated |
+| [B4](https://github.com/Djbrl/bitbounty/issues/10) | NGN rail: customer + virtual account + simulate-deposit loop + NGN→BTC trade → `funding.paid` | 3 | F5 | NGN balance → BTC → event |
+| [B5](https://github.com/Djbrl/bitbounty/issues/11) | Bitnob webhook receiver (payouts, deposits) + verification + dedupe | 2 | F6 | sandbox webhook recorded |
 
 ### GitHub
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
-| G1 | Command parser (`/bounty /claim /unclaim /extend /pay /hold /reject /criteria /cancel`) pure function + permissions + tests | 2 | F2 | tests green |
-| G2 | Status-comment renderer (markdown per state, EN/FR) pure function + snapshots | 2 | F2 | snapshot of all 9 states |
-| G3 | Wiring: comment → command → `transition()` → status comment edited + label | 3 | G1 G2 F6 | `/bounty 10000` on a real issue → comment + label |
-| G4 | PR detection ("Fixes #n"), submission, merge → `pr.merged`, missing-link case | 3 | F6 F2 | merging a test PR → event |
-| G5 | Claim timer (72 h, demo 5 min) + expiry + `/extend` | 2 | G3 | claim expired → issue unassigned |
+| [G1](https://github.com/Djbrl/bitbounty/issues/12) | Command parser (`/bounty /claim /unclaim /extend /pay /hold /reject /criteria /cancel`) pure function + permissions + tests | 2 | F2 | tests green |
+| [G2](https://github.com/Djbrl/bitbounty/issues/13) | Status-comment renderer (markdown per state, EN/FR) pure function + snapshots | 2 | F2 | snapshot of all 9 states |
+| [G3](https://github.com/Djbrl/bitbounty/issues/14) | Wiring: comment → command → `transition()` → status comment edited + label | 3 | G1 G2 F6 | `/bounty 10000` on a real issue → comment + label |
+| [G4](https://github.com/Djbrl/bitbounty/issues/15) | PR detection ("Fixes #n"), submission, merge → `pr.merged`, missing-link case | 3 | F6 F2 | merging a test PR → event |
+| [G5](https://github.com/Djbrl/bitbounty/issues/16) | Claim timer (72 h, demo 5 min) + expiry + `/extend` | 2 | G3 | claim expired → issue unassigned |
 
 ### AI (Claude)
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
-| A1 | Verifier: prompt + strict JSON schema + `verify(issue, criteria, diff, ci)` + 5 fixtures (pass / fail / unsure) | 3 | F2 | 5/5 fixtures as expected |
-| A2 | GitHub Check Run publisher (success / failure / neutral) on every push | 2 | A1 F6 | check visible on a PR |
-| A3 | "Price my backlog": read open issues → keep the good ones → criteria + FCFA price + reason | 3 | F2 | JSON of suggestions on the demo repo |
-| A4 | MCP server (`post_bounty`, `get_bounty`, `cancel_bounty`) + `/v1` API with agent key + budget | 3 | F2 | Claude Code funds a bounty through MCP |
-| A5 | Agent demo scenario (Claude Code in the demo repo, Wolof task) written + tested | 2 | A4 D1 | the scenario runs 2× in a row |
+| [A1](https://github.com/Djbrl/bitbounty/issues/17) | Verifier: prompt + strict JSON schema + `verify(issue, criteria, diff, ci)` + 5 fixtures (pass / fail / unsure) | 3 | F2 | 5/5 fixtures as expected |
+| [A2](https://github.com/Djbrl/bitbounty/issues/18) | GitHub Check Run publisher (success / failure / neutral) on every push | 2 | A1 F6 | check visible on a PR |
+| [A3](https://github.com/Djbrl/bitbounty/issues/19) | "Price my backlog": read open issues → keep the good ones → criteria + FCFA price + reason | 3 | F2 | JSON of suggestions on the demo repo |
+| [A4](https://github.com/Djbrl/bitbounty/issues/20) | MCP server (`post_bounty`, `get_bounty`, `cancel_bounty`) + `/v1` API with agent key + budget | 3 | F2 | Claude Code funds a bounty through MCP |
+| [A5](https://github.com/Djbrl/bitbounty/issues/21) | Agent demo scenario (Claude Code in the demo repo, Wolof task) written + tested | 2 | A4 D1 | the scenario runs 2× in a row |
 
 ### Web (built on fixtures, styled from the build kit)
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
-| W1 | Tokens + layout + base components (cards, pills, status, table, phone frame) | 2 | F1 | storybook page or /dev |
-| W2 | Maintainer dashboard + "Price my backlog" (selection, bottom bar, "Fund N bounties") | 3 | W1 F4 | matches mockup 1, on fixtures |
-| W3 | Fund page: 3 tabs (Lightning QR auto-refresh, USDT, naira account), summary, status polling | 3 | W1 F4 | matches mockup 3, on fixtures |
-| W4 | Developer onboarding /me (FR): provider, number, OTP (mock), test amount | 3 | W1 F4 | matches mockup 4 |
-| W5 | Bounty page /b/[id] (timeline) + receipt /r/[id] | 2 | W1 F4 | both pages on fixtures |
-| W6 | Public board + live feed | 2 | W1 F4 | matches mockup 7 |
-| W7 | Proof-of-work profile /u/[login] | 2 | W1 F4 | matches mockup 8 |
-| W8 | /live projector screen (SSE, cards moving between columns) | 2 | W1 F4 | the cards move on a fake event |
-| W9 | GitHub OAuth (Auth.js) + session + web/user link | 2 | F1 | log in / log out works |
+| [W1](https://github.com/Djbrl/bitbounty/issues/22) | Tokens + layout + base components (cards, pills, status, table, phone frame) | 2 | F1 | storybook page or /dev |
+| [W2](https://github.com/Djbrl/bitbounty/issues/23) | Maintainer dashboard + "Price my backlog" (selection, bottom bar, "Fund N bounties") | 3 | W1 F4 | matches mockup 1, on fixtures |
+| [W3](https://github.com/Djbrl/bitbounty/issues/24) | Fund page: 3 tabs (Lightning QR auto-refresh, USDT, naira account), summary, status polling | 3 | W1 F4 | matches mockup 3, on fixtures |
+| [W4](https://github.com/Djbrl/bitbounty/issues/25) | Developer onboarding /me (FR): provider, number, OTP (mock), test amount | 3 | W1 F4 | matches mockup 4 |
+| [W5](https://github.com/Djbrl/bitbounty/issues/26) | Bounty page /b/[id] (timeline) + receipt /r/[id] | 2 | W1 F4 | both pages on fixtures |
+| [W6](https://github.com/Djbrl/bitbounty/issues/27) | Public board + live feed | 2 | W1 F4 | matches mockup 7 |
+| [W7](https://github.com/Djbrl/bitbounty/issues/28) | Proof-of-work profile /u/[login] | 2 | W1 F4 | matches mockup 8 |
+| [W8](https://github.com/Djbrl/bitbounty/issues/29) | /live projector screen (SSE, cards moving between columns) | 2 | W1 F4 | the cards move on a fake event |
+| [W9](https://github.com/Djbrl/bitbounty/issues/30) | GitHub OAuth (Auth.js) + session + web/user link | 2 | F1 | log in / log out works |
 
 ## Wave 2: integration (00:00 → 08:00)
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
-| I1 | Replace the web mocks with the real API (`/api/*` on the server) | 3 | W* + server | all pages on real data |
-| I2 | End-to-end happy-path script (sandbox): fund → claim → PR → verify → merge → paid | 3 | B1 B2 G3 G4 A2 | script green 3× in a row |
-| I3 | Error paths for the demo: payout failed then retried, claim expired | 2 | I2 | both cases shown cleanly |
-| I4 | Lagos route end to end (NGN → BTC → XOF) in the UI | 2 | B4 I1 | visible on /live |
+| [I1](https://github.com/Djbrl/bitbounty/issues/31) | Replace the web mocks with the real API (`/api/*` on the server) | 3 | W* + server | all pages on real data |
+| [I2](https://github.com/Djbrl/bitbounty/issues/32) | End-to-end happy-path script (sandbox): fund → claim → PR → verify → merge → paid | 3 | B1 B2 G3 G4 A2 | script green 3× in a row |
+| [I3](https://github.com/Djbrl/bitbounty/issues/33) | Error paths for the demo: payout failed then retried, claim expired | 2 | I2 | both cases shown cleanly |
+| [I4](https://github.com/Djbrl/bitbounty/issues/34) | Lagos route end to end (NGN → BTC → XOF) in the UI | 2 | B4 I1 | visible on /live |
 
 ## Wave 3: demo and submission (08:00 → 14:00)
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
-| D1 | Demo repo: seed issues (criteria, a real small bug to fix, the Wolof task) | 2 | – (from 16:00) | repo ready, issues created |
-| D2 | Pitch deck (5–6 slides: maintainer pain, demo, Bitnob in depth, traction/vision, team) | 3 | – | deck reviewed by 2 people |
-| D3 | Demo script + 3 timed rehearsals (3 min) | 2 | I2 | 3 rehearsals ≤ 3:00 |
-| D4 | Backup video of the full loop (recording + editing) | 2 | I2 | video ≤ 2 min, link ready |
-| D5 | README, LICENSE, architecture diagram, setup guide, `bitnob` package published | 2 | – | a stranger can run it locally |
-| D6 | Submission form + links checked in private browsing | 1 | all | submitted before 14:00 |
+| [D1](https://github.com/Djbrl/bitbounty/issues/35) | Demo repo: seed issues (criteria, a real small bug to fix, the Wolof task) | 2 | – (from 16:00) | repo ready, issues created |
+| [D2](https://github.com/Djbrl/bitbounty/issues/36) | Pitch deck (5–6 slides: maintainer pain, demo, Bitnob in depth, traction/vision, team) | 3 | – | deck reviewed by 2 people |
+| [D3](https://github.com/Djbrl/bitbounty/issues/37) | Demo script + 3 timed rehearsals (3 min) | 2 | I2 | 3 rehearsals ≤ 3:00 |
+| [D4](https://github.com/Djbrl/bitbounty/issues/38) | Backup video of the full loop (recording + editing) | 2 | I2 | video ≤ 2 min, link ready |
+| [D5](https://github.com/Djbrl/bitbounty/issues/39) | README, LICENSE, architecture diagram, setup guide, `bitnob` package published | 2 | – | a stranger can run it locally |
+| [D6](https://github.com/Djbrl/bitbounty/issues/40) | Submission form + links checked in private browsing | 1 | all | submitted before 14:00 |
 
 **Total = 96 pts.** Wave 0 = 14, wave 1 = 60, wave 2 = 10, wave 3 = 12, plus reviews. Average ≈ 24 pts per person.
 
