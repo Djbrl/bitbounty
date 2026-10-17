@@ -1,6 +1,8 @@
+export { applyFundingPaid } from "./apply.js";
 export { BitnobFunderCustomers, type FunderCustomers } from "./customers.js";
 export {
   FundingError,
+  isDuplicateReference,
   LightningFunding,
   toInvoiceStatus,
   type FundingEvents,

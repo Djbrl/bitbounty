@@ -1,20 +1,23 @@
 import { randomUUID } from "node:crypto";
-import type { BitnobClient } from "@bitbounty/bitnob";
-import { assertAmount, type InternalEvent } from "@bitbounty/core";
+import { BitnobError, type BitnobClient } from "@bitbounty/bitnob";
+import { assertAmount, type Bounty, type InternalEvent } from "@bitbounty/core";
 import type { FunderCustomers } from "./customers.js";
 import { priceBounty, xofToSats, type Rates } from "./pricing.js";
 import type { FundingRecord, FundingStore } from "./store.js";
 
 export interface FundingTarget {
   bountyId: string;
-  /** What the developer will receive, whole FCFA. */
-  amountXof: number;
+  /**
+   * What the developer will receive, whole FCFA. Ignored when `bounties` is set: the amount
+   * then comes from the stored bounty, never from the caller.
+   */
+  amountXof?: number;
   funderId: string;
 }
 
 export class FundingError extends Error {
   constructor(
-    readonly code: "ALREADY_FUNDED" | "UNLINKED_DEPOSIT",
+    readonly code: "ALREADY_FUNDED" | "UNLINKED_DEPOSIT" | "BOUNTY_NOT_FOUND" | "NOT_FUNDABLE" | "NO_AMOUNT",
     message: string,
   ) {
     super(message);
@@ -37,8 +40,18 @@ export interface LightningFundingOptions extends FundingEvents {
   store: FundingStore;
   rates: Rates;
   customers: FunderCustomers;
+  /**
+   * Where bounties live (the shared `bountyRepo` of app.ts). When set, `invoice()` refuses a
+   * bounty that isn't `unfunded` (cancelled, already funded…) and takes `amountXof` from it.
+   */
+  bounties?: { findById(id: string): Promise<Bounty | undefined> };
   /** Invoice lifetime. */
   expirySeconds?: number;
+  /**
+   * After `expiresAt` + this, a still-pending invoice gets one last check and is then
+   * marked expired locally, so it isn't polled forever. Default 10 min.
+   */
+  expiryGraceMs?: number;
   now?: () => Date;
   newId?: () => string;
   log?: Pick<Console, "info" | "warn" | "error">;
@@ -78,12 +91,18 @@ export class LightningFunding {
   private readonly log: Pick<Console, "info" | "warn" | "error">;
   /** Invoices someone is looking at (fund page open) → polled fast. */
   private readonly hot = new Map<string, number>();
+  private readonly expiryGraceMs: number;
+  /** Concurrent `invoice()` calls for one bounty share one Bitnob call. */
+  private readonly creating = new Map<string, Promise<FundingRecord>>();
+  /** Rows whose event is being delivered right now (no double emit from overlapping polls). */
+  private readonly delivering = new Set<string>();
 
   constructor(private readonly opts: LightningFundingOptions) {
     this.expirySeconds = opts.expirySeconds ?? 900;
     this.now = opts.now ?? (() => new Date());
     this.newId = opts.newId ?? randomUUID;
     this.log = opts.log ?? console;
+    this.expiryGraceMs = opts.expiryGraceMs ?? 600_000;
   }
 
   /**
@@ -91,28 +110,69 @@ export class LightningFunding {
    * An older invoice is no longer shown but still watched: if it gets paid anyway, the money counts.
    */
   async invoice(target: FundingTarget): Promise<FundingRecord> {
-    assertAmount(target.amountXof, "amountXof");
+    const inFlight = this.creating.get(target.bountyId);
+    if (inFlight) return inFlight;
+    const p = this.openOrCreate(target).finally(() => this.creating.delete(target.bountyId));
+    this.creating.set(target.bountyId, p);
+    return p;
+  }
+
+  private async amountFor(target: FundingTarget): Promise<number> {
+    if (!this.opts.bounties) {
+      if (target.amountXof === undefined) throw new FundingError("NO_AMOUNT", "amountXof is required without a bounty repo");
+      assertAmount(target.amountXof, "amountXof");
+      return target.amountXof;
+    }
+    const bounty = await this.opts.bounties.findById(target.bountyId);
+    if (!bounty) throw new FundingError("BOUNTY_NOT_FOUND", `bounty ${target.bountyId} not found`);
+    if (bounty.status !== "unfunded") {
+      const code = bounty.status === "cancelled" || bounty.status === "refunded" ? "NOT_FUNDABLE" : "ALREADY_FUNDED";
+      throw new FundingError(code, `bounty ${target.bountyId} is ${bounty.status}, it can't be funded`);
+    }
+    assertAmount(bounty.amountXof, "amountXof");
+    return bounty.amountXof;
+  }
+
+  private openInvoice(fundings: FundingRecord[]): FundingRecord | undefined {
+    return fundings
+      .filter((f) => f.rail === "lightning" && f.status === "pending" && f.expiresAt)
+      .find((f) => Date.parse(f.expiresAt!) - this.now().getTime() > MIN_REMAINING_MS);
+  }
+
+  private async openOrCreate(target: FundingTarget): Promise<FundingRecord> {
+    const amountXof = await this.amountFor(target);
     const fundings = await this.opts.store.listByBounty(target.bountyId);
     if (fundings.some((f) => f.status === "paid")) {
       throw new FundingError("ALREADY_FUNDED", `bounty ${target.bountyId} is already funded`);
     }
-    const open = fundings
-      .filter((f) => f.rail === "lightning" && f.status === "pending" && f.expiresAt)
-      .find((f) => Date.parse(f.expiresAt!) - this.now().getTime() > MIN_REMAINING_MS);
+    const open = this.openInvoice(fundings);
     if (open) return open;
 
-    const price = priceBounty(target.amountXof);
+    const price = priceBounty(amountXof);
     const sats = await xofToSats(this.opts.rates, price.totalXof);
     assertAmount(sats, "sats");
     const customerId = await this.opts.customers.customerId(target.funderId);
+    const create = (reference: string) =>
+      this.opts.client.createLightningInvoice({
+        customer_id: customerId,
+        amount: sats,
+        description: `BitBounty bounty ${target.bountyId}`,
+        expiry: this.expirySeconds,
+        reference,
+      });
     const reference = `fund-${target.bountyId}-${fundings.length + 1}`;
-    const inv = await this.opts.client.createLightningInvoice({
-      customer_id: customerId,
-      amount: sats,
-      description: `BitBounty bounty ${target.bountyId}`,
-      expiry: this.expirySeconds,
-      reference,
-    });
+    let inv;
+    try {
+      inv = await create(reference);
+    } catch (err) {
+      if (!isDuplicateReference(err)) throw err;
+      // Another call (another process) already created this reference: share its invoice.
+      const shared = this.openInvoice(await this.opts.store.listByBounty(target.bountyId));
+      if (shared) return shared;
+      // The reference is taken by an invoice we never stored (crash between create and store): new one.
+      this.log.warn(`[funding] reference ${reference} already used on Bitnob; retrying with a fresh one`);
+      inv = await create(`${reference}-${this.newId().slice(0, 8)}`);
+    }
 
     const created = this.now();
     return this.opts.store.create({
@@ -148,18 +208,30 @@ export class LightningFunding {
     const status = toInvoiceStatus(inv.status);
     if (status === "paid") await this.paid(f);
     if (status === "expired") await this.opts.store.markExpired(f.id);
+    if (status === "pending" && f.expiresAt && Date.parse(f.expiresAt) + this.expiryGraceMs < this.now().getTime()) {
+      // Bitnob still says pending well past expiry: stop polling it.
+      this.log.warn(`[funding] invoice ${f.bitnobRef} still pending ${this.expiryGraceMs / 1000} s after expiry; marked expired`);
+      await this.opts.store.markExpired(f.id);
+      this.hot.delete(f.id);
+    }
     return this.opts.store.get(fundingId);
   }
 
   /** One polling pass. `onlyHot`: just the invoices someone is looking at. */
   async poll(onlyHot = false): Promise<void> {
+    // Outbox first: paid rows whose event never got out (emit threw, crash) are delivered again.
+    for (const f of await this.opts.store.listUnnotified("lightning")) {
+      await this.deliver(f).catch((err) =>
+        this.log.error(`[funding] delivery for ${f.id} failed, retrying next poll: ${errMessage(err)}`),
+      );
+    }
     const t = this.now().getTime();
     for (const f of await this.opts.store.listPending("lightning")) {
       const hotUntil = this.hot.get(f.id);
       if (hotUntil !== undefined && hotUntil < t) this.hot.delete(f.id);
       if (onlyHot && !(hotUntil && hotUntil >= t)) continue;
       await this.check(f.id).catch((err) =>
-        this.log.error(`[funding] invoice ${f.bitnobRef} check failed: ${err instanceof Error ? err.message : err}`),
+        this.log.error(`[funding] invoice ${f.bitnobRef} check failed: ${errMessage(err)}`),
       );
     }
   }
@@ -167,32 +239,68 @@ export class LightningFunding {
   /** Watched invoices every `fastMs` (3 s), all pending invoices every `slowMs` (30 s). */
   startPolling(fastMs = 3_000, slowMs = 30_000): () => void {
     let elapsed = 0;
+    let running = false;
     const timer = setInterval(() => {
       elapsed += fastMs;
+      // A slow Bitnob must not pile up overlapping passes; a skipped full pass runs on the next free tick.
+      if (running) return;
       const all = elapsed >= slowMs;
       if (all) elapsed = 0;
-      void this.poll(!all);
+      running = true;
+      void this.poll(!all)
+        .catch((err) => this.log.error(`[funding] poll failed: ${errMessage(err)}`))
+        .finally(() => (running = false));
     }, fastMs);
+    timer.unref?.();
     return () => clearInterval(timer);
   }
 
   private async paid(f: FundingRecord) {
     const res = await this.opts.store.markPaid(f.id, this.now().toISOString());
-    if (!res) return; // already handled
+    if (!res) return; // already handled (the outbox covers a delivery that failed)
     this.hot.delete(f.id);
     if (res.firstForBounty) {
       this.log.info(`[funding] bounty ${f.bountyId} funded over Lightning (${f.sourceAmount} sats)`);
-      await this.opts.emit({
-        type: "funding.paid",
-        bountyId: f.bountyId,
-        occurredAt: this.now().toISOString(),
-        fundingId: f.id,
-        rail: "lightning",
-        amountXof: f.amountXof,
-      });
     } else {
       this.log.warn(`[funding] bounty ${f.bountyId} was already funded; invoice ${f.bitnobRef} credited to the funder`);
-      await this.opts.credit?.(res.funding, "bounty already funded by another payment");
+    }
+    // If this throws, the row stays un-notified and the next poll() delivers it again.
+    await this.deliver(res.funding);
+  }
+
+  /**
+   * Emits `funding.paid` (or credits the funder) for a paid row, then marks it notified.
+   * At least once: a second `funding.paid` for a bounty is rejected by `transition()`, so the
+   * consumer must treat it as already applied.
+   */
+  private async deliver(f: FundingRecord) {
+    if (this.delivering.has(f.id)) return;
+    this.delivering.add(f.id);
+    try {
+      if (f.fundsBounty === false) {
+        await this.opts.credit?.(f, "bounty already funded by another payment");
+      } else {
+        await this.opts.emit({
+          type: "funding.paid",
+          bountyId: f.bountyId,
+          occurredAt: f.paidAt ?? this.now().toISOString(),
+          fundingId: f.id,
+          rail: "lightning",
+          amountXof: f.amountXof,
+        });
+      }
+      await this.opts.store.markNotified(f.id, this.now().toISOString());
+    } finally {
+      this.delivering.delete(f.id);
     }
   }
+}
+
+function errMessage(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** Bitnob 409 DUPLICATE_KEY_ERROR: the invoice `reference` already exists. */
+export function isDuplicateReference(err: unknown): boolean {
+  return err instanceof BitnobError && (err.status === 409 || err.code === "DUPLICATE_KEY_ERROR");
 }

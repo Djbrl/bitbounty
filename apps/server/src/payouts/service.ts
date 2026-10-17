@@ -3,7 +3,16 @@ import { BitnobError } from "@bitbounty/bitnob";
 import { assertAmount, type InternalEvent, type Payout } from "@bitbounty/core";
 import type { GithubDispatcher } from "../github/dispatcher.js";
 import { PAYOUT_EVENTS, parseEnvelope, toPayoutOutcome, toPayoutUpdate, type PayoutUpdate } from "../bitnob/events.js";
-import { BankCodes, toBitnobBeneficiary, type Beneficiary, type PayoutRails } from "./rails.js";
+import {
+  BankCodes,
+  PayoutConfigError,
+  maskPhones,
+  readBankCodeFallback,
+  toBitnobBeneficiary,
+  type BankCodeFallback,
+  type Beneficiary,
+  type PayoutRails,
+} from "./rails.js";
 import type { PayoutStore } from "./store.js";
 
 export interface PayoutServiceOptions {
@@ -17,6 +26,8 @@ export interface PayoutServiceOptions {
   callbackUrl: string;
   /** What we hold and pay from. */
   fromAsset?: "USDT" | "BTC";
+  /** `bank_code`s used when Bitnob's bank directory has none. Defaults to `BITNOB_<CC>_BANK_CODES`. */
+  bankCodes?: BankCodeFallback;
   maxAttempts?: number;
   /** Wait before attempt 2, 3, … (the last value repeats). */
   retryDelaysMs?: number[];
@@ -39,9 +50,12 @@ export interface PayoutRequest {
  * Why it can't pay twice:
  * - one row per bounty; a duplicate `start()` finds it and does nothing unless it's `pending`;
  * - every move is a compare-and-set on (status, attempts), so only one worker runs an attempt;
- * - a new attempt (new quote) starts only after the previous one **definitely** failed:
- *   a 4xx from Bitnob, or Bitnob reporting it expired/failed. A timeout or 5xx on finalize
- *   means "maybe paid": the row stays `processing` and polling asks Bitnob what happened;
+ * - finalize (the only call that moves money) is sent **once** per attempt: no client-level
+ *   retry, and never again from poll/resume once the payout was initialized at Bitnob;
+ * - after a finalize error of any kind (timeout, 5xx, 409, 422…) we ask Bitnob
+ *   (`GET /api/payouts/:id`) and fail the attempt only if Bitnob says expired/failed or has
+ *   no such payout. Anything else means "maybe paid": the row stays `processing`;
+ * - a new attempt (new quote) starts only after the previous one **definitely** failed;
  * - each attempt has its own Bitnob reference `pay-<bountyId>-<n>`, so redoing the quote
  *   after a crash returns the same quote instead of creating a second payout.
  */
@@ -75,7 +89,7 @@ export class PayoutService {
     this.now = opts.now ?? (() => new Date());
     this.newId = opts.newId ?? randomUUID;
     this.log = opts.log ?? console;
-    this.banks = new BankCodes(this.rails);
+    this.banks = new BankCodes(this.rails, opts.bankCodes ?? readBankCodeFallback());
   }
 
   /** Starts paying a bounty. Safe to call any number of times for the same bounty. */
@@ -107,6 +121,8 @@ export class PayoutService {
     if (!row) return null;
     // Duplicates and late events (e.g. `processing` after `success`) land here.
     if (row.status !== "processing") return row;
+    // An event for an earlier attempt's Bitnob payout must not touch the current attempt.
+    if (update.bitnobPayoutId && row.bitnobPayoutId && update.bitnobPayoutId !== row.bitnobPayoutId) return row;
     if (update.outcome === "success") return this.succeed(row);
     if (update.outcome === "failed") return this.fail(row, `Bitnob reported ${update.rawStatus}`);
     return row;
@@ -117,15 +133,18 @@ export class PayoutService {
     for (const row of await this.store.listByStatus("processing")) {
       if (this.inFlight.has(row.id)) continue;
       await this.drive(row, false).catch((err) =>
-        this.log.error(`[payouts] poll failed for ${row.reference}: ${message(err)}`),
+        this.log.error(`[payouts] poll failed for ${row.reference}: ${safe(err)}`),
       );
     }
   }
 
-  /** On boot: finish what a crash interrupted (in-flight attempts and lost retry timers). */
+  /**
+   * On boot: finish what a crash interrupted. Runs every `pending` row, including those that
+   * were never claimed (crash between create and the first attempt) and lost retry timers.
+   */
   async resume(): Promise<void> {
     for (const row of await this.store.listByStatus("pending")) {
-      if (row.attempts > 0) await this.attempt(row).catch((err) => this.log.error(`[payouts] resume: ${message(err)}`));
+      await this.attempt(row).catch((err) => this.log.error(`[payouts] resume: ${safe(err)}`));
     }
     await this.poll();
   }
@@ -168,7 +187,8 @@ export class PayoutService {
   /**
    * Moves the current attempt forward from wherever it stands.
    * `fresh`: we just claimed it, nothing exists at Bitnob yet.
-   * Otherwise (poll / resume) we first ask Bitnob what state it's in.
+   * Otherwise (poll / resume) we first ask Bitnob what state it's in, and only initialize +
+   * finalize when Bitnob says the payout is still a bare quote (so no finalize ever took).
    */
   private async drive(row: Payout, fresh: boolean): Promise<Payout> {
     if (this.inFlight.has(row.id)) return row;
@@ -189,7 +209,15 @@ export class PayoutService {
             reference,
           });
         } catch (err) {
-          return await this.fail(row, `quote: ${message(err)}`);
+          return await this.fail(row, `quote: ${safe(err)}`, isFatal(err));
+        }
+        // The developer must receive exactly the bounty: refuse a quote that settles anything else.
+        if (Number(quote.settlement_amount) !== row.amountXof) {
+          return await this.fail(
+            row,
+            `quote ${quote.quote_id} settles ${String(quote.settlement_amount)} XOF, expected ${row.amountXof}`,
+            true,
+          );
         }
         const saved = await this.store.update(
           row.id,
@@ -200,45 +228,47 @@ export class PayoutService {
         row = saved;
       }
 
-      let stage = "quote";
       if (!fresh) {
         const remote = await this.rails.getPayout(row.bitnobPayoutId!);
-        stage = toPayoutOutcome(String(remote.status ?? ""));
+        const status = String(remote.status ?? "");
+        const stage = toPayoutOutcome(status);
         if (stage === "success") return await this.succeed(row);
-        if (stage === "failed") return await this.fail(row, `Bitnob reported ${String(remote.status)}`);
-        if (stage === "processing") return row;
-        if (stage === "quote" && remote.expires_at && Date.parse(remote.expires_at) <= this.now().getTime()) {
+        if (stage === "failed") return await this.fail(row, `Bitnob reported ${status}`);
+        if (stage !== "quote") {
+          // INITIATED: a finalize may have been sent before a crash or a lost answer. Re-sending it
+          // could pay twice, so we wait for Bitnob to move it (processing → success, or expired).
+          if (stage === "initiated" && remote.expires_at && Date.parse(remote.expires_at) <= this.now().getTime()) {
+            this.log.warn(`[payouts] ${reference} still ${status} after its quote expired; waiting for Bitnob to expire it`);
+          }
+          return row;
+        }
+        if (remote.expires_at && Date.parse(remote.expires_at) <= this.now().getTime()) {
           return await this.fail(row, "quote expired before initialize");
         }
       }
 
-      if (stage === "quote") {
-        try {
-          const ben = await this.getBeneficiary(row.userId);
-          const bankCode = await this.banks.resolve(ben.country, ben.provider);
-          await this.rails.initializePayout(row.quoteId!, {
-            reference,
-            beneficiary: toBitnobBeneficiary(ben, bankCode),
-            callback_url: this.callbackUrl,
-            payment_reason: "bounty",
-          });
-        } catch (err) {
-          // Nothing has been debited before finalize: safe to fail and retry with a new quote.
-          return await this.fail(row, `initialize: ${message(err)}`);
-        }
+      // Bitnob holds a bare quote: nothing was initialized, so nothing was finalized either.
+      try {
+        const ben = await this.getBeneficiary(row.userId);
+        const bankCode = await this.banks.resolve(ben.country, ben.provider);
+        await this.rails.initializePayout(row.quoteId!, {
+          reference,
+          beneficiary: toBitnobBeneficiary(ben, bankCode),
+          callback_url: this.callbackUrl,
+          payment_reason: "bounty",
+        });
+      } catch (err) {
+        // Nothing has been debited before finalize: safe to fail and retry with a new quote.
+        return await this.fail(row, `initialize: ${safe(err)}`, isFatal(err));
       }
 
       let finalized;
       try {
-        finalized = await this.rails.finalizePayout(row.quoteId!);
+        // Exactly one request: a client-level retry of a finalize that went through but timed
+        // out comes back "already finalized", which must never be read as "not paid".
+        finalized = await this.rails.finalizePayout(row.quoteId!, { retries: 0 });
       } catch (err) {
-        if (err instanceof BitnobError && err.status >= 400 && err.status < 500) {
-          return await this.fail(row, `finalize: ${message(err)}`);
-        }
-        // Timeout / network / 5xx: the money may already be on its way. Never retry blind;
-        // the row stays `processing` and poll() asks Bitnob for the real outcome.
-        this.log.warn(`[payouts] finalize outcome unknown for ${reference}, will poll: ${message(err)}`);
-        return row;
+        return await this.reconcile(row, `finalize: ${safe(err)}`);
       }
       const outcome = finalized?.status ? toPayoutOutcome(String(finalized.status)) : "processing";
       if (outcome === "success") return await this.succeed(row);
@@ -249,11 +279,45 @@ export class PayoutService {
     }
   }
 
+  /**
+   * After a finalize error of any kind, the money may be on its way. Only Bitnob knows:
+   * the attempt fails only if Bitnob says expired/failed or doesn't know the payout.
+   * Otherwise it stays `processing` and poll()/webhooks settle it later.
+   */
+  private async reconcile(row: Payout, cause: string): Promise<Payout> {
+    let remote;
+    try {
+      remote = await this.rails.getPayout(row.bitnobPayoutId!);
+    } catch (err) {
+      if (err instanceof BitnobError && err.status === 404) {
+        return await this.fail(row, `${cause}; Bitnob has no payout ${row.bitnobPayoutId}`);
+      }
+      this.log.warn(`[payouts] ${row.reference}-${row.attempts}: ${cause}; status check failed too (${safe(err)}), will poll`);
+      return await this.note(row, `${cause} (outcome unknown, polling)`);
+    }
+    const status = String(remote.status ?? "");
+    const outcome = toPayoutOutcome(status);
+    if (outcome === "success") return await this.succeed(row);
+    if (outcome === "failed") return await this.fail(row, `${cause}; Bitnob reports ${status}`);
+    this.log.warn(`[payouts] ${row.reference}-${row.attempts}: ${cause}; Bitnob reports ${status || "no status"}, will poll`);
+    return await this.note(row, `${cause} (Bitnob: ${status || "unknown"}, polling)`);
+  }
+
+  /** Records why a `processing` row is waiting, without changing its state. */
+  private async note(row: Payout, error: string): Promise<Payout> {
+    const updated = await this.store.update(
+      row.id,
+      { status: "processing", attempts: row.attempts },
+      { lastError: maskPhones(error) },
+    );
+    return updated ?? (await this.store.get(row.id)) ?? row;
+  }
+
   private async succeed(row: Payout): Promise<Payout> {
     const done = await this.store.update(
       row.id,
       { status: "processing", attempts: row.attempts },
-      { status: "succeeded", paidAt: this.now().toISOString() },
+      { status: "succeeded", paidAt: this.now().toISOString(), lastError: null },
     );
     if (!done) return (await this.store.get(row.id)) ?? row;
     this.log.info(`[payouts] ${row.reference} paid ${row.amountXof} FCFA (attempt ${row.attempts})`);
@@ -267,15 +331,19 @@ export class PayoutService {
     return done;
   }
 
-  private async fail(row: Payout, error: string): Promise<Payout> {
-    const last = row.attempts >= this.maxAttempts;
+  /** `fatal`: retrying can't help (bad credentials, rejected input, missing config). */
+  private async fail(row: Payout, rawError: string, fatal = false): Promise<Payout> {
+    const error = maskPhones(rawError);
+    const last = fatal || row.attempts >= this.maxAttempts;
     const updated = await this.store.update(
       row.id,
       { status: "processing", attempts: row.attempts },
       { status: last ? "failed" : "pending", lastError: error },
     );
     if (!updated) return (await this.store.get(row.id)) ?? row;
-    this.log.warn(`[payouts] ${row.reference} attempt ${row.attempts}/${this.maxAttempts} failed: ${error}`);
+    this.log.warn(
+      `[payouts] ${row.reference} attempt ${row.attempts}/${this.maxAttempts} failed${fatal ? " (not retryable)" : ""}: ${error}`,
+    );
     await this.emit({
       type: "payout.failed",
       bountyId: row.bountyId,
@@ -287,13 +355,19 @@ export class PayoutService {
     if (!last) {
       const delay = this.retryDelaysMs[Math.min(row.attempts - 1, this.retryDelaysMs.length - 1)] ?? 0;
       this.schedule(() => {
-        void this.attempt(updated).catch((err) => this.log.error(`[payouts] retry failed: ${message(err)}`));
+        void this.attempt(updated).catch((err) => this.log.error(`[payouts] retry failed: ${safe(err)}`));
       }, delay);
     }
     return updated;
   }
 }
 
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+/** 401/403: our credentials; 422: Bitnob rejected the input; config errors: ours. A retry won't fix them. */
+function isFatal(err: unknown): boolean {
+  if (err instanceof PayoutConfigError) return true;
+  return err instanceof BitnobError && (err.status === 401 || err.status === 403 || err.status === 422);
+}
+
+function safe(err: unknown): string {
+  return maskPhones(err instanceof Error ? err.message : String(err));
 }

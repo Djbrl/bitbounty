@@ -1,3 +1,4 @@
+import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
@@ -19,6 +20,13 @@ import {
   sweepIntervalMs,
 } from "./github/claims/index.js";
 import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
+import {
+  applyFundingPaid,
+  BitnobFunderCustomers,
+  BitnobRates,
+  InMemoryFundingStore,
+  LightningFunding,
+} from "./funding/index.js";
 
 export const app = new Hono();
 
@@ -106,3 +114,23 @@ if (bitnobSecret) {
 } else {
   app.post("/webhooks/bitnob", (c) => c.json({ error: "BITNOB_WEBHOOK_SECRET is not set" }, 503));
 }
+
+// B1: Lightning funding. Amount and status come from the shared bountyRepo; a paid invoice moves the
+// bounty to `funded` and publishes funding.paid (at least once, via the funding outbox).
+// In-memory FundingStore until the Drizzle one lands (see src/funding/README.md). No HTTP route yet (W3).
+export const lightningFunding =
+  process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET
+    ? (() => {
+        const client = new BitnobClient(readBitnobConfig());
+        const lf = new LightningFunding({
+          client,
+          store: new InMemoryFundingStore(),
+          rates: new BitnobRates(client),
+          customers: new BitnobFunderCustomers(client),
+          bounties: bountyRepo,
+          emit: applyFundingPaid(bountyRepo, eventBus),
+        });
+        lf.startPolling();
+        return lf;
+      })()
+    : null;

@@ -64,7 +64,7 @@ Permissions: `/bounty /criteria /pay /hold /reject /cancel` = write access on th
 ### HTTP API
 - `GET /api/bounties?status=` · `GET /api/bounties/:id` (timeline included)
 - `POST /api/bounties/:id/funding` `{rail}` → `{invoice|address|virtual_account, amount, expires_at}`
-- `GET /api/me` · `POST /api/me/payout-account` · `POST /api/me/payout-account/sms` · `POST /api/me/payout-account/confirm` `{amount}`
+- `GET /api/me` · `POST /api/me/payout-account` · `POST /api/me/payout-account/sms` `{code}` (code OK → status `sms_ok` and the server sends the 100–199 F test, B3; returns `Me` + `testPayoutSent`) · `POST /api/me/payout-account/confirm` `{amount}` → `Me` | 422 `{error:"wrong_amount", attemptsLeft}` | 423 `{error:"locked", lockedUntil}` after 3 wrong amounts
 - `GET /api/users/:login` (proof-of-work profile) · `GET /api/live` (SSE stream for /live)
 - Agents: `POST /v1/bounties` `{repo, issue|title+body, amount_xof, criteria}` · `GET /v1/bounties/:id` (header `Authorization: Bearer bb_...`)
 
