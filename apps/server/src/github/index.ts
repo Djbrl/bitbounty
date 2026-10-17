@@ -17,5 +17,4 @@ export {
   type GithubAppConfig,
   type GithubAppEnv,
 } from "./app-client.js";
-// DrizzleEventStore is imported directly from "./drizzle-event-store.js" so the
-// in-memory path (tests, offline demo) never loads the DB package.
+export { DrizzleEventStore } from "./drizzle-event-store.js";

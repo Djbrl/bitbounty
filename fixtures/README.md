@@ -11,7 +11,7 @@ Shapes and names follow the F2 contract (`@bitbounty/core`, PR #44): camelCase f
 | `/` public board | `GET /api/board` | `board.json` (stats, funded bounties, external "paid in dollars elsewhere" rows) |
 | any list | `GET /api/bounties?status=a,b&repo=&funder=` | `bounties.json` → summaries (no timeline) |
 | `/dashboard` | `GET /api/dashboard` | `dashboard.json` (+ the bounties listed in `bountyIds`, joined) |
-| `/dashboard` "Fund N bounties" | `POST /api/backlog/fund {ids?, rail?}` | `dashboard.json` `backlog` + `funding.json` |
+| `/dashboard` "Fund N bounties" | `POST /api/backlog/fund {ids?, rail?}` | `dashboard.json` `backlog` + `funding.json`; returns `bountyIds` (`sug-1` → `b-sug-1`, an unfunded bounty `/pay/[id]` and `/api/bounties/:id` resolve) |
 | `/b/[id]` | `GET /api/bounties/:id` | `bounties.json` (full detail: fundings, claims, submission + Claude report, payout, timeline) |
 | `/pay/[id]` | `POST /api/bounties/:id/funding {rail}` | `funding.json` (one template per rail, rescaled to the bounty, `expiresAt` = now + 15 min) |
 | `/pay/[id]` polling | `GET /api/bounties/:id/funding` | `pending` twice, then `paid` on the 3rd poll (unfunded bounties only) |
