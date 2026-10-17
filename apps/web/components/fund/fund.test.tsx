@@ -7,7 +7,7 @@ import { formatCountdown, formatNaira, formatUsdt, groupAccountNumber, msLeft, s
 import { FundView } from "./fund-view";
 import { encodeQr, qrPath } from "./qr";
 import { QrCode } from "./qr-code";
-import { fundReducer, initialFundState, needsSession } from "./state";
+import { errorMessage, fundReducer, initialFundState, needsSession } from "./state";
 import { SummaryCard } from "./summary-card";
 
 const ln = funding.lightning as FundingSession;
@@ -117,6 +117,14 @@ describe("fund state", () => {
     expect(needsSession(s, Date.parse("2026-10-17T15:20:00Z"))).toBe(false);
     s = fundReducer(s, { type: "select", rail: "lightning" });
     expect(s.error).toBeNull();
+  });
+
+  it("says funding is not configured on a 503 funding_not_configured, keeps the network message otherwise", () => {
+    const notConfigured = errorMessage("funding_not_configured");
+    expect(notConfigured).toContain("not set up on this server");
+    expect(notConfigured).not.toContain("Could not reach");
+    expect(errorMessage("server_unreachable")).toContain("Could not reach BitBounty");
+    expect(errorMessage("request_failed")).toContain("Could not reach BitBounty");
   });
 
   it("switches to funded and stays there", () => {

@@ -1,6 +1,8 @@
 import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
+import { ActivityLog, readApiRoutes } from "./api/index.js";
+import { DrizzleFundingReader, DrizzlePayoutReader, mergeFundings } from "./api/drizzle-read.js";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
 import { bitnobProxyRoutes } from "./dev/bitnob-proxy.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
@@ -22,6 +24,7 @@ import {
 } from "./github/claims/index.js";
 import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
 import { backlogRoutes } from "./ai/backlog/index.js";
+import { agentRoutes, agentsFromEnv, AgentService, DrizzleAgentSpending, ListAgentSpending, StaticAgentRegistry } from "./agents/index.js";
 import {
   applyFundingPaid,
   BitnobFunderCustomers,
@@ -72,6 +75,9 @@ export const eventBus = new InMemoryEventBus();
 const prDeps = defaultPrDeps(eventBus, process.env, bountyRepo);
 registerPrHandlers(githubDispatcher, prDeps);
 
+/** Set once the GitHub App is configured: lets A4 post the bot's status comment for agent bounties. */
+let githubForRepo: ReturnType<typeof appGithubForRepo> | undefined;
+
 // G3: issue_comment.created → command → transition() → status comment edited in place + label.
 // G5: claim timers (assign on /claim, expire after CLAIM_TTL_MINUTES or 72 h, /extend once).
 if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.GITHUB_WEBHOOK_SECRET) {
@@ -83,6 +89,7 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
   };
   const claimTtlMs = readClaimTtlMs();
   const github = appGithubForRepo(githubApp);
+  githubForRepo = github;
   const claimTimers: ClaimTimers = new ClaimTimers({
     repo: bountyRepo,
     bus: eventBus,
@@ -105,6 +112,27 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
     app.route("/", devFundRoutes({ token: process.env.DEV_HOOK_TOKEN, repo: bountyRepo, bus: eventBus, github, ...botSettings }));
   }
 }
+
+// A4: agents fund bounties through /v1 (and packages/mcp) with a `bb_` key, inside their owner's budget.
+const agents = agentsFromEnv(process.env.BITBOUNTY_AGENTS);
+app.route(
+  "/",
+  agentRoutes(
+    new StaticAgentRegistry(agents),
+    new AgentService({
+      repo: bountyRepo,
+      bus: eventBus,
+      spending: database
+        ? new DrizzleAgentSpending(database.db)
+        : new ListAgentSpending(() => (bountyRepo instanceof InMemoryBountyRepo ? bountyRepo.all() : [])),
+      baseUrl: process.env.WEB_BASE_URL || "https://bitbounty-app.vercel.app",
+      github: githubForRepo,
+      lang: process.env.BOT_LANG === "fr" ? "fr" : "en",
+      botLogin: process.env.GITHUB_BOT_LOGIN || undefined,
+    }),
+  ),
+);
+if (agents.length) console.log(`[agents] ${agents.length} agent key(s) loaded from BITBOUNTY_AGENTS`);
 
 // A2: pull_request opened/synchronize/reopened on a funded bounty → "BitBounty verification" check run + verify.done.
 const checkRunDeps = defaultCheckRunDeps(prDeps.bounties, eventBus);
@@ -134,13 +162,16 @@ if (bitnobSecret) {
 // B1: Lightning funding. Amount and status come from the shared bountyRepo; a paid invoice moves the
 // bounty to `funded` and publishes funding.paid (at least once, via the funding outbox).
 // In-memory FundingStore until the Drizzle one lands (see src/funding/README.md). No HTTP route yet (W3).
+/** Fundings (B1), shared with the read API (I1) so /b/:id shows them. In memory until DrizzleFundingStore lands. */
+export const fundingStore = new InMemoryFundingStore();
+
 export const lightningFunding =
   process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET
     ? (() => {
         const client = new BitnobClient(readBitnobConfig());
         const lf = new LightningFunding({
           client,
-          store: new InMemoryFundingStore(),
+          store: fundingStore,
           rates: new BitnobRates(client),
           customers: new BitnobFunderCustomers(client),
           bounties: bountyRepo,
@@ -150,3 +181,20 @@ export const lightningFunding =
         return lf;
       })()
     : null;
+
+// I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
+// Timelines and the live feed come from the internal events (ActivityLog, in memory).
+export const activityLog = new ActivityLog(bountyRepo).attach(eventBus);
+app.route(
+  "/",
+  readApiRoutes({
+    repo: bountyRepo,
+    activity: activityLog,
+    // Live fundings from memory, plus whatever is in Postgres (seed, later the Drizzle stores).
+    fundings: database ? mergeFundings(fundingStore, new DrizzleFundingReader(database.db)) : fundingStore,
+    // The payout service (B2) isn't wired into app.ts yet: show the payouts table when there is one.
+    payouts: database ? new DrizzlePayoutReader(database.db) : undefined,
+    lightning: lightningFunding,
+    internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
+  }),
+);

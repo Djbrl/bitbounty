@@ -222,6 +222,18 @@ function contract(name: string, h: Harness) {
       expect((await h.repo().listActiveClaims()).some((x) => x.id === c.id)).toBe(false);
     });
 
+    it("lists bounties newest first, capped (I1)", async () => {
+      const repo = h.repo();
+      const repoFullName = uniqueRepo();
+      const mk = (n: number, at: string) => bounty({ repoFullName, issueNumber: n, createdAt: at });
+      await repo.create(mk(1, "2026-10-17T10:00:00.000Z"));
+      await repo.create(mk(2, "2026-10-17T12:00:00.000Z"));
+      await repo.create(mk(3, "2026-10-17T11:00:00.000Z"));
+      const listed = (await repo.list()).filter((b) => b.repoFullName === repoFullName).map((b) => b.issueNumber);
+      expect(listed).toEqual([2, 3, 1]);
+      expect(await repo.list(1)).toHaveLength(1);
+    });
+
     it("ignores unknown ids", async () => {
       const repo = h.repo();
       expect(await repo.findById(randomUUID())).toBeUndefined();
