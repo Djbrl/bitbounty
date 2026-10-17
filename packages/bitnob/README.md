@@ -14,6 +14,7 @@ const quote = await bitnob.createPayoutQuote({ from_asset: "USDT", to_currency: 
 Calls: `whoami`, `createCustomer`, `createLightningInvoice`, `getLightningInvoice`, `createPayoutQuote`, `getBanks`, `createVirtualAccount`, `simulateDeposit`, `createTradingQuote`, and `request(method, path, body)` for anything else.
 Errors: every failure throws `BitnobError` with `status` (0 = no answer), `code` (`UNAUTHORIZED`, `NETWORK`, `TIMEOUT`, `BAD_RESPONSE`, `CONFIG`, `HTTP_<n>`…), `detail`, `correlationId`.
 Retries: network errors, 429 and 5xx, `retries` extra attempts (default 2), each re-signed with a fresh nonce. Writes are safe to retry because Bitnob dedupes on `reference`. A `Retry-After` header on 429/5xx (seconds or HTTP date) is honoured, capped by `maxRetryAfterMs` (default 30 s).
+Proxy mode (F7): with `BITNOB_PROXY_TOKEN` and `BITNOB_BASE_URL=https://<tunnel>/dev/bitnob` (no keys needed), the client sends `Authorization: Bearer <token>` to the team's dev proxy and skips its own signing. `forward(method, path, body)` is the proxy's raw single-attempt call.
 Secret: kept in a `#private` field, so `inspect(client)` and `JSON.stringify(client)` never contain it. `getBanks()` returns `[]` when Bitnob answers `banks: null` (the sandbox does for SN).
 
 ```bash
