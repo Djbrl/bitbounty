@@ -85,9 +85,13 @@ export function fundingView(f: FundingRecord): BountyDetail["fundings"][number] 
   return { ...rest, feeXof: f.feeXof, bufferXof: f.bufferXof, createdAt: f.createdAt };
 }
 
-export function claimView(c: ClaimRecord, createdAt: string): BountyDetail["claims"][number] {
+/** Once the work is merged, the claim did its job: show it `done`, not still `active` (I3). */
+const WORK_DONE: readonly BountyStatus[] = ["verified", "paying", "paid", "payout_failed"];
+
+export function claimView(c: ClaimRecord, createdAt: string, bountyStatus?: BountyStatus): BountyDetail["claims"][number] {
   const { login, extensions, ...rest } = c;
-  return { ...rest, userLogin: login, extended: (extensions ?? 0) > 0, createdAt };
+  const status = c.status === "active" && bountyStatus && WORK_DONE.includes(bountyStatus) ? "done" : c.status;
+  return { ...rest, status, userLogin: login, extended: (extensions ?? 0) > 0, createdAt };
 }
 
 export function submissionView(
@@ -95,8 +99,10 @@ export function submissionView(
   b: Bounty,
   createdAt: string,
 ): NonNullable<BountyDetail["submission"]> {
-  const ci = s.verdict === "pass" ? "success" : s.verdict === "fail" ? "failure" : "pending";
-  return { ...s, prUrl: `https://github.com/${b.repoFullName}/pull/${s.prNumber}`, ci, createdAt };
+  // The verdict lands on the bounty (verify.done → settlement); the stored submission may not carry it.
+  const verdict = s.verdict ?? b.verdict;
+  const ci = verdict === "pass" ? "success" : verdict === "fail" ? "failure" : "pending";
+  return { ...s, verdict, prUrl: `https://github.com/${b.repoFullName}/pull/${s.prNumber}`, ci, createdAt };
 }
 
 export function payoutView(p: Payout, createdAt: string): NonNullable<BountyDetail["payout"]> {

@@ -30,7 +30,7 @@ import {
   LightningFunding,
 } from "./funding/index.js";
 import { InMemoryPayoutStore, PayoutService, readBankCodeFallback } from "./payouts/index.js";
-import { beneficiaryFromAccounts, readPayoutAccounts, Settlement } from "./settlement/index.js";
+import { beneficiaryFromAccounts, readPayoutAccounts, Settlement, statusExtras } from "./settlement/index.js";
 import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
@@ -94,7 +94,9 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
   void claimTimers.start();
   statusSync = async (bounty) => {
     const { writer } = await github(bounty.repoFullName);
-    await syncIssue(bounty, { writer, repo: bountyRepo, ...botSettings });
+    // I3: claim, PR and payout attempt / last error / receipt, so failures read cleanly on GitHub.
+    const extras = await statusExtras(bounty, { repo: bountyRepo, payouts: payoutStore });
+    await syncIssue(bounty, { writer, repo: bountyRepo, extras, ...botSettings });
   };
   // DEV ONLY: POST /dev/fund marks a bounty paid until Bitnob funding is wired (see github/claims/dev-fund.ts).
   if (process.env.DEV_HOOK_TOKEN) {

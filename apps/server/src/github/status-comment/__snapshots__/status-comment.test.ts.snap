@@ -507,11 +507,11 @@ Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 ● **Funded** · ○ Claimed · ○ PR · ○ Validated · ○ Paid
 
-_No acceptance criteria yet. Nobody can claim until the maintainer confirms some._
+_Acceptance criteria: the issue's **Done when** list. Claude checks the PR against it._
 
 **[Fund this bounty →](https://bitbounty.app/pay/bb_7Hc2)**
 
-**Next:** maintainer, add acceptance criteria to the issue (or confirm Claude's draft with \`/criteria ok\`), then fund it.
+**Next:** fund it with the link above (list the acceptance criteria under **Done when** in the issue). Developers can \`/claim\` once the money is held.
 
 <sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
@@ -526,11 +526,11 @@ Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 ● **Financée** · ○ Réservée · ○ PR · ○ Validée · ○ Payée
 
-_Pas encore de critères d'acceptation. Personne ne peut réserver tant que le mainteneur n'en a pas confirmé._
+_Critères d'acceptation : la liste **Done when** de l'issue. Claude vérifie la PR par rapport à elle._
 
 **[Financer cette prime →](https://bitbounty.app/pay/bb_7Hc2)**
 
-**Prochaine étape :** mainteneur, ajoutez des critères d'acceptation à l'issue (ou validez le brouillon de Claude avec \`/criteria ok\`), puis financez-la.
+**Prochaine étape :** financez-la avec le lien ci-dessus (listez les critères d'acceptation sous **Done when** dans l'issue). Les devs pourront faire \`/claim\` dès que l'argent est bloqué.
 
 <sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "

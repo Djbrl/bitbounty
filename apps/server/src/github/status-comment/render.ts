@@ -34,6 +34,8 @@ export interface StatusCommentExtras {
     reference?: string | null;
     lastError?: string | null;
     attempts?: number | null;
+    /** No automatic retry left (last attempt used, or an error retrying can't fix). */
+    final?: boolean | null;
   } | null;
   /** Free text from `/hold <reason>` or the system (e.g. "merged with red CI"). */
   holdReason?: string | null;
@@ -143,7 +145,10 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
   const progress = progressLine(status, c);
   if (progress) out.push(progress);
 
-  if (status !== "refunded" && status !== "cancelled") out.push(criteriaBlock(bounty, extras, c).join("\n"));
+  if (status !== "refunded" && status !== "cancelled") {
+    const block = criteriaBlock(bounty, extras, c);
+    if (block.length) out.push(block.join("\n"));
+  }
 
   const body: string[] = [];
   switch (status) {
@@ -216,7 +221,7 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
   }
   out.push(...body);
 
-  out.push(`${c.nextLabel} ${nextAction(status, { c, hasCriteria, dev, issue, pr, meUrl, verdict: bounty.verdict })}`);
+  out.push(`${c.nextLabel} ${nextAction(status, { c, hasCriteria, dev, issue, pr, meUrl, verdict: bounty.verdict, payoutFinal: extras.payout?.final === true })}`);
 
   out.push(`<sub>${c.footer} · [${c.bountyPage}](${base}/b/${id})</sub>`);
   return out.join("\n\n") + "\n";
@@ -224,7 +229,7 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
 
 function nextAction(
   status: BountyStatus,
-  ctx: { c: Copy; hasCriteria: boolean; dev: string; issue: string; pr: string | null; meUrl: string; verdict: Bounty["verdict"] },
+  ctx: { c: Copy; hasCriteria: boolean; dev: string; issue: string; pr: string | null; meUrl: string; verdict: Bounty["verdict"]; payoutFinal?: boolean },
 ): string {
   const { c, hasCriteria, dev, issue, meUrl } = ctx;
   const pr = ctx.pr ?? "PR";
@@ -232,7 +237,8 @@ function nextAction(
     case "unfunded":
       return hasCriteria ? c.next.unfunded : c.next.unfundedNoCriteria;
     case "funded":
-      return hasCriteria ? c.next.funded(meUrl) : c.next.fundedNoCriteria;
+      // Claims are open once funded, criteria or not (A2 falls back to the issue's "Done when").
+      return c.next.funded(meUrl);
     case "claimed":
       return c.next.claimed(dev, issue);
     case "submitted":
@@ -246,7 +252,7 @@ function nextAction(
     case "on_hold":
       return c.next.onHold;
     case "payout_failed":
-      return c.next.payoutFailed(dev, meUrl);
+      return ctx.payoutFinal ? c.next.payoutFailedFinal(dev, meUrl) : c.next.payoutFailed(dev, meUrl);
     case "refunded":
     case "cancelled":
       return c.next.closed;

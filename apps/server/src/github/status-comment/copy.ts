@@ -34,7 +34,6 @@ export interface Copy {
   next: {
     unfundedNoCriteria: string;
     unfunded: string;
-    fundedNoCriteria: string;
     funded: (meUrl: string) => string;
     claimed: (who: string, issue: string) => string;
     submittedPending: (pr: string) => string;
@@ -44,6 +43,7 @@ export interface Copy {
     paid: (who: string) => string;
     onHold: string;
     payoutFailed: (who: string, meUrl: string) => string;
+    payoutFailedFinal: (who: string, meUrl: string) => string;
     closed: string;
   };
   bountyPage: string;
@@ -70,7 +70,7 @@ const en: Copy = {
   },
   steps: ["Funded", "Claimed", "PR", "Validated", "Paid"],
   issueLine: (issue, title) => `Bounty on **${issue}** · ${title}`,
-  noCriteria: "_No acceptance criteria yet. Nobody can claim until the maintainer confirms some._",
+  noCriteria: "_Acceptance criteria: the issue's **Done when** list. Claude checks the PR against it._",
   moreCriteria: (n) => `_…and ${n} more on the bounty page._`,
   fundCta: "Fund this bounty →",
   fundedHeld: (amount, sats, rail, at) =>
@@ -100,10 +100,8 @@ const en: Copy = {
   nextLabel: "**Next:**",
   next: {
     unfundedNoCriteria:
-      "maintainer, add acceptance criteria to the issue (or confirm Claude's draft with `/criteria ok`), then fund it.",
+      "fund it with the link above (list the acceptance criteria under **Done when** in the issue). Developers can `/claim` once the money is held.",
     unfunded: "fund it with the link above. Developers can `/claim` once the money is held.",
-    fundedNoCriteria:
-      "maintainer, confirm the acceptance criteria with `/criteria ok`. Claims open after that.",
     funded: (meUrl) =>
       `comment \`/claim\` to take it. You need a payout account at ${meUrl}. Paid to Wave, Orange Money or Free Money within minutes of the merge.`,
     claimed: (who, issue) =>
@@ -118,6 +116,8 @@ const en: Copy = {
     onHold: "maintainer, `/pay` to release the money or `/reject <reason>` to reopen the bounty for claims.",
     payoutFailed: (who, meUrl) =>
       `${who}, check your payout account at ${meUrl}. We retry automatically.`,
+    payoutFailedFinal: (who, meUrl) =>
+      `${who}, check your payout account at ${meUrl}. No more automatic retries: the maintainer or BitBounty retries once it's fixed.`,
     closed: "nothing. This bounty is closed.",
   },
   bountyPage: "Bounty page",
@@ -142,8 +142,7 @@ const fr: Copy = {
   },
   steps: ["Financée", "Réservée", "PR", "Validée", "Payée"],
   issueLine: (issue, title) => `Prime sur **${issue}** · ${title}`,
-  noCriteria:
-    "_Pas encore de critères d'acceptation. Personne ne peut réserver tant que le mainteneur n'en a pas confirmé._",
+  noCriteria: "_Critères d'acceptation : la liste **Done when** de l'issue. Claude vérifie la PR par rapport à elle._",
   moreCriteria: (n) => `_…et ${n} de plus sur la page de la prime._`,
   fundCta: "Financer cette prime →",
   fundedHeld: (amount, sats, rail, at) =>
@@ -176,10 +175,8 @@ const fr: Copy = {
   nextLabel: "**Prochaine étape :**",
   next: {
     unfundedNoCriteria:
-      "mainteneur, ajoutez des critères d'acceptation à l'issue (ou validez le brouillon de Claude avec `/criteria ok`), puis financez-la.",
+      "financez-la avec le lien ci-dessus (listez les critères d'acceptation sous **Done when** dans l'issue). Les devs pourront faire `/claim` dès que l'argent est bloqué.",
     unfunded: "financez-la avec le lien ci-dessus. Les devs pourront faire `/claim` dès que l'argent est bloqué.",
-    fundedNoCriteria:
-      "mainteneur, confirmez les critères d'acceptation avec `/criteria ok`. Les réservations ouvrent ensuite.",
     funded: (meUrl) =>
       `commentez \`/claim\` pour la prendre. Il faut un compte de paiement sur ${meUrl}. Payé sur Wave, Orange Money ou Free Money quelques minutes après le merge.`,
     claimed: (who, issue) =>
@@ -196,6 +193,8 @@ const fr: Copy = {
       "mainteneur, `/pay` pour débloquer l'argent ou `/reject <motif>` pour rouvrir la prime aux réservations.",
     payoutFailed: (who, meUrl) =>
       `${who}, vérifiez votre compte de paiement sur ${meUrl}. Nous réessayons automatiquement.`,
+    payoutFailedFinal: (who, meUrl) =>
+      `${who}, vérifiez votre compte de paiement sur ${meUrl}. Plus de nouvel essai automatique : le mainteneur ou BitBounty relance une fois corrigé.`,
     closed: "rien. Cette prime est close.",
   },
   bountyPage: "Page de la prime",
