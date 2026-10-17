@@ -135,6 +135,17 @@ describe("fund page", () => {
     expect(getFundBounty("nope")).toBeNull();
   });
 
+  it("loads a bounty created from the dashboard backlog (Fund N bounties)", () => {
+    expect(getFundBounty("b-sug-1")).toMatchObject({
+      id: "b-sug-1",
+      status: "unfunded",
+      amountXof: 7500,
+      repoFullName: "teranga-labs/bitnob-js",
+      issueNumber: 25,
+      funderLogin: "Djbrl",
+    });
+  });
+
   it("renders the three tabs and the summary for an unfunded bounty", () => {
     const html = sp(renderToStaticMarkup(<FundView bounty={getFundBounty("b-101")!} />));
     expect(html).toContain("Fund this bounty");
