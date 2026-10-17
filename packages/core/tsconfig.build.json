@@ -1,0 +1,6 @@
+{
+  // Emits dist/ for the server's production runtime (node can't load the TS source).
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": false, "outDir": "dist", "rootDir": "src" },
+  "include": ["src"]
+}

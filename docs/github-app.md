@@ -84,3 +84,23 @@ const octokit = await gh.getInstallationOctokit(e.installationId!);
 Handler keys: `"*"`, `"<event>"` or `"<event>.<action>"`. A handler that throws marks the event
 `failed` and returns 500, so GitHub's redelivery retries it; a `processed` event is never re-run.
 Keep handlers quick (enqueue to pg-boss for slow work): GitHub times out after 10 s.
+
+## 6. PR detection and merge (G4)
+
+`apps/server/src/github/pr/` registers on `githubDispatcher` for `pull_request` and publishes on
+`eventBus` (exported from `app.ts`; in-memory until pg-boss, same `publish`/`subscribe` interface).
+
+| Webhook | Effect |
+|---|---|
+| `opened` / `edited` / `synchronize` / `reopened`, body or title says `Fixes #n` (or closes/resolves, `owner/repo#n`, full issue URL) | if the bounty on #n is `claimed`/`submitted` and the PR author is the claimant → bounty `submitted`, `pr.linked` (new head sha on each push, verdict reset) |
+| same, PR author isn't the claimant | no link; polite comment on the PR (on `opened`/`reopened` only) |
+| same, bounty `funded` but unclaimed | no link; comment pointing to `/claim` |
+| same, bounty `unfunded` / no bounty / cross-repo ref | ignored |
+| `closed` + `merged` on the linked PR | `pr.merged` with `mergeSha`, `authorLogin`, `mergedByLogin`, `ciGreen` (check runs + statuses on the head sha, our own check excluded) |
+| `closed` + `merged`, not linked (no `Fixes #n`, or by a non-claimant) | comment on the issue: "Is PR #34 the fix for #12? `/pay @awa`" |
+| `closed` without merge | nothing; reopening relinks |
+
+Refs inside code, fenced blocks and HTML comments (PR templates) are ignored. One keyword per
+issue, like GitHub: `Fixes #1, fixes #2` links both, `Fixes #1, #2` only #1. Bounty lookups go
+through `BountyRepo` (in-memory until F3). Comments use the App installation when
+`GITHUB_APP_ID`/`GITHUB_PRIVATE_KEY` are set, otherwise they are logged.

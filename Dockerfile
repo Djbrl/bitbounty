@@ -7,4 +7,5 @@ RUN pnpm install --frozen-lockfile --filter "@bitbounty/server..." \
  && pnpm --filter "@bitbounty/server..." build
 ENV NODE_ENV=production PORT=8787
 EXPOSE 8787
-CMD ["node", "apps/server/dist/index.js"]
+# --conditions: load workspace packages (@bitbounty/core) from their built dist/, not TS source.
+CMD ["node", "--conditions=bitbounty-dist", "apps/server/dist/index.js"]
