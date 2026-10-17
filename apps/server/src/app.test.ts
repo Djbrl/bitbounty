@@ -18,4 +18,9 @@ describe("server", () => {
     const res = await app.request("/nope");
     expect(res.status).toBe(404);
   });
+
+  it("refuses GitHub webhooks with 503 when no secret is configured", async () => {
+    const res = await app.request("/webhooks/github", { method: "POST", body: "{}" });
+    expect(res.status).toBe(503);
+  });
 });
