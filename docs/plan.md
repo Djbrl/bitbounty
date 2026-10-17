@@ -111,7 +111,7 @@ Each runs 2–3 parallel agents on separate folders (Brainstorm rule: one folder
 4. (30 s) Merge → **the developer's phone gets the payment** → receipt comment, /live screen.
 5. (30 s) Agent: Claude Code, in the same repo, funds a Wolof translation itself through MCP → a teammate delivers → paid.
 6. (20 s) Lagos: a bank transfer in naira funds a bounty → paid in FCFA in Dakar. Bitcoin as the bridge.
-7. (10 s) Close: proof-of-work profile + "BitBounty for code, Làkk for language".
+7. (10 s) Close: proof-of-work profile + the Btrust line: "locating, educating, remunerating: BitBounty turns it into a GitHub button" (see docs/product.md).
 Backup: a video of the full loop recorded Sunday morning.
 
 ## 9. Risks → fallbacks

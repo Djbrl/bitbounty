@@ -289,3 +289,15 @@ Chain: **NGN virtual account → NGN balance → NGN/USDT (or NGN/BTC) trade →
 - Sandbox: `POST /api/virtual-accounts/:id/simulate-deposit` credits **₦1,000 per call** (fixed) → loop it to reach a bounty's amount. NGN quotes/orders work in sandbox.
 - Production: virtual accounts + NGN trading are enabled by Bitnob **after KYB** (24–48 h), not self-serve.
 - **Bitcoin rule:** going through **NGN → BTC → XOF** makes Bitcoin the bridge between the two currencies (like WestToEast). Otherwise Lightning (diaspora / agent funding) remains the main Bitcoin feature.
+
+---
+
+# Pitch angle: Btrust (event partner) (17 10 2026)
+Btrust's mission, as on its site: *"Locating, educating, and remunerating Bitcoin Open-Source Engineers in the Global South."* ([btrust.tech/about](https://www.btrust.tech/about)). Its grants are "contingent on their Proof of Work". It was founded with 500 BTC.
+**BitBounty is the infrastructure for those three verbs**, built on Bitnob:
+- **Locate** → the public board + **proof-of-work profiles** (paid, merged, verifiable work). That's exactly the signal Btrust uses to award its grants.
+- **Educate** → the ladder of "good first paid issues" + **Claude's review on every PR** (criterion by criterion, with evidence). Every bounty is a paid exercise with feedback.
+- **Remunerate** → payment in local currency on mobile money, minutes after the merge, through Bitnob. No PayPal, no Stripe, no wire transfer.
+**Use case to say on stage:** a funder like Btrust (or a Bitcoin project) puts sats over Lightning on issues in Bitcoin open-source repos → developers in Dakar, Lagos or Nairobi get paid in FCFA, naira or shillings. Sats in, local currency out.
+**Line:** "Btrust locates, educates and remunerates Bitcoin engineers in the Global South. BitBounty turns that into a GitHub button: an issue, a price in sats, and a payment on Wave as soon as it merges."
+Careful: quote their wording exactly, and don't imply a partnership that doesn't exist.
