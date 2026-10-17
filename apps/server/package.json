@@ -16,7 +16,8 @@
     "payout:smoke": "tsx --env-file-if-exists=../../.env scripts/payout-smoke.ts",
     "lightning:smoke": "tsx --env-file-if-exists=../../.env scripts/lightning-smoke.ts",
     "test-payout:smoke": "tsx --env-file-if-exists=../../.env scripts/test-payout-smoke.ts",
-    "ngn:smoke": "tsx --env-file-if-exists=../../.env scripts/ngn-smoke.ts"
+    "ngn:smoke": "tsx --env-file-if-exists=../../.env scripts/ngn-smoke.ts",
+    "e2e": "tsx --env-file-if-exists=../../.env scripts/e2e.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

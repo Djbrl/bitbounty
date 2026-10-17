@@ -13,7 +13,7 @@ import { InMemoryEventBus, defaultPrDeps, registerPrHandlers } from "./github/pr
 import { InMemoryBountyRepo, type BountyRepo } from "./bounties/repo.js";
 import { DrizzleBountyRepo } from "./bounties/drizzle-repo.js";
 import { createGithubApp } from "./github/app-client.js";
-import { installationWriterFactory, registerCommentWiring } from "./github/wiring/index.js";
+import { installationWriterFactory, registerCommentWiring, syncIssue } from "./github/wiring/index.js";
 import {
   appGithubForRepo,
   ClaimTimers,
@@ -32,6 +32,9 @@ import {
   InMemoryFundingStore,
   LightningFunding,
 } from "./funding/index.js";
+import { InMemoryPayoutStore, PayoutService, readBankCodeFallback } from "./payouts/index.js";
+import { beneficiaryFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement } from "./settlement/index.js";
+import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
 
@@ -75,6 +78,8 @@ export const eventBus = new InMemoryEventBus();
 const prDeps = defaultPrDeps(eventBus, process.env, bountyRepo);
 registerPrHandlers(githubDispatcher, prDeps);
 
+/** Re-renders a bounty's status comment + label from outside a webhook (set when the GitHub App is configured). */
+let statusSync: ((bounty: Bounty) => Promise<void>) | undefined;
 /** Set once the GitHub App is configured: lets A4 post the bot's status comment for agent bounties. */
 let githubForRepo: ReturnType<typeof appGithubForRepo> | undefined;
 
@@ -107,6 +112,10 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
     ...botSettings,
   });
   void claimTimers.start();
+  statusSync = async (bounty) => {
+    const { writer } = await github(bounty.repoFullName);
+    await syncIssue(bounty, { writer, repo: bountyRepo, ...botSettings });
+  };
   // DEV ONLY: POST /dev/fund marks a bounty paid until Bitnob funding is wired (see github/claims/dev-fund.ts).
   if (process.env.DEV_HOOK_TOKEN) {
     app.route("/", devFundRoutes({ token: process.env.DEV_HOOK_TOKEN, repo: bountyRepo, bus: eventBus, github, ...botSettings }));
@@ -182,6 +191,38 @@ export const lightningFunding =
       })()
     : null;
 
+// I2: settlement, the glue after the PR. verify.done → verdict on the bounty; merge or /pay that
+// verified it → B2 payout after OBJECTION_WINDOW_MINUTES (0 by default, the demo); payout events →
+// paying / paid / payout_failed; funding, PR and payout events re-render the status comment.
+// Payouts need Bitnob keys; where to pay comes from PAYOUT_ACCOUNTS until W4/B3 store accounts.
+let payoutService: PayoutService | null = null;
+export const settlement = new Settlement({
+  repo: bountyRepo,
+  bus: eventBus,
+  startPayout: (req) => {
+    if (!payoutService) throw new Error("payouts need BITNOB_CLIENT_ID / BITNOB_CLIENT_SECRET");
+    return payoutService.start(req);
+  },
+  sync: (bounty) => statusSync?.(bounty) ?? Promise.resolve(),
+  // Validated at boot: a bad value refuses to start instead of paying at once.
+  objectionMs: readObjectionWindowMs(),
+}).register();
+
+if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
+  payoutService = new PayoutService({
+    rails: new BitnobClient(readBitnobConfig()),
+    // In-memory until a Drizzle PayoutStore lands (keep update() a compare-and-set, see payouts/README.md).
+    store: new InMemoryPayoutStore(),
+    emit: settlement.applyPayoutEvent,
+    getBeneficiary: beneficiaryFromAccounts(readPayoutAccounts()),
+    callbackUrl: process.env.BITNOB_CALLBACK_URL || "https://example.com/webhooks/bitnob",
+    fromAsset: process.env.BITNOB_PAYOUT_ASSET === "BTC" ? "BTC" : "USDT",
+    bankCodes: readBankCodeFallback(),
+  });
+  payoutService.register(bitnobDispatcher);
+  void payoutService.resume();
+  payoutService.startPolling();
+}
 // I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
 // Timelines and the live feed come from the internal events (ActivityLog, in memory).
 export const activityLog = new ActivityLog(bountyRepo).attach(eventBus);
