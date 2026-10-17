@@ -6,6 +6,7 @@ import { InMemoryEventBus, defaultPrDeps, registerPrHandlers } from "./github/pr
 import { createGithubApp } from "./github/app-client.js";
 import { installationWriterFactory, registerCommentWiring } from "./github/wiring/index.js";
 import { InMemoryBountyRepo } from "./bounties/repo.js";
+import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
 
 export const app = new Hono();
 
@@ -23,7 +24,8 @@ export const eventBus = new InMemoryEventBus();
 export const bountyRepo = new InMemoryBountyRepo();
 
 // G4: pull_request opened/edited/synchronize/reopened → pr.linked; closed+merged → pr.merged.
-registerPrHandlers(githubDispatcher, { ...defaultPrDeps(eventBus), bounties: bountyRepo });
+const prDeps = { ...defaultPrDeps(eventBus), bounties: bountyRepo };
+registerPrHandlers(githubDispatcher, prDeps);
 
 // G3: issue_comment.created → command → transition() → status comment edited in place + label.
 if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.GITHUB_WEBHOOK_SECRET) {
@@ -36,6 +38,10 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
     botLogin: process.env.GITHUB_BOT_LOGIN || undefined,
   });
 }
+
+// A2: pull_request opened/synchronize/reopened on a funded bounty → "BitBounty verification" check run + verify.done.
+const checkRunDeps = defaultCheckRunDeps(prDeps.bounties, eventBus);
+if (checkRunDeps) registerCheckRun(githubDispatcher, checkRunDeps);
 
 // In-memory store until F3 lands; then swap in DrizzleEventStore (see docs/github-app.md).
 const secret = process.env.GITHUB_WEBHOOK_SECRET;
