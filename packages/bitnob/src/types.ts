@@ -188,3 +188,19 @@ export interface Bank {
   bank_name: string;
   bank_code: string;
 }
+
+export interface ExchangeRate {
+  base_currency: string;
+  target_currency: string;
+  buy_rate: string;
+  sell_rate: string;
+  mid_rate: string;
+  valid_for_seconds?: number;
+}
+
+export interface TradingPrice {
+  base_currency: string;
+  quote_currency: string;
+  /** Quote currency per 1 base, e.g. USDT per BTC. */
+  price: string;
+}
