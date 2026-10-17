@@ -412,3 +412,124 @@ describe("helpers", () => {
     expect(() => assertAmount(0.1 + 0.2, "x")).toThrow("x must be a positive integer");
   });
 });
+
+describe("review fixes (F2 post-merge)", () => {
+  it.each(["constructor", "hasOwnProperty", "__proto__", "toString", "valueOf"])(
+    "refuses the prototype key %s as an event type",
+    (type) => {
+      for (const s of BOUNTY_STATUSES) {
+        const r = transition(at(s), { ...SAMPLE["funding.paid"], type } as unknown as InternalEvent);
+        expect(r.ok, `${type} from ${s}`).toBe(false);
+        expect(canTransition(s, type as EventType)).toBe(false);
+      }
+    },
+  );
+
+  it("refuses a prototype key as a status", () => {
+    for (const status of ["constructor", "__proto__", "hasOwnProperty"]) {
+      expect(transition(at(status as BountyStatus), SAMPLE["funding.paid"]).ok, status).toBe(false);
+    }
+  });
+
+  it.each([null, undefined, "pr.merged", 42, []])("refuses a non-object event %s", (event) => {
+    const r = transition(at("submitted"), event as unknown as InternalEvent);
+    expect(r).toMatchObject({ ok: false, code: "ILLEGAL_TRANSITION" });
+  });
+
+  it("no refund after a PR, even once /reject reopened the bounty", () => {
+    const b = run(newBounty(), [
+      SAMPLE["funding.paid"],
+      SAMPLE["claim.created"],
+      SAMPLE["pr.linked"],
+      SAMPLE["maintainer.reject"],
+    ]);
+    expect(b).toMatchObject({ status: "funded", hadSubmission: true });
+    expect(transition(b, SAMPLE["bounty.cancelled"])).toMatchObject({ ok: false, code: "SUBMISSION_LOCKED" });
+    // A new claimant can still take it.
+    expect(transition(b, SAMPLE["claim.created"])).toMatchObject({ ok: true, to: "claimed" });
+    const claimed = run(b, [SAMPLE["claim.created"]]);
+    expect(transition(claimed, SAMPLE["bounty.cancelled"]).ok).toBe(false);
+  });
+
+  it("no refund after a merge put on hold and then rejected", () => {
+    const b = run(newBounty(), [
+      SAMPLE["funding.paid"],
+      SAMPLE["claim.created"],
+      SAMPLE["pr.linked"],
+      { ...SAMPLE["verify.done"], verdict: "fail" },
+      SAMPLE["pr.merged"],
+      SAMPLE["maintainer.reject"],
+    ]);
+    expect(b.status).toBe("funded");
+    expect(transition(b, SAMPLE["bounty.cancelled"]).ok).toBe(false);
+  });
+
+  it("no refund after /pay confirmed a merge without 'Fixes #n'", () => {
+    const b = run(newBounty(), [
+      SAMPLE["funding.paid"],
+      SAMPLE["claim.created"],
+      SAMPLE["maintainer.pay"],
+      SAMPLE["maintainer.hold"],
+      SAMPLE["maintainer.reject"],
+    ]);
+    expect(transition(b, SAMPLE["bounty.cancelled"]).ok).toBe(false);
+  });
+
+  it("a claim released without a PR can still be refunded", () => {
+    const b = run(newBounty(), [SAMPLE["funding.paid"], SAMPLE["claim.created"], SAMPLE["claim.released"]]);
+    expect(transition(b, SAMPLE["bounty.cancelled"])).toMatchObject({ ok: true, to: "refunded" });
+  });
+
+  it("pr.linked records the PR and commit", () => {
+    const b = run(at("claimed"), [SAMPLE["pr.linked"]]);
+    expect(b).toMatchObject({ prNumber: 34, headSha: "abc123", hadSubmission: true });
+  });
+
+  it("verify.done for another commit or PR is refused", () => {
+    const b = run(at("claimed"), [SAMPLE["pr.linked"]]);
+    expect(transition(b, { ...SAMPLE["verify.done"], headSha: "old999" })).toMatchObject({
+      ok: false,
+      code: "STALE_EVENT",
+    });
+    expect(transition(b, { ...SAMPLE["verify.done"], prNumber: 99 })).toMatchObject({
+      ok: false,
+      code: "STALE_EVENT",
+    });
+    expect(transition(b, SAMPLE["verify.done"])).toMatchObject({ ok: true, bounty: { verdict: "pass" } });
+  });
+
+  it("a stale pass after a new push can't make the merge auto-pay", () => {
+    const b = run(at("claimed"), [SAMPLE["pr.linked"], { ...SAMPLE["pr.linked"], headSha: "new456" }]);
+    expect(transition(b, SAMPLE["verify.done"]).ok).toBe(false); // verdict on abc123
+    expect(transition(b, SAMPLE["pr.merged"])).toMatchObject({ ok: true, to: "on_hold" });
+  });
+
+  it("pr.merged for another PR is refused", () => {
+    const b = run(at("claimed"), [SAMPLE["pr.linked"], SAMPLE["verify.done"]]);
+    expect(transition(b, { ...SAMPLE["pr.merged"], prNumber: 99 })).toMatchObject({
+      ok: false,
+      code: "STALE_EVENT",
+    });
+    expect(transition(b, SAMPLE["pr.merged"])).toMatchObject({ ok: true, to: "verified" });
+  });
+
+  it("without prNumber/headSha on the bounty (older data), the binding is skipped", () => {
+    const b = at("submitted", { verdict: "pass" });
+    expect(transition(b, { ...SAMPLE["verify.done"], headSha: "any" }).ok).toBe(true);
+    expect(transition(b, { ...SAMPLE["pr.merged"], prNumber: 99 }).ok).toBe(true);
+  });
+
+  it("an exact pr.linked replay keeps the verdict; a new commit clears it", () => {
+    const b = run(at("claimed"), [SAMPLE["pr.linked"], SAMPLE["verify.done"]]);
+    expect(transition(b, SAMPLE["pr.linked"])).toMatchObject({ ok: true, bounty: { verdict: "pass" } });
+    expect(transition(b, { ...SAMPLE["pr.linked"], headSha: "new456" })).toMatchObject({
+      ok: true,
+      bounty: { verdict: null, headSha: "new456" },
+    });
+  });
+
+  it("/reject forgets the linked PR so the next claimant starts clean", () => {
+    const b = run(at("claimed"), [SAMPLE["pr.linked"], SAMPLE["maintainer.reject"]]);
+    expect(b).toMatchObject({ prNumber: null, headSha: null, hadSubmission: true });
+  });
+});

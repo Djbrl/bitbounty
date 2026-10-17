@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Bounty, Submission } from "@bitbounty/core";
+import { transition, type Bounty, type Submission } from "@bitbounty/core";
 import { createDb, runMigrations } from "@bitbounty/db";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -153,6 +153,54 @@ function contract(name: string, h: Harness) {
       const after = h.reopen();
       expect(await after.findByIssue(b.repoFullName, b.issueNumber)).toEqual({ ...b, statusCommentId: 77 });
       expect(await after.activeClaim(b.id)).toEqual(c);
+    });
+
+    it("a submitted PR still blocks the refund after /reject and a restart (F2 review fix)", async () => {
+      const b = bounty({ status: "claimed" });
+      await h.repo().create(b);
+      const linked = transition(b, {
+        type: "pr.linked",
+        bountyId: b.id,
+        occurredAt: b.createdAt,
+        prNumber: 55,
+        authorLogin: "awa-dev",
+        headSha: "def456",
+      });
+      if (!linked.ok) throw new Error(linked.message);
+      await h.repo().saveBounty(linked.bounty);
+      await h.repo().saveSubmission({
+        id: randomUUID(),
+        bountyId: b.id,
+        prNumber: 55,
+        authorLogin: "awa-dev",
+        headSha: "def456",
+        verdict: null,
+        report: null,
+        spamScore: null,
+        mergedAt: null,
+      });
+      const submitted = (await h.reopen().findById(b.id))!;
+      expect(submitted).toMatchObject({ status: "submitted", hadSubmission: true, prNumber: 55, headSha: "def456" });
+
+      const rejected = transition(submitted, {
+        type: "maintainer.reject",
+        bountyId: b.id,
+        occurredAt: b.createdAt,
+        actorLogin: "fatou-maintainer",
+        reason: "wrong fix",
+      });
+      if (!rejected.ok) throw new Error(rejected.message);
+      await h.repo().update(rejected.bounty, "submitted");
+      const funded = (await h.reopen().findById(b.id))!;
+      expect(funded).toMatchObject({ status: "funded", hadSubmission: true });
+      const cancel = transition(funded, {
+        type: "bounty.cancelled",
+        bountyId: b.id,
+        occurredAt: b.createdAt,
+        actorId: "github:fatou-maintainer",
+        reason: "changed plans",
+      });
+      expect(cancel).toMatchObject({ ok: false, code: "SUBMISSION_LOCKED" });
     });
 
     it("lists active claims, finds one by id and extends it (G5 claim timer)", async () => {
