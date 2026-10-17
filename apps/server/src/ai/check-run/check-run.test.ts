@@ -277,6 +277,17 @@ describe("lookups", () => {
     expect(await new RepoBountyLookup(repo).findForPr({ ...pr, body: "related to #12" })).toBeUndefined();
   });
 
+  it("RepoBountyLookup takes the issue's Done when criteria when the bounty has none (/bounty)", async () => {
+    const repo = new InMemoryBountyRepo().add({ ...bounty("claimed"), criteria: [] });
+    const found = await new RepoBountyLookup(repo, async () => "## Done when\n- Retries 3 times\n- Has a test").findForPr(pr);
+    expect(found?.criteria).toEqual([{ text: "Retries 3 times" }, { text: "Has a test" }]);
+    // The bounty's own criteria still win when it has some.
+    const own = new InMemoryBountyRepo().add(bounty("claimed"));
+    expect((await new RepoBountyLookup(own, async () => "## Done when\n- other").findForPr(pr))?.criteria).toEqual([
+      { text: "Adds a retry constant" },
+    ]);
+  });
+
   it("RepoBountyLookup still works when the issue body can't be read", async () => {
     const repo = new InMemoryBountyRepo().add(bounty("funded"));
     const found = await new RepoBountyLookup(repo, async () => {

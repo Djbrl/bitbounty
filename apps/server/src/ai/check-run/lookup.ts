@@ -28,7 +28,10 @@ export class RepoBountyLookup implements BountyLookup {
       } catch {
         // The title and criteria are enough to verify; the body is context.
       }
-      return { bountyId: b.id, issueNumber: n, issue: { title: b.issueTitle, body }, criteria: b.criteria };
+      // `/bounty` creates bounties without criteria (`/criteria` isn't built yet): fall back to the
+      // issue's "Done when" / checklist, otherwise the verifier can only ever answer `unsure`.
+      const criteria = b.criteria.length > 0 ? b.criteria : criteriaFromIssueBody(body);
+      return { bountyId: b.id, issueNumber: n, issue: { title: b.issueTitle, body }, criteria };
     }
     return undefined;
   }
