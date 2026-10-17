@@ -40,7 +40,7 @@ services:
   tunnel:
     image: cloudflare/cloudflared:2024.12.2
     restart: unless-stopped
-    command: ["tunnel", "--no-autoupdate", "--url", "http://server:8787"]
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", "http://server:8787"]
     depends_on: [server]
 
 volumes:

@@ -1,4 +1,4 @@
-import type { BountyCreated, EventType, InternalEvent } from "./events.js";
+import { isEventType, type BountyCreated, type EventType, type InternalEvent } from "./events.js";
 import { assertAmount, isAmount } from "./money.js";
 import type { Bounty, BountyStatus, Criterion, FunderKind } from "./types.js";
 
@@ -35,6 +35,7 @@ export const TRANSITIONS: Readonly<
     "pr.merged": ["verified", "on_hold"],
     "maintainer.pay": ["verified"],
     "maintainer.hold": ["on_hold"],
+    // Back to funded for a new claimant. `hadSubmission` stays set, so no refund afterwards.
     "maintainer.reject": ["funded"],
     // New push (or a new PR) from the claimant: the verdict is reset, status unchanged.
     "pr.linked": ["submitted"],
@@ -61,7 +62,14 @@ export const TRANSITIONS: Readonly<
   cancelled: {},
 };
 
-export type TransitionErrorCode = "ILLEGAL_TRANSITION" | "WRONG_BOUNTY" | "UNDERFUNDED";
+export type TransitionErrorCode =
+  | "ILLEGAL_TRANSITION"
+  | "WRONG_BOUNTY"
+  | "UNDERFUNDED"
+  /** `bounty.cancelled` after a PR was submitted (product.md: no refund after a PR without `/dispute`). */
+  | "SUBMISSION_LOCKED"
+  /** `verify.done` / `pr.merged` about another PR or commit than the one linked. */
+  | "STALE_EVENT";
 
 export type TransitionResult =
   | { ok: true; bounty: Bounty; from: BountyStatus; to: BountyStatus; event: InternalEvent }
@@ -75,7 +83,10 @@ export type TransitionResult =
 
 /** The statuses `event` can lead to from `status`; empty when illegal. */
 export function nextStatuses(status: BountyStatus, event: EventType): readonly BountyStatus[] {
-  return TRANSITIONS[status]?.[event] ?? [];
+  // Own keys only: "constructor", "__proto__", "hasOwnProperty"… must not match the prototype.
+  if (typeof status !== "string" || !isEventType(event) || !Object.hasOwn(TRANSITIONS, status)) return [];
+  const byEvent = TRANSITIONS[status];
+  return Object.hasOwn(byEvent, event) ? (byEvent[event] ?? []) : [];
 }
 
 export function canTransition(status: BountyStatus, event: EventType): boolean {
@@ -89,6 +100,15 @@ export function canTransition(status: BountyStatus, event: EventType): boolean {
  */
 export function transition(bounty: Bounty, event: InternalEvent): TransitionResult {
   const from = bounty.status;
+  if (typeof event !== "object" || event === null || Array.isArray(event)) {
+    return {
+      ok: false,
+      code: "ILLEGAL_TRANSITION",
+      message: "the event is not an object",
+      from,
+      event,
+    };
+  }
   const fail = (code: TransitionErrorCode, message: string): TransitionResult => ({
     ok: false,
     code,
@@ -107,6 +127,7 @@ export function transition(bounty: Bounty, event: InternalEvent): TransitionResu
 
   let to = targets[0]!;
   let verdict = bounty.verdict;
+  let { hadSubmission, prNumber, headSha } = bounty;
 
   switch (event.type) {
     case "funding.paid":
@@ -117,21 +138,55 @@ export function transition(bounty: Bounty, event: InternalEvent): TransitionResu
         );
       }
       break;
+    case "bounty.cancelled":
+      if (bounty.hadSubmission === true) {
+        return fail(
+          "SUBMISSION_LOCKED",
+          "a PR was already submitted for this bounty: the funder can't take the money back without a dispute",
+        );
+      }
+      break;
     case "pr.linked":
+      // Exact replay (same PR, same commit): no-op, the verdict on that commit still holds.
+      if (from === "submitted" && event.prNumber === prNumber && event.headSha === headSha) break;
       verdict = null;
+      hadSubmission = true;
+      prNumber = event.prNumber;
+      headSha = event.headSha;
       break;
     case "verify.done":
+      // Bound to the linked commit; skipped when the bounty predates these fields.
+      if (prNumber != null && event.prNumber !== prNumber) {
+        return fail("STALE_EVENT", `verify.done is for PR #${event.prNumber}, the linked PR is #${prNumber}`);
+      }
+      if (headSha != null && event.headSha !== headSha) {
+        return fail("STALE_EVENT", `verify.done is for commit ${event.headSha}, the linked commit is ${headSha}`);
+      }
       verdict = event.verdict;
       break;
     case "pr.merged":
+      if (prNumber != null && event.prNumber !== prNumber) {
+        return fail("STALE_EVENT", `pr.merged is for PR #${event.prNumber}, the linked PR is #${prNumber}`);
+      }
       to = verdict === "pass" && event.ciGreen ? "verified" : "on_hold";
+      hadSubmission = true;
+      break;
+    case "maintainer.pay":
+      // From claimed this is a merge without "Fixes #n": work was delivered all the same.
+      hadSubmission = true;
       break;
     case "maintainer.reject":
       verdict = null;
+      prNumber = null;
+      headSha = null;
       break;
   }
 
-  return { ok: true, bounty: { ...bounty, status: to, verdict }, from, to, event };
+  const next: Bounty = { ...bounty, status: to, verdict };
+  if (hadSubmission !== undefined) next.hadSubmission = hadSubmission;
+  if (prNumber !== undefined) next.prNumber = prNumber;
+  if (headSha !== undefined) next.headSha = headSha;
+  return { ok: true, bounty: next, from, to, event };
 }
 
 export interface NewBounty {

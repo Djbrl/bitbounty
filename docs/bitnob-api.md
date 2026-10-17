@@ -80,19 +80,127 @@ Run the 4 key calls against the sandbox:
 ```bash
 # BITNOB_CLIENT_ID / BITNOB_CLIENT_SECRET in the repo-root .env (see .env.example)
 cd packages/bitnob && pnpm install && pnpm smoke
+# From a git worktree (no .env there), point at the main checkout's file:
+pnpm smoke --env-file /path/to/bitbounty/.env
 ```
-The script prints the raw responses and a summary table to paste below.
+`--env-file` (or `--env-file=<path>`) loads that file; variables already set in the shell win. The script runs `whoami` first and stops unless it says `environment=sandbox` (`--allow-production` to override). It prints the raw responses and a summary table to paste below. The client retries a 429 after its `Retry-After` delay (seconds or HTTP date, capped at 30 s), and keeps the secret in a `#private` field so `inspect()` / `JSON.stringify()` of a client never show it.
 
 What the spec says, before the run:
 - Lightning invoice needs a `customer_id` (the script creates a customer first).
-- Payout quote: the spec lists `amount` as required but its example uses `settlement_amount` (what the beneficiary receives). We send `settlement_amount` in XOF. SN mobile money `bank_code`s come from `GET /api/payouts/banks/SN`.
+- Payout quote: the spec lists `amount` as required but its example uses `settlement_amount` (what the beneficiary receives). We send `settlement_amount` in XOF. SN mobile money `bank_code`s come from `GET /api/payouts/banks/SN`, **but the sandbox answers `{"banks":null}` for SN** (seen live). Fallback: `BITNOB_SN_BANK_CODES='{"wave":"…","orange":"…"}'`. No defaults: **confirm the real Wave / Orange Money SN codes with Bitnob at the workshop**.
 - `simulate-deposit` takes **no body**; the sandbox credits a fixed amount (₦1,000 per call per our notes, spec example shows 100000 kobo).
 - Trading quote: `side` is upper case (`BUY`/`SELL`), `quantity` a string in major units. The spec's NGN example is NGN→USDT; the script tries NGN→BTC and NGN→USDT.
 
+Sandbox run, 17 10 2026 20:40 UTC (`pnpm smoke --env-file …`, keys of the "bitnob hackathon" sandbox app):
+
 | Call | Result | Notes |
 | --- | --- | --- |
-| whoami | _not run yet_ | needs sandbox keys |
-| 1. Lightning invoice | _not run yet_ | |
-| 2. SN payout quote | _not run yet_ | |
-| 3. NGN virtual account + simulate deposit | _not run yet_ | |
-| 4. NGN→BTC quote | _not run yet_ | |
+| whoami | OK | bitnob hackathon, environment=sandbox |
+| customer (payer) | OK | id=01a14b97-b61d-7cd6-adc0-d643b7a1e28a |
+| 1. lightning invoice | OK | id=01a14b97-b6a9-7fa0-b3fc-3836b983fa04 status=pending bolt11=lntb10u1p4d8hgupp5g6p0nu… |
+| 1b. get lightning invoice | OK | status=pending |
+| 2a. SN providers | OK | none listed (sandbox returns banks: null) |
+| 2. SN payout quote from USDT | OK | quote_id=QT2_21052948 sends 0.232397 USDT for 137 XOF, fees=0, expires 2026-10-17T20:55:56Z |
+| 2. SN payout quote from BTC | OK | quote_id=QT2_21052949 sends 0.00000284 BTC for 137 XOF, fees=0, expires 2026-10-17T20:45:57Z |
+| customer (Lagos funder) | OK | id=01a14b66-4be9-73a7-b8bf-902141d1a9c0 |
+| 3a. NGN virtual account | OK | id=01a14b97-ba92-75d4-8777-4ce448ec019f Sandbox Bank 900023453543 |
+| 3. simulate deposit #1 | OK | credited 100000 kobo (completed), new_balance not returned |
+| 4. NGN→BTC quote | OK | 1000 NGN → 0.00000896 BTC, expires after 30 s |
+| 4. NGN→USDT quote | OK | 1000 NGN → 0.7311985267008806 USDT, expires after 30 s |
+
+What the run taught us:
+- **No SN `bank_code` in the sandbox.** `GET /api/payouts/banks/SN` answers `banks: null` (the client returns `[]`). B2's `POST /api/payouts/:quoteId/initialize` needs `beneficiary.bank_code` for `mobile_money`, so in the sandbox B2 can't take the Wave / Orange Money codes from this endpoint: it needs a configured fallback (to confirm with Bitnob at the workshop), or initialize will be refused.
+- The SN payout quote works from both USDT and BTC, with `fees=0` in the sandbox. Observed lifetimes: about 16 min (USDT) and 6 min (BTC), so B2 must re-quote rather than assume 15 min.
+- `simulate-deposit` credits a fixed **100000 kobo (₦1,000)** per call and returns `new_balance: ""`. The smoke script adds up the credits itself and deposits until they cover the quote.
+- NGN trading quotes use `quantity: "1000"` (₦1,000 = one deposit); the earlier `"5000"` was more than the sandbox balance. They expire after 30 s.
+
+## B5: webhook receiver
+`POST /webhooks/bitnob` on `apps/server` (`src/bitnob/`), mounted when `BITNOB_WEBHOOK_SECRET` is set (503 otherwise).
+1. Checks `x-bitnob-signature` = hex HMAC-SHA512 of the **raw** body keyed with `BITNOB_WEBHOOK_SECRET` (constant-time; `sha512=` prefix tolerated). Bad or missing → **401**, nothing stored.
+0. Bodies over 256 KiB → **413** before anything else.
+2. Reads the envelope: `event_id` (or `eventId`) and `event` (or `eventType`). Missing → 400. A body with only a top-level `id` is keyed `<event>#<id>`, so the same resource id on two event types can't collide.
+3. Stores it once in the shared `events` table (the same `eventStore` as `/webhooks/github`: Postgres when `DATABASE_URL` is set) (`source = "bitnob"`, `external_id = event_id`). Same `event_id` again → 200 `{duplicate:true}`, not dispatched again.
+4. Dispatches on the event name: `bitnobDispatcher.on("payouts.withdrawal.success", handler)` (exported from `src/app.ts`). A handler that throws → 500 and the row is `failed`; Bitnob retries non-200 three times and the retry is processed again.
+Helpers: `toPayoutUpdate(env)` → `{bitnobPayoutId, quoteId, reference, outcome: quote|initiated|processing|success|failed}` (`expired` = failed; `payouts.initialized` with no status = initiated); `toDepositUpdate(env)` → `{kind, virtualAccountId, reference, amountMinor, currency}`.
+- `kind: "ngn_virtual_account"` for `virtual_account.deposit.success` (naira, B4); `kind: "stablecoin"` for `deposit.success` (USDT/USDC to an address, **not naira**; currency comes from `data.currency`/`data.asset`, never defaulted).
+- `amountMinor` = Bitnob's major-unit decimal string parsed exactly by `toMinorUnits(amount, currency)` (`"1000.50"` NGN → 100050 kobo; USDT/USDC 6 decimals, BTC 8, XOF 0). Null for an unknown currency, too many decimals, or a non-decimal value.
+
+**Stuck rows.** If the server dies between storing and finishing a dispatch, the row stays `received` and redeliveries are answered as duplicates. Those are recovered by the polling below, not by the webhook.
+
+**Ordering and replays.** Bitnob doesn't sign a timestamp, so an old event can't be told apart from a late one by the signature: the dedupe on `event_id` stops exact replays, and the **handlers own the state** (a `payouts.processing` arriving after `success` must be ignored: a paid payout is terminal in the state machine).
+
+**Dashboard setup.** Paramètres → Webhooks: URL `https://<server>/webhooks/bitnob` (ngrok in local dev: `ngrok http 8787`), copy the secret into `.env` as `BITNOB_WEBHOOK_SECRET`. Payout initialize also takes a per-payout `callback_url`.
+
+**Polling fallback** (Lightning has no webhooks at all, and sandbox webhooks may not fire): `GET /api/payouts/:id` returns the same status (`QUOTE`, `INITIATED`, `processing`, `success`, `expired`…). Pass it through `toPayoutOutcome()` and feed the result to the same handler as the webhook. B2 polls payouts that stay `processing`; B1 polls Lightning invoices.
+
+### How to verify live (done-when for B5, not yet run)
+Needs dashboard access to the Bitnob sandbox account, and a server running this branch (the Docker `server` image must be rebuilt after merge).
+1. Bitnob dashboard (sandbox) → Paramètres → Webhooks: URL `https://kruger-alerts-platform-must.trycloudflare.com/webhooks/bitnob` (the quick tunnel URL changes when the `tunnel` container restarts: `docker compose logs tunnel | grep trycloudflare`).
+2. Copy the webhook secret shown there into the repo-root `.env` as `BITNOB_WEBHOOK_SECRET`, then restart the server (`docker compose up -d server`). Without it the route answers 503.
+3. Trigger an event: simulate a deposit on a sandbox virtual account (`pnpm smoke` in `packages/bitnob`), or a test-webhook button if the dashboard has one.
+4. Check it was verified and stored (a bad signature is 401 and stores nothing, so a row proves the HMAC matched):
+```bash
+docker compose exec db psql -U postgres -d bitbounty -c \
+  "select id, external_id, type, status, error, received_at from events where source = 'bitnob' order by id desc limit 5;"
+```
+Expect a row with `status = processed`. Server log on a mismatch: `[bitnob] rejected webhook: bad or missing signature`.
+
+## B2: payout pipeline
+`apps/server/src/payouts/` (see its README): quote → initialize → finalize with retries, idempotency and crash recovery. Client calls added in `packages/bitnob`: `initializePayout(quoteId, {reference, beneficiary, callback_url})` (`callback_url` is required by the spec), `finalizePayout(quoteId, { retries: 0 })` (no body, irreversible, **always sent once**: a replay of a finalize that went through answers 409/422 "already finalized"), `getPayout(id)` (`id` = the payout id returned by the quote, not the quote id).
+
+Sandbox run (aborts unless `whoami` says `environment=sandbox`; Bitnob also whitelists caller IPs, a non-whitelisted IP gets `403 IP address not whitelisted`):
+```bash
+# read-only: whoami, banks/SN, bank_code resolution, one quote + settlement_amount check
+pnpm --filter @bitbounty/server payout:smoke -- --dry-run +221XXXXXXXXX wave "<name>" 137
+# full pipeline, finalizes for real (sandbox): run by a human, after BITNOB_SN_BANK_CODES is set
+pnpm --filter @bitbounty/server payout:smoke -- +221XXXXXXXXX wave "<name>" 137
+```
+Result: _not run yet_. Blocked on the SN bank codes (sandbox lists none) and on the IP whitelist.
+
+## B1: Lightning funding
+`apps/server/src/funding/` (see its README). Calls: `POST /api/customers` (once per funder, invoices need `customer_id`), `POST /api/lightning/invoices` (sats, `reference: fund-<bountyId>-<n>`, expiry 900 s), `GET /api/lightning/invoices/:id` polled (no Lightning webhook). Rates: `GET /api/exchange-rates?from=USDT&to=XOF`, `GET /api/trading/prices?base_currency=BTC&quote_currency=USDT` (new client methods `getExchangeRate`, `getTradingPrice`).
+Invoice statuses we read: `paid`/`settled` → paid, `expired`/`cancelled` → expired, anything else pending. To confirm against the sandbox: `pnpm --filter @bitbounty/server lightning:smoke -- 1000`. Result (2026-10-17): rates OK, 1000 FCFA → 2218 sats, invoice created with a 15-min testnet BOLT11 (`lntb…`), polled `pending`. Paying it (testnet wallet, by a human) is still to do. A duplicate `reference` returns `409 DUPLICATE_KEY_ERROR`.
+
+## B4: naira funding from Lagos
+`apps/server/src/funding/ngn.ts`. Calls: `POST /api/customers` (KYC fields, `country_code: NGA`), `POST /api/virtual-accounts` (`reference: va-<bountyId>-<n>`), `POST /api/virtual-accounts/:id/simulate-deposit` (sandbox, no body), `POST /api/trading/quotes` NGN→BTC `SELL`, whole naira, ≥ ₦500, then `POST /api/trading/orders` with `quote_id` and `reference: ngn-<fundingId>-<n>`. Deposits arrive by webhook `virtual_account.deposit.success` (B5) or in the simulate response.
+On resume: `GET /api/trading/orders/:id` with the **order id** only, or re-POST the stored reference + quote (idempotent: the same reference returns the existing order).
+
+Sandbox results (2026-10-17, `environment=sandbox`):
+| Call | Result |
+| --- | --- |
+| `ngn:smoke` end to end (review of #65) | ₦1,000 simulated deposit → NGN→BTC order `filled` → `funding.paid` |
+| VA without KYC (email-only customer) | 400 `missing bvn…`: the customer needs KYC fields (`id_type: bvn`, `id_number`) |
+| `simulate-deposit` | ₦1,000 (`amount: "100000"` kobo) per call |
+| NGN→BTC quote ₦1,000 | OK, `expires_at` 30 s ahead, receive ≈ 0.00000896 BTC |
+| quote ₦100 | 400 `INVALID_AMOUNT`: amount below configured minimum |
+| quote ₦999,999,999 | 400 `INVALID_AMOUNT`: amount above configured maximum |
+| quote ≈ ₦4,000+ | 422 `INSUFFICIENT_FUNDS`: insufficient balance. Sandbox caps quotes at the company-wide NGN balance (≈ ₦3,980 that day) |
+| `GET /api/trading/orders/<reference>` | 400 `VALIDATION_ERROR: invalid id`: only the order id works |
+
+Only an expired quote is re-quoted; `INVALID_AMOUNT` / `INSUFFICIENT_FUNDS` stop the conversion with `lastError` (no loop). `NgnFunding({ maxNaira })` refuses bounties above the cap up front.
+Sandbox run: `pnpm --filter @bitbounty/server ngn:smoke -- 300`.
+
+## F7: sandbox proxy for the team
+Bitnob only answers whitelisted IPs, and the sandbox keys live on the always-on Mac. The Docker server there exposes `/dev/bitnob/*`: send your Bitnob **sandbox** calls to it with the team token, it re-signs them with its own keys and forwards them from the whitelisted IP. You don't need any Bitnob key.
+
+**Teammate setup.** Put these 3 lines in your repo-root `.env` (leave `BITNOB_CLIENT_ID` / `BITNOB_CLIENT_SECRET` empty):
+```bash
+BITNOB_BASE_URL=https://kruger-alerts-platform-must.trycloudflare.com/dev/bitnob
+BITNOB_PROXY_TOKEN=<ask Djbrl>
+BITNOB_PROXY_USER=<your first name>   # shown in the proxy's log, optional
+```
+`readBitnobConfig()` then returns a proxy-mode config and `BitnobClient` works unchanged: it sends `Authorization: Bearer <BITNOB_PROXY_TOKEN>` (+ `X-Dev-User`) and **skips its own HMAC signing**. Every smoke script works as is (`pnpm smoke` in `packages/bitnob`, `pnpm --filter @bitbounty/server lightning:smoke -- 1000`). By hand:
+```bash
+curl -H "authorization: Bearer $BITNOB_PROXY_TOKEN" "$BITNOB_BASE_URL/api/whoami"
+```
+The quick-tunnel URL changes when the `tunnel` container restarts (`docker compose logs tunnel | grep trycloudflare`): update `BITNOB_BASE_URL` then.
+
+**Server side** (`apps/server/src/dev/bitnob-proxy.ts`), mounted only when `DEV_PROXY_TOKEN` is set in the server's `.env` (otherwise `/dev/bitnob/*` is 404). Rotate the token by changing it and restarting the server.
+- Token: `Authorization: Bearer <DEV_PROXY_TOKEN>`, constant-time compare (both sides SHA-256 hashed, then `timingSafeEqual`). Missing or wrong → **401**, checked before the body is read.
+- Sandbox only: the first call runs `whoami` (cached, a failed whoami isn't); unless it says `environment=sandbox`, every call answers **403**. Production keys in `.env` → the proxy refuses everything.
+- Paths: only `/api/...` on the configured `BITNOB_BASE_URL` host. `..`, encoded `%2e` / `%2f` / `%5c`, `//`, absolute URLs and anything the URL parser had to rewrite → **400** (checked on the raw request line, so `/dev/bitnob/../../x` is caught too).
+- Blocklist → **403**: any path segment containing `key`, `webhook`, `setting`, `secret`, `credential`, `whitelist`, `permission` or `token`, and the segments `account(s)`, `users`, `members`, `team(s)`, `company`/`companies`, `ips`.
+- Body: JSON only (400 otherwise), at most 64 KiB (**413**). Sent compact, signed with a fresh timestamp and nonce.
+- One attempt, never retried (POST or not): Bitnob's status and body come back unchanged (a Bitnob 5xx stays a 5xx). Bitnob silent for 20 s → 504; unreachable → 502. Your own client retries as usual.
+- Log, one line per call: `[dev-proxy] user=<X-Dev-User> POST /dev/bitnob/api/lightning/invoices -> 200 812ms`. Never the query, body, headers or token.
+- Sandbox only does not mean harmless: whatever you send runs on the team's sandbox account (invoices, payouts, trading). Don't pay or finalize things you didn't mean to.
