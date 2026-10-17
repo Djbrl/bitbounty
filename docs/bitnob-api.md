@@ -113,3 +113,34 @@ What the run taught us:
 - The SN payout quote works from both USDT and BTC, with `fees=0` in the sandbox. Observed lifetimes: about 16 min (USDT) and 6 min (BTC), so B2 must re-quote rather than assume 15 min.
 - `simulate-deposit` credits a fixed **100000 kobo (₦1,000)** per call and returns `new_balance: ""`. The smoke script adds up the credits itself and deposits until they cover the quote.
 - NGN trading quotes use `quantity: "1000"` (₦1,000 = one deposit); the earlier `"5000"` was more than the sandbox balance. They expire after 30 s.
+
+## B5: webhook receiver
+`POST /webhooks/bitnob` on `apps/server` (`src/bitnob/`), mounted when `BITNOB_WEBHOOK_SECRET` is set (503 otherwise).
+1. Checks `x-bitnob-signature` = hex HMAC-SHA512 of the **raw** body keyed with `BITNOB_WEBHOOK_SECRET` (constant-time; `sha512=` prefix tolerated). Bad or missing → **401**, nothing stored.
+0. Bodies over 256 KiB → **413** before anything else.
+2. Reads the envelope: `event_id` (or `eventId`) and `event` (or `eventType`). Missing → 400. A body with only a top-level `id` is keyed `<event>#<id>`, so the same resource id on two event types can't collide.
+3. Stores it once in the shared `events` table (the same `eventStore` as `/webhooks/github`: Postgres when `DATABASE_URL` is set) (`source = "bitnob"`, `external_id = event_id`). Same `event_id` again → 200 `{duplicate:true}`, not dispatched again.
+4. Dispatches on the event name: `bitnobDispatcher.on("payouts.withdrawal.success", handler)` (exported from `src/app.ts`). A handler that throws → 500 and the row is `failed`; Bitnob retries non-200 three times and the retry is processed again.
+Helpers: `toPayoutUpdate(env)` → `{bitnobPayoutId, quoteId, reference, outcome: quote|initiated|processing|success|failed}` (`expired` = failed; `payouts.initialized` with no status = initiated); `toDepositUpdate(env)` → `{kind, virtualAccountId, reference, amountMinor, currency}`.
+- `kind: "ngn_virtual_account"` for `virtual_account.deposit.success` (naira, B4); `kind: "stablecoin"` for `deposit.success` (USDT/USDC to an address, **not naira**; currency comes from `data.currency`/`data.asset`, never defaulted).
+- `amountMinor` = Bitnob's major-unit decimal string parsed exactly by `toMinorUnits(amount, currency)` (`"1000.50"` NGN → 100050 kobo; USDT/USDC 6 decimals, BTC 8, XOF 0). Null for an unknown currency, too many decimals, or a non-decimal value.
+
+**Stuck rows.** If the server dies between storing and finishing a dispatch, the row stays `received` and redeliveries are answered as duplicates. Those are recovered by the polling below, not by the webhook.
+
+**Ordering and replays.** Bitnob doesn't sign a timestamp, so an old event can't be told apart from a late one by the signature: the dedupe on `event_id` stops exact replays, and the **handlers own the state** (a `payouts.processing` arriving after `success` must be ignored: a paid payout is terminal in the state machine).
+
+**Dashboard setup.** Paramètres → Webhooks: URL `https://<server>/webhooks/bitnob` (ngrok in local dev: `ngrok http 8787`), copy the secret into `.env` as `BITNOB_WEBHOOK_SECRET`. Payout initialize also takes a per-payout `callback_url`.
+
+**Polling fallback** (Lightning has no webhooks at all, and sandbox webhooks may not fire): `GET /api/payouts/:id` returns the same status (`QUOTE`, `INITIATED`, `processing`, `success`, `expired`…). Pass it through `toPayoutOutcome()` and feed the result to the same handler as the webhook. B2 polls payouts that stay `processing`; B1 polls Lightning invoices.
+
+### How to verify live (done-when for B5, not yet run)
+Needs dashboard access to the Bitnob sandbox account, and a server running this branch (the Docker `server` image must be rebuilt after merge).
+1. Bitnob dashboard (sandbox) → Paramètres → Webhooks: URL `https://hostel-classifieds-aspects-correlation.trycloudflare.com/webhooks/bitnob` (the quick tunnel URL changes when the `tunnel` container restarts: `docker compose logs tunnel | grep trycloudflare`).
+2. Copy the webhook secret shown there into the repo-root `.env` as `BITNOB_WEBHOOK_SECRET`, then restart the server (`docker compose up -d server`). Without it the route answers 503.
+3. Trigger an event: simulate a deposit on a sandbox virtual account (`pnpm smoke` in `packages/bitnob`), or a test-webhook button if the dashboard has one.
+4. Check it was verified and stored (a bad signature is 401 and stores nothing, so a row proves the HMAC matched):
+```bash
+docker compose exec db psql -U postgres -d bitbounty -c \
+  "select id, external_id, type, status, error, received_at from events where source = 'bitnob' order by id desc limit 5;"
+```
+Expect a row with `status = processed`. Server log on a mismatch: `[bitnob] rejected webhook: bad or missing signature`.

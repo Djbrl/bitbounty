@@ -1,5 +1,6 @@
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
+import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
 import { DrizzleEventStore } from "./github/drizzle-event-store.js";
 import { InMemoryEventStore, type EventStore } from "./github/event-store.js";
@@ -30,7 +31,8 @@ export const githubDispatcher = new GithubDispatcher();
 
 /** Postgres when DATABASE_URL is set (Docker, Railway), otherwise in memory (tests, offline demo). */
 export const database = process.env.DATABASE_URL ? createDb(process.env.DATABASE_URL) : null;
-const store: EventStore = database ? new DrizzleEventStore(database.db) : new InMemoryEventStore();
+/** Inbound webhook log + dedupe, shared by /webhooks/github and /webhooks/bitnob (`source` tells them apart). */
+export const eventStore: EventStore = database ? new DrizzleEventStore(database.db) : new InMemoryEventStore();
 /** Bounties and claims, shared by G3 (comments), G4 (PRs) and A2 (checks). */
 export const bountyRepo: BountyRepo = database ? new DrizzleBountyRepo(database.db) : new InMemoryBountyRepo();
 console.log(
@@ -86,7 +88,21 @@ if (checkRunDeps) registerCheckRun(githubDispatcher, checkRunDeps);
 
 const secret = process.env.GITHUB_WEBHOOK_SECRET;
 if (secret) {
-  app.route("/", githubWebhookRoutes({ secret, store, dispatcher: githubDispatcher }));
+  app.route("/", githubWebhookRoutes({ secret, store: eventStore, dispatcher: githubDispatcher }));
 } else {
   app.post("/webhooks/github", (c) => c.json({ error: "GITHUB_WEBHOOK_SECRET is not set" }, 503));
+}
+
+/** B2 (payouts) and B4 (NGN deposits) register here: `bitnobDispatcher.on("payouts.withdrawal.success", …)`. */
+export const bitnobDispatcher = new GithubDispatcher();
+
+const bitnobSecret = process.env.BITNOB_WEBHOOK_SECRET;
+if (bitnobSecret) {
+  app.route(
+    "/",
+    // Same store as /webhooks/github: Postgres (DrizzleEventStore) when DATABASE_URL is set.
+    bitnobWebhookRoutes({ secret: bitnobSecret, store: eventStore, dispatcher: bitnobDispatcher }),
+  );
+} else {
+  app.post("/webhooks/bitnob", (c) => c.json({ error: "BITNOB_WEBHOOK_SECRET is not set" }, 503));
 }
