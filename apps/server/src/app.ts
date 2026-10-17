@@ -2,6 +2,7 @@ import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
+import { bitnobProxyRoutes } from "./dev/bitnob-proxy.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
 import { DrizzleEventStore } from "./github/drizzle-event-store.js";
 import { InMemoryEventStore, type EventStore } from "./github/event-store.js";
@@ -33,6 +34,17 @@ export const app = new Hono();
 app.get("/", (c) => c.json({ name: "bitbounty-server", message: "hello" }));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
+
+// DEV ONLY (F7): /dev/bitnob/* forwards teammates' Bitnob sandbox calls, signed with this server's keys.
+// Not mounted (404) unless DEV_PROXY_TOKEN is set. See src/dev/bitnob-proxy.ts and docs/bitnob-api.md.
+const devProxyToken = process.env.DEV_PROXY_TOKEN?.trim();
+if (devProxyToken) {
+  const hasKeys = Boolean(process.env.BITNOB_CLIENT_ID?.trim() && process.env.BITNOB_CLIENT_SECRET?.trim());
+  // The server signs itself: a BITNOB_PROXY_TOKEN in the server's own env is ignored here.
+  const env = { ...process.env, BITNOB_PROXY_TOKEN: "" };
+  app.route("/", bitnobProxyRoutes({ token: devProxyToken, client: hasKeys ? new BitnobClient(readBitnobConfig(env)) : null }));
+  console.log(`[dev-proxy] /dev/bitnob/* enabled${hasKeys ? "" : " (no Bitnob keys: calls answer 503)"}`);
+}
 
 /** G3, G4 and A2 register their handlers here: `githubDispatcher.on("issue_comment", …)`. */
 export const githubDispatcher = new GithubDispatcher();

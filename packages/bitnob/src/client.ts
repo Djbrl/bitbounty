@@ -40,6 +40,21 @@ export interface BitnobConfig {
   sleep?: (ms: number) => Promise<void>;
   now?: () => Date;
   nonce?: () => string;
+  /**
+   * Proxy mode (F7): send every call to the team's dev proxy (`baseUrl` = `https://<tunnel>/dev/bitnob`)
+   * with `Authorization: Bearer <proxyToken>`. The proxy signs with the server's keys, so this client
+   * skips HMAC signing and needs no clientId / clientSecret.
+   */
+  proxyToken?: string;
+  /** Proxy mode only: your name in the proxy's log (`X-Dev-User` header). */
+  proxyUser?: string;
+}
+
+/** A raw Bitnob answer, as returned by `BitnobClient.forward`. */
+export interface RawResponse {
+  status: number;
+  contentType: string | null;
+  body: string;
 }
 
 export interface RequestOptions {
@@ -64,10 +79,23 @@ export class BitnobError extends Error {
   }
 }
 
-/** Reads `BITNOB_CLIENT_ID`, `BITNOB_CLIENT_SECRET` and optional `BITNOB_BASE_URL`. */
+/**
+ * Reads `BITNOB_CLIENT_ID`, `BITNOB_CLIENT_SECRET` and optional `BITNOB_BASE_URL`.
+ * With `BITNOB_PROXY_TOKEN` set (proxy mode, F7) the keys are not needed: `BITNOB_BASE_URL` must point
+ * at the proxy, and `BITNOB_PROXY_USER` (optional) names you in its log.
+ */
 export function readBitnobConfig(env: NodeJS.ProcessEnv = process.env): BitnobConfig {
   const clientId = env.BITNOB_CLIENT_ID?.trim() ?? "";
   const clientSecret = env.BITNOB_CLIENT_SECRET?.trim() ?? "";
+  const proxyToken = env.BITNOB_PROXY_TOKEN?.trim() ?? "";
+  if (proxyToken) {
+    const baseUrl = env.BITNOB_BASE_URL?.trim() ?? "";
+    if (!baseUrl) {
+      throw new BitnobError("BITNOB_PROXY_TOKEN needs BITNOB_BASE_URL=https://<tunnel>/dev/bitnob", 0, "CONFIG");
+    }
+    const proxyUser = env.BITNOB_PROXY_USER?.trim() || undefined;
+    return { clientId, clientSecret, baseUrl, proxyToken, ...(proxyUser ? { proxyUser } : {}) };
+  }
   const missing = [!clientId && "BITNOB_CLIENT_ID", !clientSecret && "BITNOB_CLIENT_SECRET"].filter(Boolean);
   if (missing.length) {
     throw new BitnobError(`Missing ${missing.join(", ")} (see .env.example)`, 0, "CONFIG");
@@ -80,14 +108,21 @@ const RETRYABLE = (status: number) => status === 429 || status >= 500;
 export class BitnobClient {
   /** Not an own enumerable property: `inspect(client)` and `JSON.stringify(client)` never show it. */
   readonly #secret: string;
-  private readonly cfg: Required<Omit<BitnobConfig, "fetch" | "clientSecret">> & { fetch: typeof fetch };
+  /** Proxy mode token, private for the same reason. */
+  readonly #proxyToken: string;
+  private readonly cfg: Required<Omit<BitnobConfig, "fetch" | "clientSecret" | "proxyToken" | "proxyUser">> & {
+    fetch: typeof fetch;
+    proxyUser?: string;
+  };
 
   constructor(config: BitnobConfig) {
-    if (!config.clientId || !config.clientSecret) {
+    const proxyToken = config.proxyToken?.trim() ?? "";
+    if (!proxyToken && (!config.clientId || !config.clientSecret)) {
       throw new BitnobError("Bitnob clientId and clientSecret are required", 0, "CONFIG");
     }
-    const { clientSecret, ...rest } = config;
+    const { clientSecret, proxyToken: _token, ...rest } = config;
     this.#secret = clientSecret;
+    this.#proxyToken = proxyToken;
     this.cfg = {
       baseUrl: DEFAULT_BASE_URL,
       retries: 2,
@@ -101,6 +136,52 @@ export class BitnobClient {
       fetch: config.fetch ?? globalThis.fetch,
     };
     this.cfg.baseUrl = this.cfg.baseUrl.replace(/\/+$/, "");
+  }
+
+  /** True when calls go through the team's dev proxy (no local signing). */
+  get proxyMode(): boolean {
+    return this.#proxyToken !== "";
+  }
+
+  /** HMAC headers, or the proxy's bearer token in proxy mode. Fresh timestamp + nonce on every call. */
+  private authFor(raw: string): Record<string, string> {
+    if (this.#proxyToken) {
+      const h: Record<string, string> = { authorization: `Bearer ${this.#proxyToken}` };
+      if (this.cfg.proxyUser) h["x-dev-user"] = this.cfg.proxyUser;
+      return h;
+    }
+    return { ...authHeaders(this.cfg.clientId, this.#secret, raw, this.cfg.now(), this.cfg.nonce()) };
+  }
+
+  /**
+   * One signed attempt, no retries, no parsing: Bitnob's status and body come back unchanged.
+   * Used by the dev proxy (F7). `pathAndQuery` must start with `/api/`. Throws `BitnobError`
+   * (TIMEOUT / NETWORK, status 0) only when Bitnob never answered.
+   */
+  async forward(method: string, pathAndQuery: string, body = "", opts: { timeoutMs?: number } = {}): Promise<RawResponse> {
+    const url = this.cfg.baseUrl + pathAndQuery;
+    if (!pathAndQuery.startsWith("/api/") || new URL(url).origin !== new URL(this.cfg.baseUrl).origin) {
+      throw new BitnobError("forward: only /api/ paths on the configured Bitnob host", 0, "CONFIG");
+    }
+    const headers: Record<string, string> = { accept: "application/json", ...this.authFor(body) };
+    if (body) headers["content-type"] = "application/json";
+    let res: Response;
+    try {
+      res = await this.cfg.fetch(url, {
+        method,
+        headers,
+        body: body || undefined,
+        signal: AbortSignal.timeout(opts.timeoutMs ?? this.cfg.timeoutMs),
+      });
+    } catch (err) {
+      const timeout = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+      throw new BitnobError(
+        `${method} ${pathAndQuery.split("?")[0]}: ${timeout ? "timed out" : `network error (${errMessage(err)})`}`,
+        0,
+        timeout ? "TIMEOUT" : "NETWORK",
+      );
+    }
+    return { status: res.status, contentType: res.headers.get("content-type"), body: await res.text() };
   }
 
   /** Signed call; returns the envelope's `data`. Throws `BitnobError`. */
@@ -124,10 +205,7 @@ export class BitnobClient {
         retryAfterMs = undefined;
       }
       // Fresh timestamp + nonce on every attempt, so a retry is never seen as a replay.
-      const headers: Record<string, string> = {
-        accept: "application/json",
-        ...authHeaders(this.cfg.clientId, this.#secret, raw, this.cfg.now(), this.cfg.nonce()),
-      };
+      const headers: Record<string, string> = { accept: "application/json", ...this.authFor(raw) };
       if (raw) headers["content-type"] = "application/json";
 
       let res: Response;

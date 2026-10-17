@@ -179,3 +179,28 @@ Sandbox results (2026-10-17, `environment=sandbox`):
 
 Only an expired quote is re-quoted; `INVALID_AMOUNT` / `INSUFFICIENT_FUNDS` stop the conversion with `lastError` (no loop). `NgnFunding({ maxNaira })` refuses bounties above the cap up front.
 Sandbox run: `pnpm --filter @bitbounty/server ngn:smoke -- 300`.
+
+## F7: sandbox proxy for the team
+Bitnob only answers whitelisted IPs, and the sandbox keys live on the always-on Mac. The Docker server there exposes `/dev/bitnob/*`: send your Bitnob **sandbox** calls to it with the team token, it re-signs them with its own keys and forwards them from the whitelisted IP. You don't need any Bitnob key.
+
+**Teammate setup.** Put these 3 lines in your repo-root `.env` (leave `BITNOB_CLIENT_ID` / `BITNOB_CLIENT_SECRET` empty):
+```bash
+BITNOB_BASE_URL=https://kruger-alerts-platform-must.trycloudflare.com/dev/bitnob
+BITNOB_PROXY_TOKEN=<ask Djbrl>
+BITNOB_PROXY_USER=<your first name>   # shown in the proxy's log, optional
+```
+`readBitnobConfig()` then returns a proxy-mode config and `BitnobClient` works unchanged: it sends `Authorization: Bearer <BITNOB_PROXY_TOKEN>` (+ `X-Dev-User`) and **skips its own HMAC signing**. Every smoke script works as is (`pnpm smoke` in `packages/bitnob`, `pnpm --filter @bitbounty/server lightning:smoke -- 1000`). By hand:
+```bash
+curl -H "authorization: Bearer $BITNOB_PROXY_TOKEN" "$BITNOB_BASE_URL/api/whoami"
+```
+The quick-tunnel URL changes when the `tunnel` container restarts (`docker compose logs tunnel | grep trycloudflare`): update `BITNOB_BASE_URL` then.
+
+**Server side** (`apps/server/src/dev/bitnob-proxy.ts`), mounted only when `DEV_PROXY_TOKEN` is set in the server's `.env` (otherwise `/dev/bitnob/*` is 404). Rotate the token by changing it and restarting the server.
+- Token: `Authorization: Bearer <DEV_PROXY_TOKEN>`, constant-time compare (both sides SHA-256 hashed, then `timingSafeEqual`). Missing or wrong → **401**, checked before the body is read.
+- Sandbox only: the first call runs `whoami` (cached, a failed whoami isn't); unless it says `environment=sandbox`, every call answers **403**. Production keys in `.env` → the proxy refuses everything.
+- Paths: only `/api/...` on the configured `BITNOB_BASE_URL` host. `..`, encoded `%2e` / `%2f` / `%5c`, `//`, absolute URLs and anything the URL parser had to rewrite → **400** (checked on the raw request line, so `/dev/bitnob/../../x` is caught too).
+- Blocklist → **403**: any path segment containing `key`, `webhook`, `setting`, `secret`, `credential`, `whitelist`, `permission` or `token`, and the segments `account(s)`, `users`, `members`, `team(s)`, `company`/`companies`, `ips`.
+- Body: JSON only (400 otherwise), at most 64 KiB (**413**). Sent compact, signed with a fresh timestamp and nonce.
+- One attempt, never retried (POST or not): Bitnob's status and body come back unchanged (a Bitnob 5xx stays a 5xx). Bitnob silent for 20 s → 504; unreachable → 502. Your own client retries as usual.
+- Log, one line per call: `[dev-proxy] user=<X-Dev-User> POST /dev/bitnob/api/lightning/invoices -> 200 812ms`. Never the query, body, headers or token.
+- Sandbox only does not mean harmless: whatever you send runs on the team's sandbox account (invoices, payouts, trading). Don't pay or finalize things you didn't mean to.
