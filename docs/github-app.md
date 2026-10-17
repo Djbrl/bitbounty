@@ -13,7 +13,7 @@ checks the `X-Hub-Signature-256` HMAC, stores each delivery once in the `events`
 | Client ID | `Iv23liCkNNOVL2DflyZ1` → `GITHUB_CLIENT_ID` |
 | Visibility | Public (any account can install it) |
 | Webhook URL | `https://smee.io/gk8M8VuUD4ZMaO7A` → `WEBHOOK_PROXY_URL` (switch to `https://<railway-host>/webhooks/github` once deployed) |
-| Callback URL (OAuth, W9) | `http://localhost:3000/api/auth/callback/github` |
+| Callback URLs (OAuth, W9) | `http://localhost:3000/api/auth/callback/github` · to add: `https://bitbounty-app.vercel.app/api/auth/callback/github` (see [auth.md](auth.md)) |
 | Settings page | https://github.com/settings/apps/bitbounty-dakar |
 
 **Repository permissions:** Issues read & write · Pull requests read & write · Checks read & write ·
