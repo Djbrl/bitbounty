@@ -70,6 +70,12 @@ export interface PrMerged extends Base<"pr.merged"> {
   prNumber: number;
   /** All required CI checks green on the merged commit. */
   ciGreen: boolean;
+  /** The merge commit on the base branch (G4). */
+  mergeSha?: string;
+  /** Who wrote the PR (G4). */
+  authorLogin?: string;
+  /** Who clicked merge (G4). */
+  mergedByLogin?: string;
 }
 /** `/pay [@user]`: the maintainer approves the payout by hand. */
 export interface MaintainerPay extends Base<"maintainer.pay"> {

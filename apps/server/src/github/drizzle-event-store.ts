@@ -1,19 +1,15 @@
 import { and, eq } from "drizzle-orm";
-import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-// TODO(F3): switch to the @bitbounty/db package export once the workspace exists.
-import { events, type EventRow } from "../../../../packages/db/src/schema/events.js";
+import { events, type Database, type EventRow } from "@bitbounty/db";
 import type { EventSource, EventStore, InsertResult, NewStoredEvent, StoredEvent } from "./event-store.js";
-
-type Db = PgDatabase<PgQueryResultHKT, any>;
 
 /** Postgres-backed EventStore. Dedupe relies on the unique (source, external_id) index. */
 export class DrizzleEventStore implements EventStore {
-  constructor(private db: Db) {}
+  constructor(private db: Database) {}
 
   async insert(event: NewStoredEvent): Promise<InsertResult> {
     const [row] = await this.db
       .insert(events)
-      .values({ ...event, payload: event.payload as object })
+      .values(event)
       .onConflictDoNothing({ target: [events.source, events.externalId] })
       .returning();
     if (row) return { inserted: true, event: toStored(row) };
