@@ -49,7 +49,7 @@ Allowed transitions in `packages/core/src/machine.ts`; **only `transition()` wri
 - `submissions` (bounty_id, pr_number, author_login, head_sha, verdict `pass|fail|unsure`, report jsonb, spam_score, merged_at)
 - `payouts` (bounty_id, user_id, amount_xof, quote_id, bitnob_payout_id, reference, status, attempts, last_error, paid_at)
 - `ledger` (id, bounty_id, kind `fund|fee|reserve|payout|refund|fx`, amount, currency, ref)
-- `events` (source `github|bitnob|system`, external_id UNIQUE, type, payload, created_at): audit log + webhook dedupe
+- `events` (bounty_id nullable, source `github|bitnob|system`, external_id, type, payload, created_at; UNIQUE (source, external_id)): audit log + webhook dedupe + bounty timeline
 - `agents` (owner_user_id, key_hash, monthly_budget_xof, per_task_max_xof, allowed_repos)
 
 ### GitHub commands (issue/PR comments)

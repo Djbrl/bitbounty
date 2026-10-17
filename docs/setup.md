@@ -25,6 +25,11 @@ pnpm dev          # web on http://localhost:3000, server on http://localhost:878
 | `pnpm lint` | ESLint on the whole repo |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm build` | builds every app |
+| `pnpm db:migrate` | applies the database migrations (`DATABASE_URL`) |
+| `pnpm db:seed` | empties the database and fills it with demo data (one bounty per status) |
+| `pnpm db:generate` | writes a new migration after a schema change |
+
+Local database: any Postgres works, e.g. `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bitbounty postgres:16` with the default `DATABASE_URL` from `.env.example`. Then `pnpm db:migrate && pnpm db:seed`. Details in [packages/db/README.md](../packages/db/README.md).
 
 Health checks: server `GET /` returns JSON containing `"message":"hello"`, `GET /health` → `{"status":"ok"}`. Web `/` shows "hello", `/api/health` → `{"status":"ok"}`.
 
