@@ -23,6 +23,7 @@ import {
   sweepIntervalMs,
 } from "./github/claims/index.js";
 import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
+import { backlogRoutes } from "./ai/backlog/index.js";
 import { agentRoutes, agentsFromEnv, AgentService, DrizzleAgentSpending, ListAgentSpending, StaticAgentRegistry } from "./agents/index.js";
 import {
   applyFundingPaid,
@@ -37,6 +38,9 @@ export const app = new Hono();
 app.get("/", (c) => c.json({ name: "bitbounty-server", message: "hello" }));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
+
+// A3: "Price my backlog" suggestions for a repo (Claude, or the offline heuristic without ANTHROPIC_API_KEY).
+app.route("/", backlogRoutes());
 
 // DEV ONLY (F7): /dev/bitnob/* forwards teammates' Bitnob sandbox calls, signed with this server's keys.
 // Not mounted (404) unless DEV_PROXY_TOKEN is set. See src/dev/bitnob-proxy.ts and docs/bitnob-api.md.
