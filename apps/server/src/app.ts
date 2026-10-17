@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
 import { InMemoryEventStore } from "./github/event-store.js";
 import { githubWebhookRoutes } from "./github/webhook.js";
@@ -18,4 +19,17 @@ if (secret) {
   app.route("/", githubWebhookRoutes({ secret, store: new InMemoryEventStore(), dispatcher: githubDispatcher }));
 } else {
   app.post("/webhooks/github", (c) => c.json({ error: "GITHUB_WEBHOOK_SECRET is not set" }, 503));
+}
+
+/** B2 (payouts) and B4 (NGN deposits) register here: `bitnobDispatcher.on("payouts.withdrawal.success", …)`. */
+export const bitnobDispatcher = new GithubDispatcher();
+
+const bitnobSecret = process.env.BITNOB_WEBHOOK_SECRET;
+if (bitnobSecret) {
+  app.route(
+    "/",
+    bitnobWebhookRoutes({ secret: bitnobSecret, store: new InMemoryEventStore(), dispatcher: bitnobDispatcher }),
+  );
+} else {
+  app.post("/webhooks/bitnob", (c) => c.json({ error: "BITNOB_WEBHOOK_SECRET is not set" }, 503));
 }

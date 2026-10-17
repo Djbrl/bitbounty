@@ -96,3 +96,17 @@ What the spec says, before the run:
 | 2. SN payout quote | _not run yet_ | |
 | 3. NGN virtual account + simulate deposit | _not run yet_ | |
 | 4. NGN→BTC quote | _not run yet_ | |
+
+## B5: webhook receiver
+`POST /webhooks/bitnob` on `apps/server` (`src/bitnob/`), mounted when `BITNOB_WEBHOOK_SECRET` is set (503 otherwise).
+1. Checks `x-bitnob-signature` = hex HMAC-SHA512 of the **raw** body keyed with `BITNOB_WEBHOOK_SECRET` (constant-time; `sha512=` prefix tolerated). Bad or missing → **401**, nothing stored.
+2. Reads the envelope: `event_id` (or `eventId`) and `event` (or `eventType`). Missing → 400.
+3. Stores it once in the shared `events` table (`source = "bitnob"`, `external_id = event_id`). Same `event_id` again → 200 `{duplicate:true}`, not dispatched again.
+4. Dispatches on the event name: `bitnobDispatcher.on("payouts.withdrawal.success", handler)` (exported from `src/app.ts`). A handler that throws → 500 and the row is `failed`; Bitnob retries non-200 three times and the retry is processed again.
+Helpers: `toPayoutUpdate(env)` → `{bitnobPayoutId, quoteId, reference, outcome: quote|initiated|processing|success|failed}` (`expired` = failed); `toDepositUpdate(env)` → `{virtualAccountId, reference, amountMinor (kobo), currency}`.
+
+**Ordering and replays.** Bitnob doesn't sign a timestamp, so an old event can't be told apart from a late one by the signature: the dedupe on `event_id` stops exact replays, and the **handlers own the state** (a `payouts.processing` arriving after `success` must be ignored: a paid payout is terminal in the state machine).
+
+**Dashboard setup.** Paramètres → Webhooks: URL `https://<server>/webhooks/bitnob` (ngrok in local dev: `ngrok http 8787`), copy the secret into `.env` as `BITNOB_WEBHOOK_SECRET`. Payout initialize also takes a per-payout `callback_url`.
+
+**Polling fallback** (Lightning has no webhooks at all, and sandbox webhooks may not fire): `GET /api/payouts/:id` returns the same status (`QUOTE`, `INITIATED`, `processing`, `success`, `expired`…). Pass it through `toPayoutOutcome()` and feed the result to the same handler as the webhook. B2 polls payouts that stay `processing`; B1 polls Lightning invoices.
