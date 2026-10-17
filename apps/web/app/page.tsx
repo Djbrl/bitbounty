@@ -1,8 +1,13 @@
-export default function Home() {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-2 px-4">
-      <h1 className="text-3xl font-semibold">hello</h1>
-      <p className="text-neutral-600">BitBounty web is up.</p>
-    </main>
-  );
+import type { Metadata } from "next";
+import { BoardView } from "../components/board/board-view";
+import { getBoard, getIssueIndex, getRecentPayouts } from "../components/board/data";
+
+export const metadata: Metadata = {
+  title: "BitBounty · Paid issues",
+  description: "Funded GitHub issues, paid to mobile money in FCFA minutes after merge.",
+};
+
+export default async function Home() {
+  const [board, payouts, issues] = await Promise.all([getBoard(), getRecentPayouts(), getIssueIndex()]);
+  return <BoardView board={board} payouts={payouts} issues={issues} />;
 }
