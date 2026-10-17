@@ -16,7 +16,7 @@ export interface SuggestOptions {
   batchSize?: number;
   /** Model calls in flight at once (default: all batches together). */
   concurrency?: number;
-  /** Whole-call deadline (ms): batches still running are dropped with a warning, the rest comes back. */
+  /** Whole-call deadline (ms): calls still running are aborted with a warning, the rest comes back. */
   deadlineMs?: number;
   /** Per-call timeout (ms). */
   timeoutMs?: number;
@@ -28,6 +28,14 @@ export interface SuggestOptions {
 export const DEFAULT_MAX_ISSUES = 60;
 export const DEFAULT_BATCH_SIZE = 15;
 export const DEFAULT_DEADLINE_MS = 120_000;
+
+/** Every model batch failed and there is no offline fallback for this client. The route answers 502. */
+export class BacklogModelError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BacklogModelError";
+  }
+}
 
 /** Backlog-specific tripwire on top of the verifier's: talking to the pricer about price, fit or confidence. */
 const BACKLOG_INJECTION_PATTERNS: RegExp[] = [
@@ -62,6 +70,9 @@ export function createBacklogClient(env: NodeJS.ProcessEnv = process.env): Verif
  * Never trusts the model: unknown or duplicate issue numbers are dropped, criteria are capped
  * to 2-4, prices are clamped and rounded, an issue that looks like an injection is never
  * pre-selected. A failed batch is skipped with a warning instead of failing the whole call.
+ * When every batch fails (auth error, outage), the offline heuristic answers instead, with a
+ * warning. At the deadline, calls still running are aborted. Either way `complete` is false,
+ * so the route doesn't cache the result.
  */
 export async function suggestBacklog(
   repoFullName: string,
@@ -80,20 +91,28 @@ export async function suggestBacklog(
 
   const suggestions: BacklogSuggestion[] = [];
   const seen = new Set<number>();
-  const work = runLimited(batches, opts.concurrency ?? batches.length, async (batch, index) => {
+  // Shared by every batch: aborted at the deadline, so no model call outlives the answer.
+  const stop = new AbortController();
+  let answeredBatches = 0;
+  let firstError = "";
+  const work = runLimited(batches, opts.concurrency ?? batches.length, stop.signal, async (batch, index) => {
     const label = `batch ${index + 1}/${batches.length}`;
     let raw: string;
     try {
-      raw = await callWithRetry(client, buildUserPrompt(repoFullName, batch), opts);
+      raw = await callWithRetry(client, buildUserPrompt(repoFullName, batch), opts, stop.signal);
     } catch (err) {
+      if (stop.signal.aborted) return; // deadline: the warning below covers it
+      firstError ||= errorMessage(err);
       warnings.push(`${label} failed: ${errorMessage(err)}`);
       return;
     }
     const answer = parseBacklogAnswer(raw);
     if (!answer) {
+      firstError ||= "invalid answer";
       warnings.push(`${label}: answer was not JSON with an "issues" list (cut off or invalid), skipped`);
       return;
     }
+    answeredBatches++;
     if (answer.invalid) warnings.push(`${label}: ${answer.invalid} invalid entr${answer.invalid === 1 ? "y" : "ies"} dropped`);
     const inBatch = new Set(batch.map((i) => i.number));
     const answered = new Set(answer.entries.map((a) => a.issue_number));
@@ -134,8 +153,27 @@ export async function suggestBacklog(
     }),
   ]);
   clearTimeout(deadline);
-  if (timedOut) warnings.push(`stopped after ${Math.round(deadlineMs / 1000)} s: partial results`);
-  // Freeze what we return: batches still running after the deadline can't change it.
+  if (timedOut) {
+    stop.abort(new Error(`deadline of ${formatMs(deadlineMs)} reached`));
+    warnings.push(`stopped after ${formatMs(deadlineMs)}: partial results`);
+  }
+
+  // Every batch failed (bad key, outage): an empty 200 would read as "nothing to fund".
+  if (!timedOut && batches.length > 0 && answeredBatches === 0) {
+    if (client instanceof HeuristicBacklogClient) throw new BacklogModelError(`every batch failed: ${firstError}`);
+    const fallback = await suggestBacklog(repoFullName, issues, { ...opts, client: new HeuristicBacklogClient() });
+    return {
+      ...fallback,
+      complete: false,
+      warnings: [
+        `model ${client.name} failed on every batch (${firstError}): offline heuristic suggestions instead, check them closely`,
+        ...warnings,
+        ...fallback.warnings,
+      ],
+    };
+  }
+
+  // Freeze what we return: nothing that settles after the deadline can change it.
   const done = [...suggestions];
 
   const rank = { high: 0, medium: 1, low: 2 } as const;
@@ -148,6 +186,7 @@ export async function suggestBacklog(
     issuesSkipped: issues.length - considered.length,
     model: client.name,
     isFake: client.isFake,
+    complete: !timedOut && answeredBatches === batches.length,
     warnings: [...warnings],
   };
 }
@@ -162,20 +201,28 @@ export async function priceRepoBacklog(
   return suggestBacklog(repoFullName, issues, opts);
 }
 
-async function callWithRetry(client: VerifierClient, user: string, opts: SuggestOptions): Promise<string> {
+async function callWithRetry(client: VerifierClient, user: string, opts: SuggestOptions, stop: AbortSignal): Promise<string> {
   const retries = opts.retries ?? 1;
   const timeoutMs = opts.timeoutMs ?? 90_000;
   const backoff = opts.backoffMs ?? 1_000;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, backoff * 2 ** (attempt - 1)));
+    if (stop.aborted) throw stop.reason;
     const ctrl = new AbortController();
     let timer: NodeJS.Timeout | undefined;
+    let onStop: (() => void) | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         ctrl.abort();
         reject(new Error(`timed out after ${timeoutMs} ms`));
       }, timeoutMs);
+      // The deadline aborts the call in flight (the Anthropic client passes the signal to the SDK).
+      onStop = () => {
+        ctrl.abort(stop.reason);
+        reject(stop.reason);
+      };
+      stop.addEventListener("abort", onStop, { once: true });
     });
     try {
       return await Promise.race([
@@ -184,23 +231,34 @@ async function callWithRetry(client: VerifierClient, user: string, opts: Suggest
       ]);
     } catch (err) {
       lastErr = err;
-      if (!isRetryable(err)) break;
+      if (stop.aborted || !isRetryable(err)) break;
     } finally {
       clearTimeout(timer);
+      if (onStop) stop.removeEventListener("abort", onStop);
     }
   }
   throw lastErr;
 }
 
-async function runLimited<T>(items: T[], limit: number, fn: (item: T, index: number) => Promise<void>): Promise<void> {
+async function runLimited<T>(
+  items: T[],
+  limit: number,
+  stop: AbortSignal,
+  fn: (item: T, index: number) => Promise<void>,
+): Promise<void> {
   let next = 0;
   const workers = Array.from({ length: Math.min(Math.max(1, limit), items.length) }, async () => {
-    while (next < items.length) {
+    while (next < items.length && !stop.aborted) {
       const i = next++;
       await fn(items[i]!, i);
     }
   });
   await Promise.all(workers);
+}
+
+/** 500 → "500 ms", 120000 → "120 s", 1500 → "1.5 s". */
+export function formatMs(ms: number): string {
+  return ms < 1_000 ? `${ms} ms` : `${Number((ms / 1_000).toFixed(1))} s`;
 }
 
 function errorMessage(err: unknown): string {

@@ -38,6 +38,11 @@ export interface BacklogResult {
   /** Model or fake that produced the suggestions. */
   model: string;
   isFake: boolean;
+  /**
+   * False when some batches gave no answer (deadline, failure) or the offline heuristic stood in
+   * for a failing model. Such a result is never cached.
+   */
+  complete: boolean;
   /** Non-fatal problems: a failed batch, invalid answers dropped, injection suspected… */
   warnings: string[];
 }

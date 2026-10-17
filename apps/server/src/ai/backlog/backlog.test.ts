@@ -4,10 +4,10 @@ import type { VerifierRequest } from "../verifier/types.js";
 import { fetchOpenIssues, GithubIssuesError } from "./github-issues.js";
 import { HeuristicBacklogClient } from "./heuristic-client.js";
 import { MAX_PRICE_XOF, MIN_PRICE_XOF, normalizePrice } from "./price.js";
-import { backlogRoutes } from "./routes.js";
+import { backlogRoutes, type BacklogRouteStore } from "./routes.js";
 import type { BacklogAnswer } from "./schema.js";
-import { looksLikeInjection, suggestBacklog, suggestionId } from "./suggest.js";
-import type { BacklogIssue } from "./types.js";
+import { BacklogModelError, formatMs, looksLikeInjection, suggestBacklog, suggestionId } from "./suggest.js";
+import type { BacklogIssue, BacklogResult } from "./types.js";
 
 const issue = (number: number, over: Partial<BacklogIssue> = {}): BacklogIssue => ({
   number,
@@ -147,7 +147,40 @@ describe("suggestBacklog", () => {
     const res = await suggestBacklog("a/b", [issue(1), issue(2)], { client, batchSize: 1, deadlineMs: 200, timeoutMs: 10_000 });
     expect(Date.now() - started).toBeLessThan(2_000);
     expect(res.suggestions.map((s) => s.issueNumber)).toHaveLength(1);
-    expect(res.warnings).toContain("stopped after 0 s: partial results");
+    expect(res.warnings).toContain("stopped after 200 ms: partial results");
+    expect(res.complete).toBe(false);
+  });
+
+  it("aborts the call in flight at the deadline and starts no new batch", async () => {
+    const signals: AbortSignal[] = [];
+    const client = new FakeVerifierClient(
+      (req) =>
+        new Promise<string>((_, reject) => {
+          signals.push(req.signal!);
+          req.signal!.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+    const res = await suggestBacklog("a/b", [issue(1), issue(2), issue(3)], {
+      client,
+      batchSize: 1,
+      concurrency: 1,
+      deadlineMs: 50,
+      timeoutMs: 10_000,
+    });
+    expect(signals).toHaveLength(1);
+    expect(signals[0]!.aborted).toBe(true);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(client.calls).toHaveLength(1); // no batch 2 or 3, no retry after the abort
+    expect(res.warnings).toEqual(["stopped after 50 ms: partial results"]);
+    expect(res.complete).toBe(false);
+  });
+
+  it.each([
+    [500, "500 ms"],
+    [1_500, "1.5 s"],
+    [120_000, "120 s"],
+  ])("formatMs(%s) = %s", (ms, text) => {
+    expect(formatMs(ms)).toBe(text);
   });
 
   it("ids are unique across repos and URL-safe", () => {
@@ -168,14 +201,43 @@ describe("suggestBacklog", () => {
     expect(looksLikeInjection("Valider les numéros", "Le formulaire accepte un numéro sans indicatif +221.")).toBe(false);
   });
 
-  it("survives a model that keeps failing", async () => {
+  it("falls back to the offline heuristic when every batch fails, with a warning", async () => {
     const client = new FakeVerifierClient(() => {
       throw new Error("overloaded");
     });
     const res = await suggestBacklog("a/b", [issue(1)], { client, retries: 1, backoffMs: 1 });
-    expect(res.suggestions).toEqual([]);
-    expect(res.warnings[0]).toMatch(/batch 1\/1 failed: overloaded/);
+    expect(res.suggestions.map((s) => s.issueNumber)).toEqual([1]);
+    expect(res).toMatchObject({ isFake: true, model: "fake:heuristic-backlog", complete: false });
+    expect(res.warnings[0]).toMatch(/^model fake:scripted failed on every batch \(overloaded\): offline heuristic/);
+    expect(res.warnings[1]).toMatch(/batch 1\/1 failed: overloaded/);
     expect(client.calls).toHaveLength(2);
+  });
+
+  it("keeps the model's answers when only some batches fail, but marks the result incomplete", async () => {
+    const client = new FakeVerifierClient((req, call) => {
+      if (call === 1) throw new Error("401 invalid x-api-key");
+      const nums = [...req.user.matchAll(/^Issue #(\d+) /gm)].map((m) => Number(m[1]));
+      return JSON.stringify({ issues: nums.map((n) => entry(n)) });
+    });
+    const res = await suggestBacklog("a/b", [issue(1), issue(2)], { client, batchSize: 1, concurrency: 1, retries: 0 });
+    expect(res).toMatchObject({ model: "fake:scripted", complete: false });
+    expect(res.suggestions).toHaveLength(1);
+  });
+
+  it("throws BacklogModelError when every batch fails and no fallback is left", async () => {
+    class BrokenHeuristic extends HeuristicBacklogClient {
+      override async complete(): Promise<string> {
+        throw new Error("down");
+      }
+    }
+    await expect(suggestBacklog("a/b", [issue(1)], { client: new BrokenHeuristic(), retries: 0 })).rejects.toBeInstanceOf(
+      BacklogModelError,
+    );
+  });
+
+  it("a fully answered result is complete", async () => {
+    const res = await suggestBacklog("a/b", [issue(1), issue(2)], { client: answering(entry), batchSize: 1 });
+    expect(res.complete).toBe(true);
   });
 
   it("never pre-selects an issue that tries to instruct the model", async () => {
@@ -305,6 +367,94 @@ describe("POST /api/backlog/suggest", () => {
     expect((await post("e/f")).status).toBe(429);
     t += 61_000;
     expect((await post("e/f")).status).toBe(200);
+  });
+
+  const result = (over: Partial<BacklogResult> = {}): BacklogResult => ({
+    repoFullName: "a/b",
+    suggestions: [],
+    issuesRead: 0,
+    issuesConsidered: 0,
+    issuesSkipped: 0,
+    model: "fake:scripted",
+    isFake: true,
+    complete: true,
+    warnings: [],
+    ...over,
+  });
+  const postAs = (routes: ReturnType<typeof backlogRoutes>, repo: string, headers: Record<string, string> = {}) =>
+    routes.request("/api/backlog/suggest", { method: "POST", body: JSON.stringify({ repo }), headers });
+
+  it("can't be bypassed by spoofing x-forwarded-for: keys on cf-connecting-ip, else the last hop", async () => {
+    const routes = backlogRoutes({ price: async () => result(), perMinute: 2, globalPerMinute: 100 });
+    const statuses: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      statuses.push((await postAs(routes, `cf/r${i}`, { "cf-connecting-ip": "9.9.9.9", "x-forwarded-for": `10.0.0.${i}` })).status);
+    }
+    expect(statuses).toEqual([200, 200, 429, 429]);
+    const hop = backlogRoutes({ price: async () => result(), perMinute: 2, globalPerMinute: 100 });
+    const hopStatuses: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      hopStatuses.push((await postAs(hop, `xff/r${i}`, { "x-forwarded-for": `10.0.0.${i}, 8.8.8.8` })).status);
+    }
+    expect(hopStatuses).toEqual([200, 200, 429, 429]);
+  });
+
+  it("caps new repos per minute for the whole server, whoever asks", async () => {
+    let calls = 0;
+    let t = 0;
+    const routes = backlogRoutes({
+      price: async () => {
+        calls++;
+        return result();
+      },
+      perMinute: 6,
+      globalPerMinute: 3,
+      now: () => t,
+    });
+    const statuses: number[] = [];
+    for (let i = 0; i < 5; i++) statuses.push((await postAs(routes, `g/r${i}`, { "cf-connecting-ip": `1.1.1.${i}` })).status);
+    expect(statuses).toEqual([200, 200, 200, 429, 429]);
+    expect(calls).toBe(3);
+    expect((await postAs(routes, "g/r0", { "cf-connecting-ip": "1.1.1.99" })).status).toBe(200); // cached: no cap
+    t += 61_000;
+    expect((await postAs(routes, "g/r3", { "cf-connecting-ip": "1.1.1.3" })).status).toBe(200);
+  });
+
+  it("evicts expired cache entries and idle clients", async () => {
+    let t = 0;
+    const store: BacklogRouteStore = { cache: new Map(), hits: new Map() };
+    const routes = backlogRoutes({ price: async () => result(), cacheMs: 600_000, globalPerMinute: 100, now: () => t, store });
+    for (let i = 0; i < 5; i++) await postAs(routes, `e/r${i}`, { "cf-connecting-ip": `2.2.2.${i}` });
+    expect(store.cache.size).toBe(5);
+    expect(store.hits.size).toBe(5);
+    t += 120_000;
+    await postAs(routes, "e/r0", { "cf-connecting-ip": "2.2.2.0" }); // cached, but the sweep runs
+    expect(store.hits.size).toBe(0);
+    expect(store.cache.size).toBe(5);
+    t += 600_000;
+    await postAs(routes, "e/new", { "cf-connecting-ip": "2.2.2.9" });
+    expect([...store.cache.keys()]).toEqual(["e/new"]);
+    expect([...store.hits.keys()]).toEqual(["2.2.2.9"]);
+  });
+
+  it("doesn't cache a partial or fallback result", async () => {
+    let calls = 0;
+    const routes = backlogRoutes({
+      price: async () => {
+        calls++;
+        return result({ complete: false, warnings: ["stopped after 500 ms: partial results"] });
+      },
+    });
+    expect((await postAs(routes, "p/q")).status).toBe(200);
+    expect((await postAs(routes, "p/q")).status).toBe(200);
+    expect(calls).toBe(2);
+  });
+
+  it("502 when the model fails and there is no fallback", async () => {
+    const routes = backlogRoutes({ price: async () => Promise.reject(new BacklogModelError("every batch failed: down")) });
+    const res = await postAs(routes, "a/b");
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ error: "model_unavailable" });
   });
 
   it("maps GitHub rate limits to 429 and anything else to a clean 500", async () => {
