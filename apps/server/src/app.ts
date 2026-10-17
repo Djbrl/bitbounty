@@ -1,6 +1,8 @@
 import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
+import { ActivityLog, readApiRoutes } from "./api/index.js";
+import { DrizzleFundingReader, DrizzlePayoutReader, mergeFundings } from "./api/drizzle-read.js";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
 import { DrizzleEventStore } from "./github/drizzle-event-store.js";
@@ -128,13 +130,16 @@ if (bitnobSecret) {
 // B1: Lightning funding. Amount and status come from the shared bountyRepo; a paid invoice moves the
 // bounty to `funded` and publishes funding.paid (at least once, via the funding outbox).
 // In-memory FundingStore until the Drizzle one lands (see src/funding/README.md). No HTTP route yet (W3).
+/** Fundings (B1), shared with the read API (I1) so /b/:id shows them. In memory until DrizzleFundingStore lands. */
+export const fundingStore = new InMemoryFundingStore();
+
 export const lightningFunding =
   process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET
     ? (() => {
         const client = new BitnobClient(readBitnobConfig());
         const lf = new LightningFunding({
           client,
-          store: new InMemoryFundingStore(),
+          store: fundingStore,
           rates: new BitnobRates(client),
           customers: new BitnobFunderCustomers(client),
           bounties: bountyRepo,
@@ -150,6 +155,8 @@ export const lightningFunding =
 // paying / paid / payout_failed; funding, PR and payout events re-render the status comment.
 // Payouts need Bitnob keys; where to pay comes from PAYOUT_ACCOUNTS until W4/B3 store accounts.
 let payoutService: PayoutService | null = null;
+/** B2's store, shared with the read API (I1) so /b/:id, receipts and profiles show live payouts. */
+export const payoutStore = new InMemoryPayoutStore();
 export const settlement = new Settlement({
   repo: bountyRepo,
   bus: eventBus,
@@ -165,7 +172,7 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
   payoutService = new PayoutService({
     rails: new BitnobClient(readBitnobConfig()),
     // In-memory until a Drizzle PayoutStore lands (keep update() a compare-and-set, see payouts/README.md).
-    store: new InMemoryPayoutStore(),
+    store: payoutStore,
     emit: settlement.applyPayoutEvent,
     getBeneficiary: beneficiaryFromAccounts(readPayoutAccounts()),
     callbackUrl: process.env.BITNOB_CALLBACK_URL || "https://example.com/webhooks/bitnob",
@@ -176,3 +183,20 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
   void payoutService.resume();
   payoutService.startPolling();
 }
+
+// I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
+// Timelines and the live feed come from the internal events (ActivityLog, in memory).
+export const activityLog = new ActivityLog(bountyRepo).attach(eventBus);
+app.route(
+  "/",
+  readApiRoutes({
+    repo: bountyRepo,
+    activity: activityLog,
+    // Live fundings from memory, plus whatever is in Postgres (seed, later the Drizzle stores).
+    fundings: database ? mergeFundings(fundingStore, new DrizzleFundingReader(database.db)) : fundingStore,
+    // Live payouts from B2's service; without Bitnob keys, whatever the payouts table holds.
+    payouts: payoutService ? payoutStore : database ? new DrizzlePayoutReader(database.db) : undefined,
+    lightning: lightningFunding,
+    internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
+  }),
+);

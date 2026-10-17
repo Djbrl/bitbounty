@@ -13,6 +13,7 @@ Built at **Code & Chain Dakar 2026** (Bitnob), 17–18 Oct 2026. Hacking starts 
 | [docs/product.md](docs/product.md) | Product definition, UX flows, edge cases, positioning |
 | [docs/bitnob-api.md](docs/bitnob-api.md) | Bitnob API cheat sheet |
 | [docs/setup.md](docs/setup.md) | Run locally, commands, deploy to Railway and Vercel |
+| [docs/api.md](docs/api.md) | Web ↔ server API: the switch from fixtures to the real server, routes, loading and error states |
 | [docs/auth.md](docs/auth.md) | Sign in with GitHub (Auth.js), session fields, env and one-time setup |
 
 Status: **monorepo scaffolded** (`apps/web`, `apps/server`). Run it with `pnpm install && pnpm dev`, see [docs/setup.md](docs/setup.md).

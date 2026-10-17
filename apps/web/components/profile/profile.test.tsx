@@ -8,7 +8,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import ProfilePage, { generateStaticParams } from "../../app/u/[login]/page";
+import ProfilePage, { dynamic } from "../../app/u/[login]/page";
 import { formatXof } from "../ui";
 import { FIXTURE_LOGINS, formatDay, formatMinutes, heatmap, initialsOf, loadProfile } from "./data";
 import { ProfileView } from "./profile-view";
@@ -52,8 +52,8 @@ describe("profile data", () => {
     expect(formatMinutes(0)).toBe("—");
   });
 
-  it("generates static params for every fixture login", () => {
-    expect(generateStaticParams().map((p) => p.login).sort()).toEqual([...FIXTURE_LOGINS].sort());
+  it("is rendered per request (real data, I1) and the fixtures still cover the demo logins", () => {
+    expect(dynamic).toBe("force-dynamic");
     expect(FIXTURE_LOGINS).toEqual(expect.arrayContaining(["awa-ndiaye", "fatou-sall", "moussa-diop", "seynabou-gueye"]));
   });
 });
