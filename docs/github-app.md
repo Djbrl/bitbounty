@@ -104,3 +104,22 @@ Refs inside code, fenced blocks and HTML comments (PR templates) are ignored. On
 issue, like GitHub: `Fixes #1, fixes #2` links both, `Fixes #1, #2` only #1. Bounty lookups go
 through `BountyRepo` (in-memory until F3). Comments use the App installation when
 `GITHUB_APP_ID`/`GITHUB_PRIVATE_KEY` are set, otherwise they are logged.
+
+## 7. Comment commands (G3)
+
+`apps/server/src/github/wiring/` registers `issue_comment.created` on `githubDispatcher` (only when
+`GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY` and `GITHUB_WEBHOOK_SECRET` are set):
+
+1. Comments by bots, or without a command line, are dropped before any API call.
+2. The author's real repo permission is read (`GET /repos/{o}/{r}/collaborators/{u}/permission`)
+   and passed to `parseCommand` (G1), so an org member with write access counts as a maintainer.
+3. `/bounty` → `createBounty`; `/claim /unclaim /pay /hold /reject /cancel` → `transition()` (F2).
+   The bounty is saved with a compare-and-set on its status (`BountyRepo.update`, in
+   `apps/server/src/bounties/repo.ts`, shared with G4) and the event goes on `eventBus`.
+4. The status comment (G2) is edited in place: by `statusCommentId`, else found by its marker in a
+   bot comment, else posted. The issue keeps exactly one `bounty: <status>` label plus `💰 <amount> FCFA`.
+5. Parser and transition errors get a short `@user …` reply quoting the error. `/bounty` and `/claim`
+   on a closed issue, commands on a PR, and `/extend` / `/criteria` (not wired yet) also get a reply.
+
+Env: `WEB_BASE_URL` (links in the comment), `BOT_LANG` (`en`|`fr`), optional `GITHUB_BOT_LOGIN`.
+All GitHub writes go through `GithubWriter` (`FakeGithubWriter` in tests).
