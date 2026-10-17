@@ -123,3 +123,22 @@ through `BountyRepo` (in-memory until F3). Comments use the App installation whe
 
 Env: `WEB_BASE_URL` (links in the comment), `BOT_LANG` (`en`|`fr`), optional `GITHUB_BOT_LOGIN`.
 All GitHub writes go through `GithubWriter` (`FakeGithubWriter` in tests).
+
+## 7. Verification check run (A2)
+
+`apps/server/src/ai/check-run/` registers on `githubDispatcher` for `pull_request.opened` /
+`synchronize` / `reopened`. If the PR closes (`Fixes #n`) an issue whose bounty is
+`funded`/`claimed`/`submitted`/`verified` (looked up in G4's `BountyRepo`):
+
+1. creates a check run **"BitBounty verification"** `in_progress` on the head sha (inside the webhook);
+2. after answering the webhook (GitHub's 10 s limit), fetches the PR diff (`application/vnd.github.diff`)
+   and CI (check runs + statuses, our own check excluded) and calls A1's `verify()`;
+3. completes it: `pass` → success, `fail` → failure, `unsure` → neutral, with a summary listing each
+   criterion and its evidence, and saying it is advice: a human maintainer decides;
+4. publishes `verify.done` on the shared `eventBus`.
+
+A newer push makes older runs finish as `skipped` ("Superseded") with no verdict and no `verify.done`.
+Verifier down, diff unreadable (GitHub 406 on huge PRs) or any crash → `neutral`, never a false failure.
+The verifier is Claude when `ANTHROPIC_API_KEY` is set, else A1's offline heuristic fake (the check says so).
+Disabled when the GitHub App env is missing. Demo switch until F3 stores bounties:
+`CHECK_RUN_DEMO_LOOKUP=issue` treats any issue a PR closes as funded, criteria from its "Done when".
