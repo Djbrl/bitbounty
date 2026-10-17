@@ -9,9 +9,12 @@
     "start": "node --env-file-if-exists=../../.env dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "dev:webhook": "tsx --env-file-if-exists=../../.env src/github/dev-server.ts"
+    "dev:webhook": "tsx --env-file-if-exists=../../.env src/github/dev-server.ts",
+    "payout:smoke": "tsx --env-file-if-exists=../../.env scripts/payout-smoke.ts"
   },
   "dependencies": {
+    "@bitbounty/bitnob": "workspace:*",
+    "@bitbounty/core": "workspace:*",
     "@hono/node-server": "^2.1.5",
     "@octokit/app": "^16.1.4",
     "drizzle-orm": "^0.45.4",

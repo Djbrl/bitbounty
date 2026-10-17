@@ -101,6 +101,32 @@ export interface PayoutQuote {
   expires_at: string;
 }
 
+export interface PayoutBeneficiary {
+  destination_type: "mobile_money" | "bank" | "swift";
+  country: string;
+  account_name: string;
+  /** Mobile money: the number without "+", e.g. "221771234567". */
+  account_number: string;
+  /** From `GET /api/payouts/banks/:country`. */
+  bank_code: string;
+}
+
+export interface InitializePayoutInput {
+  reference: string;
+  beneficiary: PayoutBeneficiary;
+  /** Required by the spec: where Bitnob sends this payout's webhooks. */
+  callback_url: string;
+  payment_reason?: string;
+  customer_id?: string;
+}
+
+/** A payout record (quote, initialize and GET all return this shape). */
+export interface Payout extends PayoutQuote {
+  beneficiary?: Partial<PayoutBeneficiary>;
+  provider_settlement_id?: string;
+  [key: string]: unknown;
+}
+
 export interface CreateVirtualAccountInput {
   customer_id: string;
   currency: "NGN";

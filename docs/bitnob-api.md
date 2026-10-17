@@ -110,3 +110,7 @@ Helpers: `toPayoutUpdate(env)` → `{bitnobPayoutId, quoteId, reference, outcome
 **Dashboard setup.** Paramètres → Webhooks: URL `https://<server>/webhooks/bitnob` (ngrok in local dev: `ngrok http 8787`), copy the secret into `.env` as `BITNOB_WEBHOOK_SECRET`. Payout initialize also takes a per-payout `callback_url`.
 
 **Polling fallback** (Lightning has no webhooks at all, and sandbox webhooks may not fire): `GET /api/payouts/:id` returns the same status (`QUOTE`, `INITIATED`, `processing`, `success`, `expired`…). Pass it through `toPayoutOutcome()` and feed the result to the same handler as the webhook. B2 polls payouts that stay `processing`; B1 polls Lightning invoices.
+
+## B2: payout pipeline
+`apps/server/src/payouts/` (see its README): quote → initialize → finalize with retries, idempotency and crash recovery. Client calls added in `packages/bitnob`: `initializePayout(quoteId, {reference, beneficiary, callback_url})` (`callback_url` is required by the spec), `finalizePayout(quoteId)` (no body, irreversible), `getPayout(id)` (`id` = the payout id returned by the quote, not the quote id).
+Sandbox run: `pnpm --filter @bitbounty/server payout:smoke -- <+221…> wave "<name>" 137`. Result: _not run yet (needs sandbox keys)_.

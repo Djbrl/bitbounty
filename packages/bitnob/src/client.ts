@@ -5,7 +5,9 @@ import type {
   CreateLightningInvoiceInput,
   CreateVirtualAccountInput,
   Customer,
+  InitializePayoutInput,
   LightningInvoice,
+  Payout,
   PayoutQuote,
   PayoutQuoteInput,
   SimulatedDeposit,
@@ -164,6 +166,31 @@ export class BitnobClient {
 
   async createPayoutQuote(input: PayoutQuoteInput): Promise<PayoutQuote> {
     const data = await this.request<{ payout: PayoutQuote }>("POST", "/api/payouts/quotes", input);
+    return data.payout;
+  }
+
+  /** Locks the quote and attaches the beneficiary. */
+  async initializePayout(quoteId: string, input: InitializePayoutInput): Promise<Payout> {
+    const data = await this.request<{ payout: Payout }>(
+      "POST",
+      `/api/payouts/${encodeURIComponent(quoteId)}/initialize`,
+      { quote_id: quoteId, ...input },
+    );
+    return data.payout;
+  }
+
+  /** Commits the debit and releases the payout. Irreversible. */
+  async finalizePayout(quoteId: string): Promise<Payout | undefined> {
+    const data = await this.request<{ payout?: Payout } | undefined>(
+      "POST",
+      `/api/payouts/${encodeURIComponent(quoteId)}/finalize`,
+    );
+    return data?.payout;
+  }
+
+  /** `id` is the payout id returned by the quote (`PayoutQuote.id`), not the quote id. */
+  async getPayout(id: string): Promise<Payout> {
+    const data = await this.request<{ payout: Payout }>("GET", `/api/payouts/${encodeURIComponent(id)}`);
     return data.payout;
   }
 
