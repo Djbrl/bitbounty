@@ -114,3 +114,7 @@ Helpers: `toPayoutUpdate(env)` → `{bitnobPayoutId, quoteId, reference, outcome
 ## B2: payout pipeline
 `apps/server/src/payouts/` (see its README): quote → initialize → finalize with retries, idempotency and crash recovery. Client calls added in `packages/bitnob`: `initializePayout(quoteId, {reference, beneficiary, callback_url})` (`callback_url` is required by the spec), `finalizePayout(quoteId)` (no body, irreversible), `getPayout(id)` (`id` = the payout id returned by the quote, not the quote id).
 Sandbox run: `pnpm --filter @bitbounty/server payout:smoke -- <+221…> wave "<name>" 137`. Result: _not run yet (needs sandbox keys)_.
+
+## B1: Lightning funding
+`apps/server/src/funding/` (see its README). Calls: `POST /api/customers` (once per funder, invoices need `customer_id`), `POST /api/lightning/invoices` (sats, `reference: fund-<bountyId>-<n>`, expiry 900 s), `GET /api/lightning/invoices/:id` polled (no Lightning webhook). Rates: `GET /api/exchange-rates?from=USDT&to=XOF`, `GET /api/trading/prices?base_currency=BTC&quote_currency=USDT` (new client methods `getExchangeRate`, `getTradingPrice`).
+Invoice statuses we read: `paid`/`settled` → paid, `expired`/`cancelled` → expired, anything else pending. To confirm against the sandbox: `pnpm --filter @bitbounty/server lightning:smoke -- 1000`. Result: _not run yet_.

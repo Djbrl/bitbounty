@@ -5,12 +5,14 @@ import type {
   CreateLightningInvoiceInput,
   CreateVirtualAccountInput,
   Customer,
+  ExchangeRate,
   InitializePayoutInput,
   LightningInvoice,
   Payout,
   PayoutQuote,
   PayoutQuoteInput,
   SimulatedDeposit,
+  TradingPrice,
   TradingQuote,
   TradingQuoteInput,
   VirtualAccount,
@@ -218,6 +220,19 @@ export class BitnobClient {
   async createTradingQuote(input: TradingQuoteInput): Promise<TradingQuote> {
     const data = await this.request<{ quote: TradingQuote }>("POST", "/api/trading/quotes", input);
     return data.quote;
+  }
+
+  /** Mid-market rate for `from` → `to` (`to` per 1 `from`). */
+  getExchangeRate(from: string, to: string): Promise<ExchangeRate> {
+    const q = new URLSearchParams({ from, to });
+    return this.request<ExchangeRate>("GET", `/api/exchange-rates?${q}`);
+  }
+
+  /** Spot price of a trading pair, e.g. BTC/USDT. */
+  async getTradingPrice(base: string, quote: string): Promise<TradingPrice> {
+    const q = new URLSearchParams({ base_currency: base, quote_currency: quote });
+    const data = await this.request<{ price: TradingPrice }>("GET", `/api/trading/prices?${q}`);
+    return data.price;
   }
 }
 
