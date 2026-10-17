@@ -65,3 +65,9 @@ LLM-friendly index: https://bitnob.dev/llms.txt. Every reference page has "Copy 
 - Official SDKs: "coming soon".
 - No Lightning webhooks: polling only.
 - Account name lookup doesn't cover Senegal.
+
+## To check on Saturday: "creators / community" API (17 10 2026)
+Jib mentioned an API section aimed at creators / communities, to use for the jury.
+- Not found in the public docs (bitnob.dev, llms.txt, sitemap). The **"Marketplace"** section exists but is empty, and **"Bounties"** is just the Genesis intro.
+- Nearby, publicly: the tutorial [Building a Tipping Platform with Bitnob API](https://bitnob.com/en-US/resources/blog/building-a-tipping-platform-with-bitnob-api) (tip a user by email: Lightning invoice + BTC address per customer).
+- Ask at the 11:00 workshop: is there a creators/community product (or an upcoming Marketplace)? If so, plug it in (e.g. a public page/tip per developer, sponsoring a community).
