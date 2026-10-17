@@ -12,6 +12,8 @@ import type {
   PayoutQuote,
   PayoutQuoteInput,
   SimulatedDeposit,
+  TradingOrder,
+  TradingOrderInput,
   TradingPrice,
   TradingQuote,
   TradingQuoteInput,
@@ -254,6 +256,20 @@ export class BitnobClient {
   async createTradingQuote(input: TradingQuoteInput): Promise<TradingQuote> {
     const data = await this.request<{ quote: TradingQuote }>("POST", "/api/trading/quotes", input);
     return data.quote;
+  }
+
+  async createTradingOrder(input: TradingOrderInput): Promise<TradingOrder> {
+    const data = await this.request<{ order: TradingOrder }>("POST", "/api/trading/orders", input);
+    return data.order;
+  }
+
+  /** By order id or by the `reference` we sent. */
+  async getTradingOrder(idOrReference: string): Promise<TradingOrder> {
+    const data = await this.request<{ order: TradingOrder }>(
+      "GET",
+      `/api/trading/orders/${encodeURIComponent(idOrReference)}`,
+    );
+    return data.order;
   }
 
   /** Mid-market rate for `from` → `to` (`to` per 1 `from`). */

@@ -28,7 +28,28 @@ Paying is a funds transfer, so no agent or CI does it.
 3. Within ~3 s of Bitnob reporting it paid, the script prints `EVENT {"type":"funding.paid",…}` and exits 0 (exits 1 if the invoice expires first, after 15 min).
 Agent run, 2026-10-17: invoice created (1000 FCFA → 2218 sats, `lntb22180n1…`, 15 min expiry), polled `pending`; not paid.
 
+## Naira from Lagos (B4)
+```ts
+const ngn = new NgnFunding({ client, fundings, accounts, rates, customers, emit, credit });
+const { account } = await ngn.account({ bountyId, amountXof, funderId }, kycIdentity); // W3 "Bank transfer" tab
+ngn.register(bitnobDispatcher);   // B5: virtual_account.deposit.success → handleDeposit()
+await ngn.resume();               // on boot
+await ngn.simulateUntilFunded(fundingId); // sandbox only: ₦1,000 per simulated transfer
+```
+- One naira virtual account per bounty (Bitnob customer with KYC fields, `country_code: NGA`), asking for bounty + fee + buffer in whole naira, at least ₦500 (trading minimum).
+- Deposits add up; each deposit reference counts once (webhook and simulate response can report the same one).
+- Bounties above `maxNaira` (default ₦5M; the sandbox balance caps quotes at a few thousand naira) are refused up front with `AMOUNT_TOO_LARGE`.
+- Once the total is covered: **sell NGN for BTC** (Bitcoin as the bridge to the XOF payout) with a fresh quote and order `ngn-<fundingId>-<n>`. Quotes with less than 3 s left are not used. Only an **expired quote** gets a new quote (up to 3); any other refusal (`INVALID_AMOUNT`, `INSUFFICIENT_FUNDS`…) stops with `lastError`, back to collecting, and `simulateUntilFunded` stops depositing.
+- The reference and quote are saved before ordering. Network error / 5xx → reference kept, state stays `converting`; `resume()` re-POSTs the same reference (idempotent at Bitnob) and only moves to `n+1` when that quote is refused as expired, so it never sells twice. A `pending` order keeps its id and is checked by id on resume; `funding.paid` only for a filled order.
+- Exactly one conversion per account (compare-and-set `collecting → converting → converted`); then `funding.paid` with `rail: "ngn"`.
+- Deposit on an account tied to no bounty → nothing funded, logged for manual reconciliation. Over-deposit (sold with the rest) or deposit after funding → `credit()` to the funder. A deposit landing *during* the conversion is not sold; it is credited once when the conversion finishes (or sold on the retry if it fails).
+- Crash after the order: `resume()` re-POSTs the stored reference (or GETs by order id) and finishes without ordering twice. Crash between `converted` and `markPaid`: `resume()` marks it paid and emits then (markPaid is compare-and-set, so once).
+- `BitnobFunderCustomers`: a request with KYC fields gets a KYC customer, even if Lightning already created an email-only one for that funder (that one would get 400 `missing bvn` on the virtual account).
+
+Sandbox: `pnpm --filter @bitbounty/server ngn:smoke -- 300`.
+
 ## Wiring and follow-ups
 - `app.ts` builds `lightningFunding` when `BITNOB_CLIENT_ID`/`SECRET` are set: shared `bountyRepo`, `emit = applyFundingPaid(bountyRepo, eventBus)`, polling started.
+- `NgnFunding` (B4) is not instantiated in `app.ts` yet.
 - Still missing: the HTTP route `POST /api/bounties/:id/funding {rail}` for the fund page (W3), and the status-comment sync after funding (dev-fund.ts does it with `syncIssue`).
 - **Durable store (follow-up).** The store is in memory, so a restart forgets pending invoices and the outbox. `@bitbounty/db`'s `fundings` table lacks columns this needs (`funder_id`, `amount_xof`, `fee_xof`, `buffer_xof`, `payment_request`, `expires_at`, `funds_bounty`, `notified_at`), so a `DrizzleFundingStore` needs a migration first. Its `markPaid` must stay atomic (`UPDATE … WHERE status <> 'paid' RETURNING`, then check for another paid row of the bounty in the same transaction), and `listUnnotified` is `WHERE status = 'paid' AND notified_at IS NULL`.

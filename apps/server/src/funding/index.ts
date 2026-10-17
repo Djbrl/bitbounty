@@ -20,3 +20,14 @@ export {
   type Rates,
 } from "./pricing.js";
 export { InMemoryFundingStore, type FundingRecord, type FundingStore, type MarkPaidResult } from "./store.js";
+export {
+  InMemoryNgnAccountStore,
+  MAX_NAIRA,
+  MIN_NAIRA,
+  NgnFunding,
+  NgnFundingError,
+  QUOTE_SAFETY_MS,
+  type NgnAccount,
+  type NgnAccountStore,
+  type NgnFundingOptions,
+} from "./ngn.js";
