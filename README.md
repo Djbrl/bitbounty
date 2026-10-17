@@ -117,7 +117,8 @@ Each PR was tested as pushed (install, lint, typecheck, tests, build, built serv
 | #75 | A3 (3) | Kml221-bot | Met: issue, why it fits, criteria and an FCFA price on a real repo (offline heuristic; the Claude path was never run live) | No | **Full** | 3 |
 | #85 | I2 (3) | Rabatou | **Not met**: the done-when says "in sandbox", and the PR says `--sandbox` was never run. Offline it is green 3 times in a row | A `/hold` during the objection window doesn't stop the payout (latent while the window is 0) | **Zero** → 3 pts to the pool | 0 |
 
-If all of them are merged as-is: Kml221-bot **9**, Rabatou **6**, pool **28 pts → +7 each**.
+Rabatou also posted A3 review fixes in #91 (23:09), after Djbrl had taken over the remaining open PRs. #97 superseded it; Djbrl granted **half credit**: +0.25 (half of a rule 6 review bonus).
+If all of them are merged as-is (before that +0.25): Kml221-bot **9**, Rabatou **6**, pool **28 pts → +7 each**.
 To settle (rule 9): Rabatou may ask the 2 members not involved whether the offline run meets I2's intent, since Wave/OM sandbox payouts are now impossible. If yes, the `/hold` bug argues for half (1.5), not full.
 
 ---
