@@ -39,10 +39,32 @@ Health checks: server `GET /` returns JSON containing `"message":"hello"`, `GET 
 
 ## Deploy
 
-### Server + Postgres on Railway
+### Server + Postgres on Railway (alternative, paid)
 1. New project → **Deploy from GitHub repo** → `Djbrl/bitbounty`. Railway installs with pnpm and reads `railway.json` at the root (build, start command, `/health` check, redeploy only when server files change). That file applies to every Railway service built from this repo.
 2. Add a **Postgres** service, then in the server service set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}`.
 3. Settings → Networking → **Generate domain**. `GET https://<domain>/` must answer `hello`.
+
+### Server + Postgres with Docker (what we use: Railway is paid)
+The server runs on an always-on Mac with Docker Desktop. One command starts everything:
+
+```sh
+cp .env.example .env    # then fill the GitHub App secrets (see docs/github-app.md)
+docker compose up -d --build
+docker compose logs tunnel | grep trycloudflare   # the public API URL
+```
+
+| Service | What it does |
+|---|---|
+| `db` | Postgres 16, data kept in the `pgdata` volume, exposed on `localhost:5432` |
+| `server` | `apps/server` built from the `Dockerfile`, on `localhost:8787`, reads `.env` |
+| `smee` | Forwards GitHub App webhooks from `https://smee.io/gk8M8VuUD4ZMaO7A` to the server. The smee URL is stable, so the app settings never change |
+| `tunnel` | Cloudflare quick tunnel: a public `https://….trycloudflare.com` URL for the web app and Bitnob webhooks, no account needed |
+
+- **Check:** `curl <tunnel-url>/health` → `{"status":"ok"}`; an unsigned `POST <tunnel-url>/webhooks/github` → 401.
+- **After a code change:** `docker compose up -d --build server`.
+- **The tunnel URL changes when the `tunnel` container restarts** (Mac reboot, Docker restart). Then update `NEXT_PUBLIC_API_URL` on Vercel and redeploy the web.
+- **Keep it up:** Docker Desktop → Settings → "Start Docker Desktop when you sign in"; keep the Mac awake (`caffeinate -dims &`) and plugged in. All services restart on their own (`restart: unless-stopped`).
+- **Database from your machine:** `DATABASE_URL=postgres://postgres:postgres@localhost:5432/bitbounty` (for `pnpm db:migrate` / `db:seed` once F3 lands).
 
 ### Web on Vercel
 1. **Add New Project** → import `Djbrl/bitbounty`.
