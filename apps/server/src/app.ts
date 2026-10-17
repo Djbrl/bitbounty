@@ -1,6 +1,8 @@
 import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
+import { ActivityLog, readApiRoutes } from "./api/index.js";
+import { DrizzleFundingReader, DrizzlePayoutReader, mergeFundings } from "./api/drizzle-read.js";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
 import { bitnobProxyRoutes } from "./dev/bitnob-proxy.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
@@ -156,13 +158,16 @@ if (bitnobSecret) {
 // B1: Lightning funding. Amount and status come from the shared bountyRepo; a paid invoice moves the
 // bounty to `funded` and publishes funding.paid (at least once, via the funding outbox).
 // In-memory FundingStore until the Drizzle one lands (see src/funding/README.md). No HTTP route yet (W3).
+/** Fundings (B1), shared with the read API (I1) so /b/:id shows them. In memory until DrizzleFundingStore lands. */
+export const fundingStore = new InMemoryFundingStore();
+
 export const lightningFunding =
   process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET
     ? (() => {
         const client = new BitnobClient(readBitnobConfig());
         const lf = new LightningFunding({
           client,
-          store: new InMemoryFundingStore(),
+          store: fundingStore,
           rates: new BitnobRates(client),
           customers: new BitnobFunderCustomers(client),
           bounties: bountyRepo,
@@ -172,3 +177,20 @@ export const lightningFunding =
         return lf;
       })()
     : null;
+
+// I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
+// Timelines and the live feed come from the internal events (ActivityLog, in memory).
+export const activityLog = new ActivityLog(bountyRepo).attach(eventBus);
+app.route(
+  "/",
+  readApiRoutes({
+    repo: bountyRepo,
+    activity: activityLog,
+    // Live fundings from memory, plus whatever is in Postgres (seed, later the Drizzle stores).
+    fundings: database ? mergeFundings(fundingStore, new DrizzleFundingReader(database.db)) : fundingStore,
+    // The payout service (B2) isn't wired into app.ts yet: show the payouts table when there is one.
+    payouts: database ? new DrizzlePayoutReader(database.db) : undefined,
+    lightning: lightningFunding,
+    internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
+  }),
+);

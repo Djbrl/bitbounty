@@ -80,6 +80,11 @@ export class DrizzleBountyRepo implements BountyRepo {
     return row ? toBounty(row) : undefined;
   }
 
+  async list(limit = 1000) {
+    const rows = await this.select().orderBy(desc(bounties.createdAt)).limit(limit);
+    return rows.map(toBounty);
+  }
+
   async findByIssue(repoFullName: string, issueNumber: number) {
     const [row] = await this.select()
       .where(and(lowerEq(repos.fullName, repoFullName), eq(bounties.issueNumber, issueNumber)))

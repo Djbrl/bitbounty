@@ -31,6 +31,8 @@ export interface BountyRepo extends PrBountyRepo {
    */
   update(bounty: Bounty, expectedStatus: BountyStatus): Promise<Bounty | undefined>;
   setStatusCommentId(bountyId: string, commentId: number | null): Promise<void>;
+  /** Every bounty, newest first (I1: board, dashboard, live screen). Capped at `limit` (default 1000). */
+  list(limit?: number): Promise<Bounty[]>;
 
   /** Stores the claim; an `active` one becomes the bounty's `activeClaimant`. */
   createClaim(claim: ClaimRecord): Promise<ClaimRecord>;
@@ -63,6 +65,12 @@ export class InMemoryBountyRepo extends PrInMemoryBountyRepo implements BountyRe
     const next = { ...bounty, repoFullName: current.repoFullName, issueNumber: current.issueNumber };
     this.bounties.set(bounty.id, next);
     return { ...next };
+  }
+
+  async list(limit = 1000) {
+    return this.all()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
   }
 
   async setStatusCommentId(bountyId: string, commentId: number | null) {
