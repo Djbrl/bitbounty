@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "dev:webhook": "tsx --env-file-if-exists=../../.env src/github/dev-server.ts",
-    "verify:fixtures": "tsx --env-file-if-exists=../../.env src/ai/verifier/run-fixtures.ts"
+    "verify:fixtures": "tsx --env-file-if-exists=../../.env src/ai/verifier/run-fixtures.ts",
+    "agent:create": "tsx src/agents/cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
