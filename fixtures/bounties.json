@@ -1,0 +1,1441 @@
+[
+  {
+    "id": "b-101",
+    "repo": "teranga-labs/bitnob-js",
+    "issue_number": 21,
+    "issue_title": "payouts.finalize: retry with exponential backoff on 5xx",
+    "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/21",
+    "amount_xof": 15000,
+    "status": "unfunded",
+    "criteria": [
+      "finalize() retries up to 3 times on HTTP 5xx with 1 s, 2 s, 4 s delays",
+      "The same idempotency reference is reused on every retry",
+      "Unit test simulates two 503 responses then a 200"
+    ],
+    "criteria_confirmed": false,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty"
+    ],
+    "status_comment_id": 2400000147,
+    "created_at": "2026-10-17T15:40:00Z",
+    "updated_at": "2026-10-17T15:40:00Z",
+    "expires_at": "2026-12-16T15:40:00Z",
+    "fundings": [],
+    "claims": [],
+    "submission": null,
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T15:40:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 15000 — criteria drafted by Claude, waiting for /criteria ok"
+      }
+    ]
+  },
+  {
+    "id": "b-102",
+    "repo": "teranga-labs/xof",
+    "issue_number": 3,
+    "issue_title": "formatXOF(): use a narrow no-break space as thousands separator",
+    "issue_url": "https://github.com/teranga-labs/xof/issues/3",
+    "amount_xof": 5000,
+    "status": "funded",
+    "criteria": [
+      "formatXOF(10000) returns \"10 000 FCFA\" with U+202F",
+      "Negative amounts keep the minus sign before the digits",
+      "README example updated"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 5 000 FCFA"
+    ],
+    "status_comment_id": 2400000021,
+    "created_at": "2026-10-17T15:20:00Z",
+    "updated_at": "2026-10-17T17:02:00Z",
+    "expires_at": "2026-12-16T15:20:00Z",
+    "fundings": [
+      {
+        "id": "fnd_102_1",
+        "bounty_id": "b-102",
+        "rail": "lightning",
+        "source_amount": 8737,
+        "source_currency": "SAT",
+        "fee_xof": 250,
+        "buffer_xof": 150,
+        "bitnob_ref": "fund-b-102-1",
+        "payment_hash": "5bd1d8fed433385868e9a68c6c55cc4f49eaab05ff7b041f2a162d5d0ed8f7cd",
+        "status": "paid",
+        "created_at": "2026-10-17T15:20:00Z",
+        "paid_at": "2026-10-17T15:26:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_102_ibou",
+        "bounty_id": "b-102",
+        "user_login": "ibou-fall",
+        "status": "released",
+        "extended": false,
+        "created_at": "2026-10-17T16:10:00Z",
+        "expires_at": "2026-10-20T16:10:00Z"
+      }
+    ],
+    "submission": null,
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T15:20:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 5000"
+      },
+      {
+        "at": "2026-10-17T15:26:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded over Lightning: 8,737 sats"
+      },
+      {
+        "at": "2026-10-17T16:10:00Z",
+        "type": "claim.created",
+        "actor": "ibou-fall",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-17T17:02:00Z",
+        "type": "claim.released",
+        "actor": "ibou-fall",
+        "text": "/unclaim — bounty open again"
+      }
+    ]
+  },
+  {
+    "id": "b-103",
+    "repo": "teranga-labs/bitnob-js",
+    "issue_number": 14,
+    "issue_title": "lightning.createInvoice(): return expires_at as an ISO date",
+    "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/14",
+    "amount_xof": 10000,
+    "status": "claimed",
+    "criteria": [
+      "createInvoice() response includes expires_at (ISO 8601, UTC)",
+      "Type definitions updated in src/types.ts",
+      "Test covers the 900 s default expiry"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 10 000 FCFA"
+    ],
+    "status_comment_id": 2400000098,
+    "created_at": "2026-10-17T15:15:00Z",
+    "updated_at": "2026-10-17T16:05:00Z",
+    "expires_at": "2026-12-16T15:15:00Z",
+    "fundings": [
+      {
+        "id": "fnd_103_1",
+        "bounty_id": "b-103",
+        "rail": "lightning",
+        "source_amount": 17474,
+        "source_currency": "SAT",
+        "fee_xof": 500,
+        "buffer_xof": 300,
+        "bitnob_ref": "fund-b-103-1",
+        "payment_hash": "1e3e0bc66958f1df6ff304950f616f525cac056933b88fa332d93f5bdb95362a",
+        "status": "paid",
+        "created_at": "2026-10-17T15:25:00Z",
+        "paid_at": "2026-10-17T15:31:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_103_awa",
+        "bounty_id": "b-103",
+        "user_login": "awa-ndiaye",
+        "status": "active",
+        "extended": false,
+        "created_at": "2026-10-17T16:05:00Z",
+        "expires_at": "2026-10-20T16:05:00Z"
+      }
+    ],
+    "submission": null,
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T15:15:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 10000"
+      },
+      {
+        "at": "2026-10-17T15:31:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded over Lightning"
+      },
+      {
+        "at": "2026-10-17T16:05:00Z",
+        "type": "claim.created",
+        "actor": "awa-ndiaye",
+        "text": "/claim — locked until Mon 20 Oct 16:05"
+      }
+    ]
+  },
+  {
+    "id": "b-104",
+    "repo": "teranga-labs/bitnob-js",
+    "issue_number": 9,
+    "issue_title": "Add HMAC signature helper for webhook verification",
+    "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/9",
+    "amount_xof": 12000,
+    "status": "submitted",
+    "criteria": [
+      "verifyWebhook(body, signature, secret) uses timing-safe comparison",
+      "Rejects signatures older than 5 minutes",
+      "Tests cover valid, tampered and expired payloads"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 12 000 FCFA"
+    ],
+    "status_comment_id": 2400000063,
+    "created_at": "2026-10-17T15:12:00Z",
+    "updated_at": "2026-10-17T18:44:00Z",
+    "expires_at": "2026-12-16T15:12:00Z",
+    "fundings": [
+      {
+        "id": "fnd_104_1",
+        "bounty_id": "b-104",
+        "rail": "usdt",
+        "source_amount": 2307,
+        "source_currency": "USDT_CENT",
+        "fee_xof": 600,
+        "buffer_xof": 360,
+        "bitnob_ref": "fund-b-104-1",
+        "payment_hash": null,
+        "status": "paid",
+        "created_at": "2026-10-17T15:29:00Z",
+        "paid_at": "2026-10-17T15:35:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_104_moussa",
+        "bounty_id": "b-104",
+        "user_login": "moussa-diop",
+        "status": "active",
+        "extended": false,
+        "created_at": "2026-10-17T15:50:00Z",
+        "expires_at": "2026-10-20T15:50:00Z"
+      }
+    ],
+    "submission": {
+      "id": "sub_104_31",
+      "bounty_id": "b-104",
+      "pr_number": 31,
+      "pr_url": "https://github.com/teranga-labs/bitnob-js/pull/31",
+      "author_login": "moussa-diop",
+      "head_sha": "f6fbc5a635347cb6032b284c7dfffb3d25bac22d",
+      "ci": "success",
+      "verdict": "fail",
+      "report": {
+        "criteria": [
+          {
+            "text": "verifyWebhook(body, signature, secret) uses timing-safe comparison",
+            "met": true,
+            "evidence": "src/webhooks.ts:18 uses crypto.timingSafeEqual"
+          },
+          {
+            "text": "Rejects signatures older than 5 minutes",
+            "met": false,
+            "evidence": "No timestamp check found in src/webhooks.ts"
+          },
+          {
+            "text": "Tests cover valid, tampered and expired payloads",
+            "met": true,
+            "evidence": "test/webhooks.test.ts: 3 cases, expired case missing"
+          }
+        ],
+        "verdict": "fail",
+        "summary": "Signature check is correct and timing-safe. The 5-minute freshness rule from the criteria is not implemented.",
+        "risk_flags": []
+      },
+      "spam_score": 4,
+      "created_at": "2026-10-17T18:40:00Z",
+      "merged_at": null
+    },
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T15:12:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 12000"
+      },
+      {
+        "at": "2026-10-17T15:35:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded in USDT (TRON)"
+      },
+      {
+        "at": "2026-10-17T15:50:00Z",
+        "type": "claim.created",
+        "actor": "moussa-diop",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-17T18:40:00Z",
+        "type": "pr.linked",
+        "actor": "moussa-diop",
+        "text": "PR #31 \"Fixes #9\""
+      },
+      {
+        "at": "2026-10-17T18:44:00Z",
+        "type": "verify.done",
+        "actor": "bitbounty",
+        "text": "Claude: ❌ 2/3 criteria met — freshness check missing"
+      }
+    ]
+  },
+  {
+    "id": "b-105",
+    "repo": "teranga-labs/bitnob-js",
+    "issue_number": 17,
+    "issue_title": "Typed error classes for Bitnob API errors",
+    "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/17",
+    "amount_xof": 8000,
+    "status": "verified",
+    "criteria": [
+      "BitnobError exposes status, code and request_id",
+      "RateLimitError is thrown on HTTP 429 with retry_after",
+      "All public methods document the errors they throw"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 8 000 FCFA"
+    ],
+    "status_comment_id": 2400000119,
+    "created_at": "2026-10-17T15:18:00Z",
+    "updated_at": "2026-10-17T21:02:00Z",
+    "expires_at": "2026-12-16T15:18:00Z",
+    "fundings": [
+      {
+        "id": "fnd_105_1",
+        "bounty_id": "b-105",
+        "rail": "lightning",
+        "source_amount": 13980,
+        "source_currency": "SAT",
+        "fee_xof": 400,
+        "buffer_xof": 240,
+        "bitnob_ref": "fund-b-105-1",
+        "payment_hash": "ba736a5d98f1d41869345b27410caf912d93de4b0018f7f968d07485cb3b3bb7",
+        "status": "paid",
+        "created_at": "2026-10-17T15:23:00Z",
+        "paid_at": "2026-10-17T15:29:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_105_cheikh",
+        "bounty_id": "b-105",
+        "user_login": "cheikh-ba",
+        "status": "done",
+        "extended": false,
+        "created_at": "2026-10-17T16:00:00Z",
+        "expires_at": "2026-10-20T16:00:00Z"
+      }
+    ],
+    "submission": {
+      "id": "sub_105_33",
+      "bounty_id": "b-105",
+      "pr_number": 33,
+      "pr_url": "https://github.com/teranga-labs/bitnob-js/pull/33",
+      "author_login": "cheikh-ba",
+      "head_sha": "bd80cdffe78667926ad84bae2a866d60e535d4e6",
+      "ci": "success",
+      "verdict": "pass",
+      "report": {
+        "criteria": [
+          {
+            "text": "BitnobError exposes status, code and request_id",
+            "met": true,
+            "evidence": "src/errors.ts:4-31"
+          },
+          {
+            "text": "RateLimitError is thrown on HTTP 429 with retry_after",
+            "met": true,
+            "evidence": "src/http.ts:57 maps 429 → RateLimitError(retry_after)"
+          },
+          {
+            "text": "All public methods document the errors they throw",
+            "met": true,
+            "evidence": "JSDoc @throws added on 14 public methods"
+          }
+        ],
+        "verdict": "pass",
+        "summary": "All three criteria are met with tests. Changes are limited to the error layer.",
+        "risk_flags": []
+      },
+      "spam_score": 4,
+      "created_at": "2026-10-17T19:10:00Z",
+      "merged_at": "2026-10-17T21:02:00Z"
+    },
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T15:18:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 8000"
+      },
+      {
+        "at": "2026-10-17T15:29:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded over Lightning"
+      },
+      {
+        "at": "2026-10-17T16:00:00Z",
+        "type": "claim.created",
+        "actor": "cheikh-ba",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-17T19:10:00Z",
+        "type": "pr.linked",
+        "actor": "cheikh-ba",
+        "text": "PR #33 \"Fixes #17\""
+      },
+      {
+        "at": "2026-10-17T19:13:00Z",
+        "type": "verify.done",
+        "actor": "bitbounty",
+        "text": "Claude: ✅ 3/3 criteria met"
+      },
+      {
+        "at": "2026-10-17T21:02:00Z",
+        "type": "pr.merged",
+        "actor": "Djbrl",
+        "text": "PR #33 merged — objection window 24 h (ends Sat 18 Oct 21:02)"
+      }
+    ]
+  },
+  {
+    "id": "b-106",
+    "repo": "galsen-oss/wolof-i18n",
+    "issue_number": 4,
+    "issue_title": "Wolof translations for the checkout screens",
+    "issue_url": "https://github.com/galsen-oss/wolof-i18n/issues/4",
+    "amount_xof": 7500,
+    "status": "paying",
+    "criteria": [
+      "All 42 keys in locales/en/checkout.json have a Wolof value in locales/wo/checkout.json",
+      "Amounts and placeholders ({amount}, {name}) are preserved",
+      "Reviewed by a second Wolof speaker in the PR"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 7 500 FCFA"
+    ],
+    "status_comment_id": 2400000028,
+    "created_at": "2026-10-17T16:30:00Z",
+    "updated_at": "2026-10-17T22:31:00Z",
+    "expires_at": "2026-12-16T16:30:00Z",
+    "fundings": [
+      {
+        "id": "fnd_106_1",
+        "bounty_id": "b-106",
+        "rail": "lightning",
+        "source_amount": 13106,
+        "source_currency": "SAT",
+        "fee_xof": 375,
+        "buffer_xof": 225,
+        "bitnob_ref": "fund-b-106-1",
+        "payment_hash": "26d271f87c3948815a4c977d4042bde446111e23ddaa9a554b979f84eb2ca619",
+        "status": "paid",
+        "created_at": "2026-10-17T16:27:00Z",
+        "paid_at": "2026-10-17T16:33:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_106_seynabou",
+        "bounty_id": "b-106",
+        "user_login": "seynabou-gueye",
+        "status": "done",
+        "extended": false,
+        "created_at": "2026-10-17T16:50:00Z",
+        "expires_at": "2026-10-20T16:50:00Z"
+      }
+    ],
+    "submission": {
+      "id": "sub_106_6",
+      "bounty_id": "b-106",
+      "pr_number": 6,
+      "pr_url": "https://github.com/galsen-oss/wolof-i18n/pull/6",
+      "author_login": "seynabou-gueye",
+      "head_sha": "8816b27aa47f73b9f24523d5ef92a608991a681e",
+      "ci": "success",
+      "verdict": "pass",
+      "report": {
+        "criteria": [
+          {
+            "text": "All 42 keys in locales/en/checkout.json have a Wolof value in locales/wo/checkout.json",
+            "met": true,
+            "evidence": "42/42 keys present"
+          },
+          {
+            "text": "Amounts and placeholders ({amount}, {name}) are preserved",
+            "met": true,
+            "evidence": "Placeholders unchanged in all 42 strings"
+          },
+          {
+            "text": "Reviewed by a second Wolof speaker in the PR",
+            "met": true,
+            "evidence": "Approved review by @fatou-sall"
+          }
+        ],
+        "verdict": "pass",
+        "summary": "Complete translation, placeholders intact, peer-reviewed.",
+        "risk_flags": []
+      },
+      "spam_score": 4,
+      "created_at": "2026-10-17T20:15:00Z",
+      "merged_at": "2026-10-17T22:30:00Z"
+    },
+    "payout": {
+      "id": "pyt_106",
+      "bounty_id": "b-106",
+      "user_login": "seynabou-gueye",
+      "amount_xof": 7500,
+      "provider": "wave",
+      "phone_masked": "+221 77 ••• •• 88",
+      "quote_id": "qt_0bb6eb3d8b6f3268",
+      "bitnob_payout_id": "PAYOUT_258129C5BE",
+      "reference": "pay-b-106",
+      "status": "processing",
+      "attempts": 1,
+      "last_error": null,
+      "created_at": "2026-10-17T22:31:00Z",
+      "paid_at": null
+    },
+    "timeline": [
+      {
+        "at": "2026-10-17T16:30:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 7500"
+      },
+      {
+        "at": "2026-10-17T16:33:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded over Lightning"
+      },
+      {
+        "at": "2026-10-17T16:50:00Z",
+        "type": "claim.created",
+        "actor": "seynabou-gueye",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-17T20:15:00Z",
+        "type": "pr.linked",
+        "actor": "seynabou-gueye",
+        "text": "PR #6 \"Fixes #4\""
+      },
+      {
+        "at": "2026-10-17T20:17:00Z",
+        "type": "verify.done",
+        "actor": "bitbounty",
+        "text": "Claude: ✅ 3/3 criteria met"
+      },
+      {
+        "at": "2026-10-17T22:30:00Z",
+        "type": "pr.merged",
+        "actor": "Djbrl",
+        "text": "PR #6 merged (/pay now)"
+      },
+      {
+        "at": "2026-10-17T22:31:00Z",
+        "type": "payout.started",
+        "actor": "bitbounty",
+        "text": "Payout to Wave +221 77 ••• •• 88 — processing"
+      }
+    ]
+  },
+  {
+    "id": "b-107",
+    "repo": "teranga-labs/bitnob-js",
+    "issue_number": 12,
+    "issue_title": "Add payouts.quote() for SN mobile money",
+    "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/12",
+    "amount_xof": 10000,
+    "status": "paid",
+    "criteria": [
+      "payouts.quote({ country: \"SN\", settlement_amount }) returns quote_id and expires_at",
+      "Uses the /api/payouts/quotes endpoint with source \"offchain\"",
+      "Test with recorded sandbox response"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 10 000 FCFA"
+    ],
+    "status_comment_id": 2400000084,
+    "created_at": "2026-10-17T15:05:00Z",
+    "updated_at": "2026-10-17T18:26:00Z",
+    "expires_at": "2026-12-16T15:05:00Z",
+    "fundings": [
+      {
+        "id": "fnd_107_1",
+        "bounty_id": "b-107",
+        "rail": "lightning",
+        "source_amount": 17474,
+        "source_currency": "SAT",
+        "fee_xof": 500,
+        "buffer_xof": 300,
+        "bitnob_ref": "fund-b-107-1",
+        "payment_hash": "c73298d9362b748793e6f50d6d72a2db5cb04569c19df4d58f7a28a4d9cb36e1",
+        "status": "paid",
+        "created_at": "2026-10-17T15:03:00Z",
+        "paid_at": "2026-10-17T15:09:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_107_awa",
+        "bounty_id": "b-107",
+        "user_login": "awa-ndiaye",
+        "status": "done",
+        "extended": false,
+        "created_at": "2026-10-17T15:22:00Z",
+        "expires_at": "2026-10-20T15:22:00Z"
+      }
+    ],
+    "submission": {
+      "id": "sub_107_34",
+      "bounty_id": "b-107",
+      "pr_number": 34,
+      "pr_url": "https://github.com/teranga-labs/bitnob-js/pull/34",
+      "author_login": "awa-ndiaye",
+      "head_sha": "565bb74aeec390833bd51b57a0d722eedeb23d2b",
+      "ci": "success",
+      "verdict": "pass",
+      "report": {
+        "criteria": [
+          {
+            "text": "payouts.quote({ country: \"SN\", settlement_amount }) returns quote_id and expires_at",
+            "met": true,
+            "evidence": "src/payouts.ts:22-48"
+          },
+          {
+            "text": "Uses the /api/payouts/quotes endpoint with source \"offchain\"",
+            "met": true,
+            "evidence": "src/payouts.ts:31 body.source = \"offchain\""
+          },
+          {
+            "text": "Test with recorded sandbox response",
+            "met": true,
+            "evidence": "test/payouts.quote.test.ts with fixture sandbox-quote-sn.json"
+          }
+        ],
+        "verdict": "pass",
+        "summary": "quote() implemented as specified, with a recorded sandbox fixture. No unrelated changes.",
+        "risk_flags": []
+      },
+      "spam_score": 4,
+      "created_at": "2026-10-17T17:48:00Z",
+      "merged_at": "2026-10-17T18:20:00Z"
+    },
+    "payout": {
+      "id": "pyt_107",
+      "bounty_id": "b-107",
+      "user_login": "awa-ndiaye",
+      "amount_xof": 10000,
+      "provider": "wave",
+      "phone_masked": "+221 77 ••• •• 42",
+      "quote_id": "qt_f473a6a19fbc0c65",
+      "bitnob_payout_id": "PAYOUT_8C34EAC4BC",
+      "reference": "pay-b-107",
+      "status": "succeeded",
+      "attempts": 1,
+      "last_error": null,
+      "created_at": "2026-10-17T18:21:00Z",
+      "paid_at": "2026-10-17T18:26:00Z"
+    },
+    "timeline": [
+      {
+        "at": "2026-10-17T15:05:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 10000"
+      },
+      {
+        "at": "2026-10-17T15:09:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded over Lightning: 17 474 sats"
+      },
+      {
+        "at": "2026-10-17T15:22:00Z",
+        "type": "claim.created",
+        "actor": "awa-ndiaye",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-17T17:48:00Z",
+        "type": "pr.linked",
+        "actor": "awa-ndiaye",
+        "text": "PR #34 \"Fixes #12\""
+      },
+      {
+        "at": "2026-10-17T17:51:00Z",
+        "type": "verify.done",
+        "actor": "bitbounty",
+        "text": "Claude: ✅ 3/3 criteria met"
+      },
+      {
+        "at": "2026-10-17T18:20:00Z",
+        "type": "pr.merged",
+        "actor": "Djbrl",
+        "text": "PR #34 merged"
+      },
+      {
+        "at": "2026-10-17T18:21:00Z",
+        "type": "payout.started",
+        "actor": "bitbounty",
+        "text": "Payout to Wave +221 77 ••• •• 42"
+      },
+      {
+        "at": "2026-10-17T18:26:00Z",
+        "type": "payout.succeeded",
+        "actor": "bitnob",
+        "text": "💸 Paid 10 000 FCFA to @awa-ndiaye on Wave · 6 min after the merge"
+      }
+    ]
+  },
+  {
+    "id": "b-108",
+    "repo": "teranga-labs/bitnob-js",
+    "issue_number": 19,
+    "issue_title": "README: quick start in French",
+    "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/19",
+    "amount_xof": 3000,
+    "status": "payout_failed",
+    "criteria": [
+      "README.fr.md covers install, auth and one payout example",
+      "Linked from the main README"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 3 000 FCFA"
+    ],
+    "status_comment_id": 2400000133,
+    "created_at": "2026-10-17T15:45:00Z",
+    "updated_at": "2026-10-17T19:09:00Z",
+    "expires_at": "2026-12-16T15:45:00Z",
+    "fundings": [
+      {
+        "id": "fnd_108_1",
+        "bounty_id": "b-108",
+        "rail": "lightning",
+        "source_amount": 5242,
+        "source_currency": "SAT",
+        "fee_xof": 150,
+        "buffer_xof": 90,
+        "bitnob_ref": "fund-b-108-1",
+        "payment_hash": "c4dabc836d5a8b3ad27a03d268e3512acec1417e2caabde4ac1a89076ddc14f3",
+        "status": "paid",
+        "created_at": "2026-10-17T15:42:00Z",
+        "paid_at": "2026-10-17T15:48:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_108_moussa",
+        "bounty_id": "b-108",
+        "user_login": "moussa-diop",
+        "status": "done",
+        "extended": false,
+        "created_at": "2026-10-17T16:20:00Z",
+        "expires_at": "2026-10-20T16:20:00Z"
+      }
+    ],
+    "submission": {
+      "id": "sub_108_32",
+      "bounty_id": "b-108",
+      "pr_number": 32,
+      "pr_url": "https://github.com/teranga-labs/bitnob-js/pull/32",
+      "author_login": "moussa-diop",
+      "head_sha": "cf57139724166be52c4911673195cc791ffdc277",
+      "ci": "success",
+      "verdict": "pass",
+      "report": {
+        "criteria": [
+          {
+            "text": "README.fr.md covers install, auth and one payout example",
+            "met": true,
+            "evidence": "README.fr.md, 3 sections"
+          },
+          {
+            "text": "Linked from the main README",
+            "met": true,
+            "evidence": "README.md:5"
+          }
+        ],
+        "verdict": "pass",
+        "summary": "French quick start complete and linked.",
+        "risk_flags": []
+      },
+      "spam_score": 4,
+      "created_at": "2026-10-17T17:30:00Z",
+      "merged_at": "2026-10-17T19:00:00Z"
+    },
+    "payout": {
+      "id": "pyt_108",
+      "bounty_id": "b-108",
+      "user_login": "moussa-diop",
+      "amount_xof": 3000,
+      "provider": "orange",
+      "phone_masked": "+221 78 ••• •• 19",
+      "quote_id": "qt_e0c4d15563349add",
+      "bitnob_payout_id": "PAYOUT_49D93B73DA",
+      "reference": "pay-b-108",
+      "status": "failed",
+      "attempts": 3,
+      "last_error": "withdrawal.expired: recipient account not reachable (Orange Money)",
+      "created_at": "2026-10-17T19:01:00Z",
+      "paid_at": null
+    },
+    "timeline": [
+      {
+        "at": "2026-10-17T15:45:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 3000"
+      },
+      {
+        "at": "2026-10-17T15:48:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded over Lightning"
+      },
+      {
+        "at": "2026-10-17T16:20:00Z",
+        "type": "claim.created",
+        "actor": "moussa-diop",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-17T17:30:00Z",
+        "type": "pr.linked",
+        "actor": "moussa-diop",
+        "text": "PR #32 \"Fixes #19\""
+      },
+      {
+        "at": "2026-10-17T17:33:00Z",
+        "type": "verify.done",
+        "actor": "bitbounty",
+        "text": "Claude: ✅ 2/2 criteria met"
+      },
+      {
+        "at": "2026-10-17T19:00:00Z",
+        "type": "pr.merged",
+        "actor": "Djbrl",
+        "text": "PR #32 merged"
+      },
+      {
+        "at": "2026-10-17T19:01:00Z",
+        "type": "payout.started",
+        "actor": "bitbounty",
+        "text": "Payout to Orange Money +221 78 ••• •• 19"
+      },
+      {
+        "at": "2026-10-17T19:02:00Z",
+        "type": "payout.failed",
+        "actor": "bitnob",
+        "text": "Attempt 1/3 failed: withdrawal.expired"
+      },
+      {
+        "at": "2026-10-17T19:04:00Z",
+        "type": "payout.failed",
+        "actor": "bitnob",
+        "text": "Attempt 2/3 failed: withdrawal.expired"
+      },
+      {
+        "at": "2026-10-17T19:09:00Z",
+        "type": "payout.failed",
+        "actor": "bitnob",
+        "text": "Attempt 3/3 failed — @moussa-diop asked to update their account. The 3 000 FCFA stay reserved for them."
+      }
+    ]
+  },
+  {
+    "id": "b-109",
+    "repo": "teranga-labs/xof",
+    "issue_number": 5,
+    "issue_title": "parseXOF(): accept \"10.000 F\" and \"10 000 FCFA\"",
+    "issue_url": "https://github.com/teranga-labs/xof/issues/5",
+    "amount_xof": 6000,
+    "status": "on_hold",
+    "criteria": [
+      "parseXOF accepts dot, space and U+202F separators",
+      "Accepts the suffixes F, FCFA and XOF",
+      "Returns an integer, throws on decimals"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 6 000 FCFA"
+    ],
+    "status_comment_id": 2400000035,
+    "created_at": "2026-10-17T15:25:00Z",
+    "updated_at": "2026-10-17T20:52:00Z",
+    "expires_at": "2026-12-16T15:25:00Z",
+    "fundings": [
+      {
+        "id": "fnd_109_1",
+        "bounty_id": "b-109",
+        "rail": "lightning",
+        "source_amount": 10485,
+        "source_currency": "SAT",
+        "fee_xof": 300,
+        "buffer_xof": 180,
+        "bitnob_ref": "fund-b-109-1",
+        "payment_hash": "640661eea93ad0f8621b5832f2f52a9d25acb650e799d3db7cf236fa1348738e",
+        "status": "paid",
+        "created_at": "2026-10-17T15:21:00Z",
+        "paid_at": "2026-10-17T15:27:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_109_ibou",
+        "bounty_id": "b-109",
+        "user_login": "ibou-fall",
+        "status": "done",
+        "extended": false,
+        "created_at": "2026-10-17T15:55:00Z",
+        "expires_at": "2026-10-20T15:55:00Z"
+      }
+    ],
+    "submission": {
+      "id": "sub_109_8",
+      "bounty_id": "b-109",
+      "pr_number": 8,
+      "pr_url": "https://github.com/teranga-labs/xof/pull/8",
+      "author_login": "ibou-fall",
+      "head_sha": "9bc48a932db176e8a60fb4d523d809fba86f64ac",
+      "ci": "success",
+      "verdict": "unsure",
+      "report": {
+        "criteria": [
+          {
+            "text": "parseXOF accepts dot, space and U+202F separators",
+            "met": true,
+            "evidence": "src/parse.ts:9 regex covers the 3 separators"
+          },
+          {
+            "text": "Accepts the suffixes F, FCFA and XOF",
+            "met": true,
+            "evidence": "src/parse.ts:12"
+          },
+          {
+            "text": "Returns an integer, throws on decimals",
+            "met": false,
+            "evidence": "Decimals are rounded instead of throwing (src/parse.ts:20) — unclear if intended"
+          }
+        ],
+        "verdict": "unsure",
+        "summary": "Separators and suffixes are handled. Decimal input is rounded silently, which contradicts criterion 3 unless the maintainer accepts it.",
+        "risk_flags": [
+          "changes rounding behaviour of an existing helper"
+        ]
+      },
+      "spam_score": 12,
+      "created_at": "2026-10-17T18:05:00Z",
+      "merged_at": "2026-10-17T20:40:00Z"
+    },
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T15:25:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 6000"
+      },
+      {
+        "at": "2026-10-17T15:27:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded over Lightning"
+      },
+      {
+        "at": "2026-10-17T15:55:00Z",
+        "type": "claim.created",
+        "actor": "ibou-fall",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-17T18:05:00Z",
+        "type": "pr.linked",
+        "actor": "ibou-fall",
+        "text": "PR #8 \"Fixes #5\""
+      },
+      {
+        "at": "2026-10-17T18:08:00Z",
+        "type": "verify.done",
+        "actor": "bitbounty",
+        "text": "Claude: ⚠️ unsure — decimals rounded instead of rejected"
+      },
+      {
+        "at": "2026-10-17T20:40:00Z",
+        "type": "pr.merged",
+        "actor": "Djbrl",
+        "text": "PR #8 merged"
+      },
+      {
+        "at": "2026-10-17T20:52:00Z",
+        "type": "bounty.held",
+        "actor": "Djbrl",
+        "text": "/hold — rounding regression reported in #11"
+      }
+    ]
+  },
+  {
+    "id": "b-110",
+    "repo": "teranga-labs/bitnob-js",
+    "issue_number": 7,
+    "issue_title": "Support Bitnob v1 legacy endpoints",
+    "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/7",
+    "amount_xof": 20000,
+    "status": "refunded",
+    "criteria": [
+      "All /v1 endpoints are reachable through client.legacy",
+      "Deprecation warning logged once per process"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 20 000 FCFA"
+    ],
+    "status_comment_id": 2400000049,
+    "created_at": "2026-10-17T15:02:00Z",
+    "updated_at": "2026-10-17T17:00:00Z",
+    "expires_at": "2026-12-16T15:02:00Z",
+    "fundings": [
+      {
+        "id": "fnd_110_1",
+        "bounty_id": "b-110",
+        "rail": "lightning",
+        "source_amount": 34949,
+        "source_currency": "SAT",
+        "fee_xof": 1000,
+        "buffer_xof": 600,
+        "bitnob_ref": "fund-b-110-1",
+        "payment_hash": "32136524af85f58405a673ed55fa90bdd2e05592e8b9f5209570e3eda6297089",
+        "status": "refunded",
+        "created_at": "2026-10-17T15:00:00Z",
+        "paid_at": "2026-10-17T15:06:00Z"
+      }
+    ],
+    "claims": [],
+    "submission": null,
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T15:02:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 20000"
+      },
+      {
+        "at": "2026-10-17T15:06:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded over Lightning"
+      },
+      {
+        "at": "2026-10-17T17:00:00Z",
+        "type": "bounty.refunded",
+        "actor": "Djbrl",
+        "text": "Issue closed as not planned before any claim — 21 600 FCFA returned to the funder balance"
+      }
+    ]
+  },
+  {
+    "id": "b-111",
+    "repo": "galsen-oss/wolof-i18n",
+    "issue_number": 2,
+    "issue_title": "Pulaar locale scaffolding",
+    "issue_url": "https://github.com/galsen-oss/wolof-i18n/issues/2",
+    "amount_xof": 5000,
+    "status": "cancelled",
+    "criteria": [
+      "locales/ff/ folder with the same keys as locales/en/"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty"
+    ],
+    "status_comment_id": 2400000014,
+    "created_at": "2026-10-17T16:00:00Z",
+    "updated_at": "2026-10-17T16:45:00Z",
+    "expires_at": "2026-12-16T16:00:00Z",
+    "fundings": [],
+    "claims": [],
+    "submission": null,
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T16:00:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 5000"
+      },
+      {
+        "at": "2026-10-17T16:45:00Z",
+        "type": "bounty.cancelled",
+        "actor": "Djbrl",
+        "text": "/cancel — merged into #4, never funded"
+      }
+    ]
+  },
+  {
+    "id": "b-112",
+    "repo": "teranga-labs/bitnob-js",
+    "issue_number": 23,
+    "issue_title": "Add ESM + CJS dual build",
+    "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/23",
+    "amount_xof": 9000,
+    "status": "funded",
+    "criteria": [
+      "package.json exports both import and require entry points",
+      "npm pack output contains dist/esm and dist/cjs",
+      "CI job runs a smoke test with both module systems"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "Djbrl",
+    "labels": [
+      "bounty",
+      "💰 9 000 FCFA"
+    ],
+    "status_comment_id": 2400000161,
+    "created_at": "2026-10-17T15:30:00Z",
+    "updated_at": "2026-10-17T15:45:00Z",
+    "expires_at": "2026-12-16T15:30:00Z",
+    "fundings": [
+      {
+        "id": "fnd_112_1",
+        "bounty_id": "b-112",
+        "rail": "usdt",
+        "source_amount": 1730,
+        "source_currency": "USDT_CENT",
+        "fee_xof": 450,
+        "buffer_xof": 270,
+        "bitnob_ref": "fund-b-112-1",
+        "payment_hash": null,
+        "status": "paid",
+        "created_at": "2026-10-17T15:27:00Z",
+        "paid_at": "2026-10-17T15:33:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_112_cheikh",
+        "bounty_id": "b-112",
+        "user_login": "cheikh-ba",
+        "status": "expired",
+        "extended": false,
+        "created_at": "2026-10-17T15:40:00Z",
+        "expires_at": "2026-10-17T15:45:00Z"
+      }
+    ],
+    "submission": null,
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-17T15:30:00Z",
+        "type": "bounty.created",
+        "actor": "Djbrl",
+        "text": "/bounty 9000"
+      },
+      {
+        "at": "2026-10-17T15:33:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded in USDT (TRON)"
+      },
+      {
+        "at": "2026-10-17T15:40:00Z",
+        "type": "claim.created",
+        "actor": "cheikh-ba",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-17T15:45:00Z",
+        "type": "claim.expired",
+        "actor": "bitbounty",
+        "text": "No PR before the deadline — @cheikh-ba unassigned, bounty open again"
+      }
+    ]
+  },
+  {
+    "id": "b-113",
+    "repo": "naija-rails/ngn-kit",
+    "issue_number": 41,
+    "issue_title": "Validate NUBAN account numbers (check digit)",
+    "issue_url": "https://github.com/naija-rails/ngn-kit/issues/41",
+    "amount_xof": 10000,
+    "status": "paid",
+    "criteria": [
+      "isValidNuban(bankCode, account) implements the CBN check-digit algorithm",
+      "Covers 10-digit accounts with 3- and 6-digit bank codes",
+      "Tests with 5 valid and 5 invalid numbers"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "human",
+    "funder_login": "chidi-okafor",
+    "labels": [
+      "bounty",
+      "💰 10 000 FCFA"
+    ],
+    "status_comment_id": 2400000287,
+    "created_at": "2026-10-17T23:00:00Z",
+    "updated_at": "2026-10-18T01:35:00Z",
+    "expires_at": "2026-12-16T23:00:00Z",
+    "fundings": [
+      {
+        "id": "fnd_113_1",
+        "bounty_id": "b-113",
+        "rail": "ngn",
+        "source_amount": 2900000,
+        "source_currency": "NGN_KOBO",
+        "fee_xof": 500,
+        "buffer_xof": 300,
+        "bitnob_ref": "fund-b-113-1",
+        "payment_hash": null,
+        "status": "paid",
+        "created_at": "2026-10-17T23:08:00Z",
+        "paid_at": "2026-10-17T23:14:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_113_fatou",
+        "bounty_id": "b-113",
+        "user_login": "fatou-sall",
+        "status": "done",
+        "extended": false,
+        "created_at": "2026-10-17T23:20:00Z",
+        "expires_at": "2026-10-20T23:20:00Z"
+      }
+    ],
+    "submission": {
+      "id": "sub_113_44",
+      "bounty_id": "b-113",
+      "pr_number": 44,
+      "pr_url": "https://github.com/naija-rails/ngn-kit/pull/44",
+      "author_login": "fatou-sall",
+      "head_sha": "52d343ee0c7c08dcc92bde4ad57b4534c1472541",
+      "ci": "success",
+      "verdict": "pass",
+      "report": {
+        "criteria": [
+          {
+            "text": "isValidNuban(bankCode, account) implements the CBN check-digit algorithm",
+            "met": true,
+            "evidence": "src/nuban.ts:3-40"
+          },
+          {
+            "text": "Covers 10-digit accounts with 3- and 6-digit bank codes",
+            "met": true,
+            "evidence": "src/nuban.ts:12 pads 3-digit codes to 6"
+          },
+          {
+            "text": "Tests with 5 valid and 5 invalid numbers",
+            "met": true,
+            "evidence": "test/nuban.test.ts: 10 cases"
+          }
+        ],
+        "verdict": "pass",
+        "summary": "Algorithm matches the CBN spec, tests cover both bank-code lengths.",
+        "risk_flags": []
+      },
+      "spam_score": 4,
+      "created_at": "2026-10-18T01:05:00Z",
+      "merged_at": "2026-10-18T01:30:00Z"
+    },
+    "payout": {
+      "id": "pyt_113",
+      "bounty_id": "b-113",
+      "user_login": "fatou-sall",
+      "amount_xof": 10000,
+      "provider": "wave",
+      "phone_masked": "+221 76 ••• •• 07",
+      "quote_id": "qt_195db220ecae4a25",
+      "bitnob_payout_id": "PAYOUT_FE7C092219",
+      "reference": "pay-b-113",
+      "status": "succeeded",
+      "attempts": 1,
+      "last_error": null,
+      "created_at": "2026-10-18T01:31:00Z",
+      "paid_at": "2026-10-18T01:35:00Z"
+    },
+    "timeline": [
+      {
+        "at": "2026-10-17T23:00:00Z",
+        "type": "bounty.created",
+        "actor": "chidi-okafor",
+        "text": "/bounty 10000"
+      },
+      {
+        "at": "2026-10-17T23:14:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Bank transfer ₦29 000 received on the virtual account → traded NGN → BTC"
+      },
+      {
+        "at": "2026-10-17T23:20:00Z",
+        "type": "claim.created",
+        "actor": "fatou-sall",
+        "text": "/claim"
+      },
+      {
+        "at": "2026-10-18T01:05:00Z",
+        "type": "pr.linked",
+        "actor": "fatou-sall",
+        "text": "PR #44 \"Fixes #41\""
+      },
+      {
+        "at": "2026-10-18T01:08:00Z",
+        "type": "verify.done",
+        "actor": "bitbounty",
+        "text": "Claude: ✅ 3/3 criteria met"
+      },
+      {
+        "at": "2026-10-18T01:30:00Z",
+        "type": "pr.merged",
+        "actor": "chidi-okafor",
+        "text": "PR #44 merged"
+      },
+      {
+        "at": "2026-10-18T01:31:00Z",
+        "type": "payout.started",
+        "actor": "bitbounty",
+        "text": "BTC → XOF payout to Wave +221 76 ••• •• 07"
+      },
+      {
+        "at": "2026-10-18T01:35:00Z",
+        "type": "payout.succeeded",
+        "actor": "bitnob",
+        "text": "💸 Paid 10 000 FCFA to @fatou-sall on Wave · Lagos → Dakar in 5 min"
+      }
+    ]
+  },
+  {
+    "id": "b-114",
+    "repo": "Djbrl/bitbounty-demo",
+    "issue_number": 3,
+    "issue_title": "Translate the onboarding SMS into Wolof",
+    "issue_url": "https://github.com/Djbrl/bitbounty-demo/issues/3",
+    "amount_xof": 5000,
+    "status": "claimed",
+    "criteria": [
+      "The 4 SMS templates in sms/fr.json have a Wolof version in sms/wo.json",
+      "Each message stays under 160 characters",
+      "Native speaker confirms the tone is polite (comment in the PR)"
+    ],
+    "criteria_confirmed": true,
+    "funder_kind": "agent",
+    "funder_login": "claude-code@Djbrl",
+    "labels": [
+      "bounty",
+      "💰 5 000 FCFA"
+    ],
+    "status_comment_id": 2400000021,
+    "created_at": "2026-10-18T02:10:00Z",
+    "updated_at": "2026-10-18T02:20:00Z",
+    "expires_at": "2026-12-17T02:10:00Z",
+    "fundings": [
+      {
+        "id": "fnd_114_1",
+        "bounty_id": "b-114",
+        "rail": "lightning",
+        "source_amount": 8737,
+        "source_currency": "SAT",
+        "fee_xof": 250,
+        "buffer_xof": 150,
+        "bitnob_ref": "fund-b-114-1",
+        "payment_hash": "4194532515a3437dcb95cad05d759b1b3e2c945aa5c6fff7ba8c57041e486c82",
+        "status": "paid",
+        "created_at": "2026-10-18T02:05:00Z",
+        "paid_at": "2026-10-18T02:11:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_114_seynabou",
+        "bounty_id": "b-114",
+        "user_login": "seynabou-gueye",
+        "status": "active",
+        "extended": false,
+        "created_at": "2026-10-18T02:20:00Z",
+        "expires_at": "2026-10-21T02:20:00Z"
+      }
+    ],
+    "submission": null,
+    "payout": null,
+    "timeline": [
+      {
+        "at": "2026-10-18T02:10:00Z",
+        "type": "bounty.created",
+        "actor": "claude-code@Djbrl",
+        "text": "post_bounty via MCP: \"I can't check Wolof tone reliably → hiring a human\""
+      },
+      {
+        "at": "2026-10-18T02:11:00Z",
+        "type": "funding.paid",
+        "actor": "bitnob",
+        "text": "Funded from the agent budget (Lightning)"
+      },
+      {
+        "at": "2026-10-18T02:20:00Z",
+        "type": "claim.created",
+        "actor": "seynabou-gueye",
+        "text": "/claim"
+      }
+    ]
+  }
+]

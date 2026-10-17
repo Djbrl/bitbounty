@@ -1,0 +1,137 @@
+{
+  "columns": [
+    "funded",
+    "claimed",
+    "submitted",
+    "verified",
+    "paying",
+    "paid"
+  ],
+  "cards": [
+    {
+      "bounty_id": "b-102",
+      "status": "funded",
+      "repo": "teranga-labs/xof",
+      "issue_title": "formatXOF(): use a narrow no-break space as thousands separator",
+      "amount_xof": 5000,
+      "who": null,
+      "city": null
+    },
+    {
+      "bounty_id": "b-112",
+      "status": "funded",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_title": "Add ESM + CJS dual build",
+      "amount_xof": 9000,
+      "who": null,
+      "city": null
+    },
+    {
+      "bounty_id": "b-103",
+      "status": "claimed",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_title": "lightning.createInvoice(): return expires_at as an ISO date",
+      "amount_xof": 10000,
+      "who": "awa-ndiaye",
+      "city": "Dakar"
+    },
+    {
+      "bounty_id": "b-114",
+      "status": "claimed",
+      "repo": "Djbrl/bitbounty-demo",
+      "issue_title": "Translate the onboarding SMS into Wolof",
+      "amount_xof": 5000,
+      "who": "seynabou-gueye",
+      "city": "Dakar"
+    },
+    {
+      "bounty_id": "b-104",
+      "status": "submitted",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_title": "Add HMAC signature helper for webhook verification",
+      "amount_xof": 12000,
+      "who": "moussa-diop",
+      "city": "Thiès"
+    },
+    {
+      "bounty_id": "b-105",
+      "status": "verified",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_title": "Typed error classes for Bitnob API errors",
+      "amount_xof": 8000,
+      "who": "cheikh-ba",
+      "city": "Ziguinchor"
+    },
+    {
+      "bounty_id": "b-106",
+      "status": "paying",
+      "repo": "galsen-oss/wolof-i18n",
+      "issue_title": "Wolof translations for the checkout screens",
+      "amount_xof": 7500,
+      "who": "seynabou-gueye",
+      "city": "Dakar"
+    },
+    {
+      "bounty_id": "b-107",
+      "status": "paid",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_title": "Add payouts.quote() for SN mobile money",
+      "amount_xof": 10000,
+      "who": "awa-ndiaye",
+      "city": "Dakar"
+    },
+    {
+      "bounty_id": "b-113",
+      "status": "funded",
+      "repo": "naija-rails/ngn-kit",
+      "issue_title": "Validate NUBAN account numbers (check digit)",
+      "amount_xof": 10000,
+      "who": null,
+      "city": null
+    }
+  ],
+  "events": [
+    {
+      "delay_ms": 2500,
+      "bounty_id": "b-113",
+      "from": "funded",
+      "to": "claimed",
+      "text": "@fatou-sall claimed naija-rails/ngn-kit#41 (funded in naira from Lagos)"
+    },
+    {
+      "delay_ms": 3000,
+      "bounty_id": "b-106",
+      "from": "paying",
+      "to": "paid",
+      "text": "💸 7 500 FCFA paid to @seynabou-gueye on Wave"
+    },
+    {
+      "delay_ms": 3000,
+      "bounty_id": "b-113",
+      "from": "claimed",
+      "to": "submitted",
+      "text": "PR #44 opened on naija-rails/ngn-kit"
+    },
+    {
+      "delay_ms": 2500,
+      "bounty_id": "b-113",
+      "from": "submitted",
+      "to": "verified",
+      "text": "Claude: ✅ 3/3 criteria met · merged"
+    },
+    {
+      "delay_ms": 2000,
+      "bounty_id": "b-113",
+      "from": "verified",
+      "to": "paying",
+      "text": "Payout started: BTC → XOF, Wave"
+    },
+    {
+      "delay_ms": 3500,
+      "bounty_id": "b-113",
+      "from": "paying",
+      "to": "paid",
+      "text": "💸 Lagos → Dakar: ₦29 000 in, 10 000 FCFA out on Wave"
+    }
+  ]
+}

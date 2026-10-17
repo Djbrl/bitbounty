@@ -1,0 +1,154 @@
+{
+  "maintainer": "Djbrl",
+  "repos": [
+    {
+      "full_name": "teranga-labs/bitnob-js",
+      "open_issues": 40,
+      "active_bounties": 6,
+      "paid_pct": 86
+    },
+    {
+      "full_name": "teranga-labs/xof",
+      "open_issues": 7,
+      "active_bounties": 2,
+      "paid_pct": 100
+    },
+    {
+      "full_name": "galsen-oss/wolof-i18n",
+      "open_issues": 12,
+      "active_bounties": 1,
+      "paid_pct": 75
+    }
+  ],
+  "stats": {
+    "budget_xof": 150000,
+    "held_xof": 60500,
+    "spent_xof": 10000,
+    "active_count": 6,
+    "paid_count": 1,
+    "median_minutes_merge_to_pay": 6
+  },
+  "bounty_ids": [
+    "b-101",
+    "b-102",
+    "b-103",
+    "b-104",
+    "b-105",
+    "b-106",
+    "b-107",
+    "b-108",
+    "b-109",
+    "b-110",
+    "b-111",
+    "b-112"
+  ],
+  "needs_action": [
+    {
+      "bounty_id": "b-101",
+      "action": "confirm_criteria",
+      "text": "Claude drafted 3 criteria for #21 — reply /criteria ok"
+    },
+    {
+      "bounty_id": "b-101",
+      "action": "fund",
+      "text": "#21 is waiting for funding (15 000 FCFA)"
+    },
+    {
+      "bounty_id": "b-104",
+      "action": "pay_or_reject",
+      "text": "PR #31: Claude says 2/3 criteria — /pay or /reject"
+    },
+    {
+      "bounty_id": "b-108",
+      "action": "update_account",
+      "text": "Payout to @moussa-diop failed 3× — waiting for them to update their account"
+    }
+  ],
+  "backlog": [
+    {
+      "id": "sug-1",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 25,
+      "issue_title": "Add virtualAccounts.simulateDeposit() for sandbox",
+      "criteria": [
+        "Calls POST /api/virtual-accounts/:id/simulate-deposit",
+        "Throws outside sandbox",
+        "Test with recorded response"
+      ],
+      "price_xof": 7500,
+      "reason": "Small, testable, one endpoint. Good first paid issue.",
+      "confidence": "high",
+      "selected": true
+    },
+    {
+      "id": "sug-2",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 26,
+      "issue_title": "Pagination helper for list endpoints",
+      "criteria": [
+        "paginate() async iterator over cursor-based endpoints",
+        "Works for payouts and invoices lists",
+        "Stops on empty page"
+      ],
+      "price_xof": 12000,
+      "reason": "Clear scope, reused by 6 endpoints.",
+      "confidence": "high",
+      "selected": true
+    },
+    {
+      "id": "sug-3",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 28,
+      "issue_title": "Document every payout error code",
+      "criteria": [
+        "docs/errors.md lists all payout error codes",
+        "Each code has cause and fix"
+      ],
+      "price_xof": 5000,
+      "reason": "Docs task, easy to verify.",
+      "confidence": "medium",
+      "selected": true
+    },
+    {
+      "id": "sug-4",
+      "repo": "teranga-labs/xof",
+      "issue_number": 8,
+      "issue_title": "Convert XOF ↔ GHS / NGN with a rates provider",
+      "criteria": [
+        "convert(amount, from, to, rates) returns an integer in the target minor unit",
+        "Rounding documented"
+      ],
+      "price_xof": 10000,
+      "reason": "Needed for multi-country payouts. Criteria testable.",
+      "confidence": "medium",
+      "selected": true
+    },
+    {
+      "id": "sug-5",
+      "repo": "galsen-oss/wolof-i18n",
+      "issue_number": 9,
+      "issue_title": "Wolof strings for error messages",
+      "criteria": [
+        "All keys in locales/en/errors.json translated",
+        "Reviewed by a second speaker"
+      ],
+      "price_xof": 6000,
+      "reason": "Needs a human speaker — agents can't verify tone.",
+      "confidence": "high",
+      "selected": true
+    },
+    {
+      "id": "sug-6",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 30,
+      "issue_title": "Rewrite the client in Rust",
+      "criteria": [
+        "Feature parity"
+      ],
+      "price_xof": 150000,
+      "reason": "Too large and vague for a bounty — split it first.",
+      "confidence": "low",
+      "selected": false
+    }
+  ]
+}

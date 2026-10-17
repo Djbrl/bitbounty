@@ -1,0 +1,269 @@
+{
+  "stats": {
+    "paid_count": 23,
+    "paid_total_xof": 187500,
+    "median_minutes_merge_to_pay": 6,
+    "developers_paid": 9
+  },
+  "bounties": [
+    {
+      "id": "b-102",
+      "repo": "teranga-labs/xof",
+      "issue_number": 3,
+      "issue_title": "formatXOF(): use a narrow no-break space as thousands separator",
+      "issue_url": "https://github.com/teranga-labs/xof/issues/3",
+      "amount_xof": 5000,
+      "status": "funded",
+      "criteria": [
+        "formatXOF(10000) returns \"10 000 FCFA\" with U+202F",
+        "Negative amounts keep the minus sign before the digits",
+        "README example updated"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "human",
+      "funder_login": "Djbrl",
+      "labels": [
+        "bounty",
+        "💰 5 000 FCFA"
+      ],
+      "status_comment_id": 2400000021,
+      "created_at": "2026-10-17T15:20:00Z",
+      "updated_at": "2026-10-17T17:02:00Z",
+      "expires_at": "2026-12-16T15:20:00Z",
+      "claimed_by": null,
+      "pr_number": null
+    },
+    {
+      "id": "b-103",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 14,
+      "issue_title": "lightning.createInvoice(): return expires_at as an ISO date",
+      "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/14",
+      "amount_xof": 10000,
+      "status": "claimed",
+      "criteria": [
+        "createInvoice() response includes expires_at (ISO 8601, UTC)",
+        "Type definitions updated in src/types.ts",
+        "Test covers the 900 s default expiry"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "human",
+      "funder_login": "Djbrl",
+      "labels": [
+        "bounty",
+        "💰 10 000 FCFA"
+      ],
+      "status_comment_id": 2400000098,
+      "created_at": "2026-10-17T15:15:00Z",
+      "updated_at": "2026-10-17T16:05:00Z",
+      "expires_at": "2026-12-16T15:15:00Z",
+      "claimed_by": "awa-ndiaye",
+      "pr_number": null
+    },
+    {
+      "id": "b-104",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 9,
+      "issue_title": "Add HMAC signature helper for webhook verification",
+      "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/9",
+      "amount_xof": 12000,
+      "status": "submitted",
+      "criteria": [
+        "verifyWebhook(body, signature, secret) uses timing-safe comparison",
+        "Rejects signatures older than 5 minutes",
+        "Tests cover valid, tampered and expired payloads"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "human",
+      "funder_login": "Djbrl",
+      "labels": [
+        "bounty",
+        "💰 12 000 FCFA"
+      ],
+      "status_comment_id": 2400000063,
+      "created_at": "2026-10-17T15:12:00Z",
+      "updated_at": "2026-10-17T18:44:00Z",
+      "expires_at": "2026-12-16T15:12:00Z",
+      "claimed_by": "moussa-diop",
+      "pr_number": 31
+    },
+    {
+      "id": "b-105",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 17,
+      "issue_title": "Typed error classes for Bitnob API errors",
+      "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/17",
+      "amount_xof": 8000,
+      "status": "verified",
+      "criteria": [
+        "BitnobError exposes status, code and request_id",
+        "RateLimitError is thrown on HTTP 429 with retry_after",
+        "All public methods document the errors they throw"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "human",
+      "funder_login": "Djbrl",
+      "labels": [
+        "bounty",
+        "💰 8 000 FCFA"
+      ],
+      "status_comment_id": 2400000119,
+      "created_at": "2026-10-17T15:18:00Z",
+      "updated_at": "2026-10-17T21:02:00Z",
+      "expires_at": "2026-12-16T15:18:00Z",
+      "claimed_by": "cheikh-ba",
+      "pr_number": 33
+    },
+    {
+      "id": "b-106",
+      "repo": "galsen-oss/wolof-i18n",
+      "issue_number": 4,
+      "issue_title": "Wolof translations for the checkout screens",
+      "issue_url": "https://github.com/galsen-oss/wolof-i18n/issues/4",
+      "amount_xof": 7500,
+      "status": "paying",
+      "criteria": [
+        "All 42 keys in locales/en/checkout.json have a Wolof value in locales/wo/checkout.json",
+        "Amounts and placeholders ({amount}, {name}) are preserved",
+        "Reviewed by a second Wolof speaker in the PR"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "human",
+      "funder_login": "Djbrl",
+      "labels": [
+        "bounty",
+        "💰 7 500 FCFA"
+      ],
+      "status_comment_id": 2400000028,
+      "created_at": "2026-10-17T16:30:00Z",
+      "updated_at": "2026-10-17T22:31:00Z",
+      "expires_at": "2026-12-16T16:30:00Z",
+      "claimed_by": "seynabou-gueye",
+      "pr_number": 6
+    },
+    {
+      "id": "b-107",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 12,
+      "issue_title": "Add payouts.quote() for SN mobile money",
+      "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/12",
+      "amount_xof": 10000,
+      "status": "paid",
+      "criteria": [
+        "payouts.quote({ country: \"SN\", settlement_amount }) returns quote_id and expires_at",
+        "Uses the /api/payouts/quotes endpoint with source \"offchain\"",
+        "Test with recorded sandbox response"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "human",
+      "funder_login": "Djbrl",
+      "labels": [
+        "bounty",
+        "💰 10 000 FCFA"
+      ],
+      "status_comment_id": 2400000084,
+      "created_at": "2026-10-17T15:05:00Z",
+      "updated_at": "2026-10-17T18:26:00Z",
+      "expires_at": "2026-12-16T15:05:00Z",
+      "claimed_by": "awa-ndiaye",
+      "pr_number": 34
+    },
+    {
+      "id": "b-112",
+      "repo": "teranga-labs/bitnob-js",
+      "issue_number": 23,
+      "issue_title": "Add ESM + CJS dual build",
+      "issue_url": "https://github.com/teranga-labs/bitnob-js/issues/23",
+      "amount_xof": 9000,
+      "status": "funded",
+      "criteria": [
+        "package.json exports both import and require entry points",
+        "npm pack output contains dist/esm and dist/cjs",
+        "CI job runs a smoke test with both module systems"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "human",
+      "funder_login": "Djbrl",
+      "labels": [
+        "bounty",
+        "💰 9 000 FCFA"
+      ],
+      "status_comment_id": 2400000161,
+      "created_at": "2026-10-17T15:30:00Z",
+      "updated_at": "2026-10-17T15:45:00Z",
+      "expires_at": "2026-12-16T15:30:00Z",
+      "claimed_by": null,
+      "pr_number": null
+    },
+    {
+      "id": "b-113",
+      "repo": "naija-rails/ngn-kit",
+      "issue_number": 41,
+      "issue_title": "Validate NUBAN account numbers (check digit)",
+      "issue_url": "https://github.com/naija-rails/ngn-kit/issues/41",
+      "amount_xof": 10000,
+      "status": "paid",
+      "criteria": [
+        "isValidNuban(bankCode, account) implements the CBN check-digit algorithm",
+        "Covers 10-digit accounts with 3- and 6-digit bank codes",
+        "Tests with 5 valid and 5 invalid numbers"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "human",
+      "funder_login": "chidi-okafor",
+      "labels": [
+        "bounty",
+        "💰 10 000 FCFA"
+      ],
+      "status_comment_id": 2400000287,
+      "created_at": "2026-10-17T23:00:00Z",
+      "updated_at": "2026-10-18T01:35:00Z",
+      "expires_at": "2026-12-16T23:00:00Z",
+      "claimed_by": "fatou-sall",
+      "pr_number": 44
+    },
+    {
+      "id": "b-114",
+      "repo": "Djbrl/bitbounty-demo",
+      "issue_number": 3,
+      "issue_title": "Translate the onboarding SMS into Wolof",
+      "issue_url": "https://github.com/Djbrl/bitbounty-demo/issues/3",
+      "amount_xof": 5000,
+      "status": "claimed",
+      "criteria": [
+        "The 4 SMS templates in sms/fr.json have a Wolof version in sms/wo.json",
+        "Each message stays under 160 characters",
+        "Native speaker confirms the tone is polite (comment in the PR)"
+      ],
+      "criteria_confirmed": true,
+      "funder_kind": "agent",
+      "funder_login": "claude-code@Djbrl",
+      "labels": [
+        "bounty",
+        "💰 5 000 FCFA"
+      ],
+      "status_comment_id": 2400000021,
+      "created_at": "2026-10-18T02:10:00Z",
+      "updated_at": "2026-10-18T02:20:00Z",
+      "expires_at": "2026-12-17T02:10:00Z",
+      "claimed_by": "seynabou-gueye",
+      "pr_number": null
+    }
+  ],
+  "external": [
+    {
+      "title": "Add BOLT12 offer decoding",
+      "repo": "lightningdevkit/ldk-node",
+      "url": "https://github.com/lightningdevkit/ldk-node/issues",
+      "amount_usd_cents": 50000,
+      "source": "external — paid in dollars elsewhere"
+    },
+    {
+      "title": "Fix fee estimation on signet",
+      "repo": "bitcoindevkit/bdk",
+      "url": "https://github.com/bitcoindevkit/bdk/issues",
+      "amount_usd_cents": 30000,
+      "source": "external — paid in dollars elsewhere"
+    }
+  ]
+}
