@@ -27,7 +27,7 @@ Principle: **contract first, then everything is built against mocks and interfac
 
 ## Board rules
 1. **One GitHub issue per task** (linked from each ID below), labels `pts:N`, `wave:N`, `area:…`. (Bonus pitch line: we split our own prize the way BitBounty works.)
-2. **Claim** = assign yourself + comment "on it". **One task at a time** (two if one is blocked).
+2. **Claim** = assign yourself + comment "on it". **Multiple claims allowed**, but the 90-min stale rule applies to each one.
 3. **Stale:** no commit or message for 90 min → the task goes back to the pool (points go to whoever finishes it).
 4. **Done** = **one PR per task**, **tested** (passing tests or manual proof) and **documented** (PR description + docs updated) **before the push**, then **adversarial review** by **another** member (they try to break it and post what they tried) and merge. **No points otherwise.** The task ID prefixes every branch and commit: `B2: payout retries`.
 5. **Points are fixed before 15:30** (sized by 2 people). A new task during the event = sized by 2 people before anyone takes it.
