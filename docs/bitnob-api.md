@@ -5,9 +5,9 @@ LLM-friendly index: https://bitnob.dev/llms.txt. Every reference page has "Copy 
 
 ## Basics
 - **Base URL:** `https://api.bitnob.com` for both sandbox and production. The **secret** decides the environment (same Client ID).
-- **Auth (HMAC):** headers `x-auth-client`, `x-auth-timestamp` (ms), `x-auth-nonce` (UUID), `x-auth-signature`.
-  The signature is HMAC-SHA256 over the fields joined by colons, keyed with the client secret. Exact field order is on the Authentication page.
-  `GET /api/whoami` checks the keys.
+- **Auth (HMAC):** headers `x-auth-client`, `x-auth-timestamp` (**Unix seconds**), `x-auth-nonce` (16 random bytes hex, fresh per request), `x-auth-signature`.
+  Signature = hex HMAC-SHA256 of `CLIENT_ID:TIMESTAMP:NONCE:BODY` keyed with the client secret. `BODY` is the exact compact JSON string sent, or empty when there is no body (GET, simulate-deposit).
+  `GET /api/whoami` checks the keys and returns `environment: sandbox|production`. Implemented in `packages/bitnob` (F5).
 - **Wallet Infrastructure (Enterprise)** is a separate API: `https://api.platform.bitnob.com`, `X-API-Key` header. It probably needs an enterprise account (to check).
 - **SDKs:** Node, Python and Go are all marked "coming soon". Raw HTTP only.
 - **Sandbox:** no KYC needed, default limits, data resets now and then. Deposits to quote addresses/invoices can be simulated, and webhooks fire as in production.
@@ -19,7 +19,7 @@ LLM-friendly index: https://bitnob.dev/llms.txt. Every reference page has "Copy 
 **Balances / transactions**: `GET /api/balances`, `/api/balances/:currency`, `GET /api/transactions`, `/api/transactions/:id`
 
 **Lightning** (sats, 1 to 20M per invoice, default expiry 24h)
-- `POST /api/lightning/invoices` {amount, description, reference, expiry?, customer_id?}, which returns a BOLT11 `request` and a `payment_hash`
+- `POST /api/lightning/invoices` {customer_id, amount, description, expiry, reference}, **all required** per the v2 OpenAPI spec (so create a Bitnob customer per funder first), which returns a BOLT11 `request` and a `payment_hash`
 - `GET /api/lightning/invoices[/:id]`: **no Lightning webhook.** Poll until `status=paid`. The `preimage` is the proof of payment.
 - `POST /api/lightning/decode`: inspect an invoice
 - `POST /api/lightning/pay` {request, reference, max_fee?}, which returns a `preimage`. Payments are final. Pay without a fee cap only on purpose.
@@ -71,3 +71,28 @@ Jib mentioned an API section aimed at creators / communities, to use for the jur
 - Not found in the public docs (bitnob.dev, llms.txt, sitemap). The **"Marketplace"** section exists but is empty, and **"Bounties"** is just the Genesis intro.
 - Nearby, publicly: the tutorial [Building a Tipping Platform with Bitnob API](https://bitnob.com/en-US/resources/blog/building-a-tipping-platform-with-bitnob-api) (tip a user by email: Lightning invoice + BTC address per customer).
 - Ask at the 11:00 workshop: is there a creators/community product (or an upcoming Marketplace)? If so, plug it in (e.g. a public page/tip per developer, sponsoring a community).
+
+## F5: client and sandbox results (17 10 2026)
+Client: `packages/bitnob` (`BitnobClient`). Signs every request, retries network errors / 429 / 5xx (2 extra attempts by default, **new timestamp + nonce + signature on every attempt**), never retries a 4xx, and turns every failure into a `BitnobError` (`status`, `code`, `detail`, `correlationId`) that never contains the secret.
+Both error shapes are handled: RFC 7807 (`code`, `detail`) and validation (`{success:false, error:{code, message}}`).
+
+Run the 4 key calls against the sandbox:
+```bash
+# BITNOB_CLIENT_ID / BITNOB_CLIENT_SECRET in the repo-root .env (see .env.example)
+cd packages/bitnob && pnpm install && pnpm smoke
+```
+The script prints the raw responses and a summary table to paste below.
+
+What the spec says, before the run:
+- Lightning invoice needs a `customer_id` (the script creates a customer first).
+- Payout quote: the spec lists `amount` as required but its example uses `settlement_amount` (what the beneficiary receives). We send `settlement_amount` in XOF. SN mobile money `bank_code`s come from `GET /api/payouts/banks/SN`.
+- `simulate-deposit` takes **no body**; the sandbox credits a fixed amount (₦1,000 per call per our notes, spec example shows 100000 kobo).
+- Trading quote: `side` is upper case (`BUY`/`SELL`), `quantity` a string in major units. The spec's NGN example is NGN→USDT; the script tries NGN→BTC and NGN→USDT.
+
+| Call | Result | Notes |
+| --- | --- | --- |
+| whoami | _not run yet_ | needs sandbox keys |
+| 1. Lightning invoice | _not run yet_ | |
+| 2. SN payout quote | _not run yet_ | |
+| 3. NGN virtual account + simulate deposit | _not run yet_ | |
+| 4. NGN→BTC quote | _not run yet_ | |
