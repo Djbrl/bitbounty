@@ -8,6 +8,14 @@ import { InMemoryEventBus, defaultPrDeps, registerPrHandlers } from "./github/pr
 import { InMemoryBountyRepo } from "./bounties/repo.js";
 import { createGithubApp } from "./github/app-client.js";
 import { installationWriterFactory, registerCommentWiring } from "./github/wiring/index.js";
+import {
+  appGithubForRepo,
+  ClaimTimers,
+  devFundRoutes,
+  InMemoryClaimScheduler,
+  readClaimTtlMs,
+  sweepIntervalMs,
+} from "./github/claims/index.js";
 import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
 
 export const app = new Hono();
@@ -39,15 +47,37 @@ const prDeps = defaultPrDeps(eventBus, process.env, bountyRepo);
 registerPrHandlers(githubDispatcher, prDeps);
 
 // G3: issue_comment.created → command → transition() → status comment edited in place + label.
+// G5: claim timers (assign on /claim, expire after CLAIM_TTL_MINUTES or 72 h, /extend once).
 if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.GITHUB_WEBHOOK_SECRET) {
+  const githubApp = createGithubApp();
+  const botSettings = {
+    baseUrl: process.env.WEB_BASE_URL || "https://bitbounty-app.vercel.app",
+    lang: (process.env.BOT_LANG === "fr" ? "fr" : "en") as "fr" | "en",
+    botLogin: process.env.GITHUB_BOT_LOGIN || undefined,
+  };
+  const claimTtlMs = readClaimTtlMs();
+  const github = appGithubForRepo(githubApp);
+  const claimTimers: ClaimTimers = new ClaimTimers({
+    repo: bountyRepo,
+    bus: eventBus,
+    scheduler: new InMemoryClaimScheduler({ pending: () => claimTimers.pending(), sweepMs: sweepIntervalMs(claimTtlMs) }),
+    github,
+    ttlMs: claimTtlMs,
+    ...botSettings,
+  });
   registerCommentWiring(githubDispatcher, {
     repo: bountyRepo,
     bus: eventBus,
-    writerFor: installationWriterFactory(createGithubApp()),
-    baseUrl: process.env.WEB_BASE_URL || "https://bitbounty-app.vercel.app",
-    lang: process.env.BOT_LANG === "fr" ? "fr" : "en",
-    botLogin: process.env.GITHUB_BOT_LOGIN || undefined,
+    writerFor: installationWriterFactory(githubApp),
+    claimTtlMs,
+    claims: claimTimers,
+    ...botSettings,
   });
+  void claimTimers.start();
+  // DEV ONLY: POST /dev/fund marks a bounty paid until Bitnob funding is wired (see github/claims/dev-fund.ts).
+  if (process.env.DEV_HOOK_TOKEN) {
+    app.route("/", devFundRoutes({ token: process.env.DEV_HOOK_TOKEN, repo: bountyRepo, bus: eventBus, github, ...botSettings }));
+  }
 }
 
 // A2: pull_request opened/synchronize/reopened on a funded bounty → "BitBounty verification" check run + verify.done.

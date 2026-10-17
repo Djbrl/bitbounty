@@ -14,6 +14,7 @@ import type { StoredEvent } from "../event-store.js";
 import { formatXof, type Lang } from "../status-comment/index.js";
 import { syncIssue } from "./sync.js";
 import type { GithubWriter, GithubWriterFactory } from "./writer.js";
+import type { ClaimTimers } from "../claims/service.js";
 
 export interface WiringDeps {
   repo: BountyRepo;
@@ -26,6 +27,8 @@ export interface WiringDeps {
   botLogin?: string;
   /** How long a `/claim` lasts. Default 72 h (G5 owns expiry and `/extend`). */
   claimTtlMs?: number;
+  /** G5: claim timers; `/extend` is delegated to it. Without it `/extend` replies "not available". */
+  claims?: Pick<ClaimTimers, "extend">;
   now?: () => Date;
   newId?: () => string;
   log?: Pick<Console, "info" | "warn" | "error">;
@@ -40,7 +43,9 @@ const CLAIM_TTL_MS = 72 * 60 * 60 * 1000;
 
 /** Serialises work per issue inside this process, so two commands on one issue never interleave. */
 const issueLocks = new Map<string, Promise<unknown>>();
-async function withIssueLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+/** The lock key for an issue (G5's expiry timer takes the same lock). */
+export const issueLockKey = (repoName: string, issueNumber: number) => `${repoName.toLowerCase()}#${issueNumber}`;
+export async function withIssueLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const prev = issueLocks.get(key) ?? Promise.resolve();
   const run = prev.then(fn, fn);
   const tail = run.catch(() => undefined);
@@ -93,7 +98,7 @@ export async function handleIssueComment(stored: StoredEvent, deps: WiringDeps):
     return reply(ctx, "BitBounty commands go on the issue, not on the pull request.");
   }
 
-  const outcome = await withIssueLock(`${repoName.toLowerCase()}#${issue.number}`, () =>
+  const outcome = await withIssueLock(issueLockKey(repoName, issue.number), () =>
     run(ctx, parsed.command, parsed.role),
   );
   if (outcome.kind === "applied" && parsed.extraCommands.length > 0) {
@@ -145,7 +150,7 @@ async function run(ctx: Ctx, command: Command, role: Role): Promise<CommentOutco
     return publishAndSync(ctx, res.bounty, event);
   }
 
-  if (command.name === "extend" || command.name === "criteria") {
+  if (command.name === "criteria" || (command.name === "extend" && !deps.claims)) {
     return reply(ctx, `\`/${command.name}\` isn't available yet.`);
   }
 
@@ -170,6 +175,8 @@ async function run(ctx: Ctx, command: Command, role: Role): Promise<CommentOutco
         });
       });
     }
+    case "extend":
+      return reply(ctx, await deps.claims!.extend({ bounty, login, role, writer: ctx.writer }));
     case "unclaim": {
       const claim = await deps.repo.activeClaim(bounty.id);
       if (!claim) return reply(ctx, "Nobody has claimed this bounty.");
