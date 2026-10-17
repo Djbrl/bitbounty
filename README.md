@@ -1,6 +1,6 @@
 # BitBounty
 
-**Put a price on your backlog. Pay only when it merges.**
+**Algora for West Africa, with Bitnob at the core.** The marketplace where open-source developers find paid issues and get paid in local currency on mobile money the moment their fix merges.
 
 BitBounty is a GitHub App for maintainers. Claude reads your open issues and suggests which ones to put a bounty on, with acceptance criteria and a price. You fund them in one payment, over Lightning, USDT or a naira bank transfer. African developers pick them up, and whoever gets their fix merged is paid in local currency to Wave or Orange Money through [Bitnob](https://bitnob.dev), minutes after the merge.
 

@@ -1,5 +1,14 @@
 # BitBounty: product definition
 
+## Final positioning (17 10 2026)
+**"Algora for West Africa, with Bitnob at the core."** A **marketplace** where open-source developers find paid issues, and get paid in local currency (FCFA, naira, cedis) on mobile money the moment the fix is merged.
+- **Front side = developers**: the board of paid issues, search, proof-of-work profiles, payment on Wave.
+- **Money side = maintainers and funders** (Bitcoin projects, African fintechs, funders like Btrust, AI agents): the GitHub App + "Price my backlog" is *how bounties get onto the marketplace*.
+- **Algora proved the model in dollars via Stripe**, which doesn't serve Senegal. We do the same thing where Stripe and PayPal don't pay out: funded in sats / USDT / naira, paid in local currency, all through Bitnob (Lightning, trading, virtual accounts, payouts).
+- Answer to "it's just a clone": we aren't copying the product, we're making it **possible** in a region where it can't work today. Plus what Algora doesn't have: funding in sats and naira, mobile money, proof-of-work profiles, agents as funders.
+- Day-one board: optionally list existing public bounties (marked "external, paid in dollars elsewhere") alongside ours ("paid in FCFA on Wave"), so the marketplace doesn't look empty.
+
+
 > **Name: BitBounty** (decided 17 10 2026, previously "Liggéey"). **Primary target: maintainers.**
 > Pitch note: say "**issue** bounties", not "bug bounty", which in the industry means security vulnerability programmes (HackerOne). Minor name collisions: an empty GitHub account `bitbounty`, and an old Solidity project "Bit Bounty" on Devpost.
 
