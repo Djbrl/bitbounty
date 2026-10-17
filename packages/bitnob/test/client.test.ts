@@ -113,6 +113,52 @@ describe("request", () => {
   });
 });
 
+describe("payout calls", () => {
+  it("initialize posts the quote id, reference and beneficiary; finalize has no body; get by payout id", async () => {
+    const { fetch, calls } = fakeFetch(
+      ok({ payout: { id: "p1", status: "INITIATED" } }),
+      ok({ payout: { id: "p1", status: "processing" } }),
+      ok({ payout: { id: "p1", status: "success" } }),
+    );
+    const c = client(fetch);
+    const beneficiary = {
+      destination_type: "mobile_money" as const,
+      country: "SN",
+      account_name: "Awa Diop",
+      account_number: "221771234567",
+      bank_code: "WAVE",
+    };
+    await c.initializePayout("QT2_1", { reference: "pay-b1-1", beneficiary, callback_url: "https://x.test/webhooks/bitnob" });
+    expect(calls[0]!.url).toBe("https://api.bitnob.com/api/payouts/QT2_1/initialize");
+    expect(JSON.parse(calls[0]!.init.body as string)).toEqual({
+      quote_id: "QT2_1",
+      reference: "pay-b1-1",
+      beneficiary,
+      callback_url: "https://x.test/webhooks/bitnob",
+    });
+    expect((await c.finalizePayout("QT2_1"))?.status).toBe("processing");
+    expect(calls[1]!.url).toBe("https://api.bitnob.com/api/payouts/QT2_1/finalize");
+    expect(calls[1]!.init.body).toBeUndefined();
+    expect((await c.getPayout("p1")).status).toBe("success");
+    expect(calls[2]!.url).toBe("https://api.bitnob.com/api/payouts/p1");
+  });
+
+  it("finalize tolerates an empty data", async () => {
+    const { fetch } = fakeFetch(json(200, { success: true, message: "ok", data: null }));
+    await expect(client(fetch).finalizePayout("QT2_1")).resolves.toBeUndefined();
+  });
+
+  it("finalize with { retries: 0 } is sent once, even on a timeout or 5xx (no blind replay)", async () => {
+    const timeout = Object.assign(new Error("aborted"), { name: "TimeoutError" });
+    const a = fakeFetch(timeout, ok({ payout: { status: "processing" } }));
+    await expect(client(a.fetch).finalizePayout("QT2_1", { retries: 0 })).rejects.toMatchObject({ code: "TIMEOUT" });
+    expect(a.calls).toHaveLength(1);
+    const b = fakeFetch(json(503, { code: "UNAVAILABLE" }), ok({ payout: { status: "processing" } }));
+    await expect(client(b.fetch).finalizePayout("QT2_1", { retries: 0 })).rejects.toMatchObject({ status: 503 });
+    expect(b.calls).toHaveLength(1);
+  });
+});
+
 describe("errors (reviewer checklist)", () => {
   it("wrong secret: a clear BitnobError, not a crash, and never the secret", async () => {
     const { fetch } = fakeFetch(

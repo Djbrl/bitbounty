@@ -87,7 +87,7 @@ pnpm smoke --env-file /path/to/bitbounty/.env
 
 What the spec says, before the run:
 - Lightning invoice needs a `customer_id` (the script creates a customer first).
-- Payout quote: the spec lists `amount` as required but its example uses `settlement_amount` (what the beneficiary receives). We send `settlement_amount` in XOF. SN mobile money `bank_code`s come from `GET /api/payouts/banks/SN`.
+- Payout quote: the spec lists `amount` as required but its example uses `settlement_amount` (what the beneficiary receives). We send `settlement_amount` in XOF. SN mobile money `bank_code`s come from `GET /api/payouts/banks/SN`, **but the sandbox answers `{"banks":null}` for SN** (seen live). Fallback: `BITNOB_SN_BANK_CODES='{"wave":"…","orange":"…"}'`. No defaults: **confirm the real Wave / Orange Money SN codes with Bitnob at the workshop**.
 - `simulate-deposit` takes **no body**; the sandbox credits a fixed amount (₦1,000 per call per our notes, spec example shows 100000 kobo).
 - Trading quote: `side` is upper case (`BUY`/`SELL`), `quantity` a string in major units. The spec's NGN example is NGN→USDT; the script tries NGN→BTC and NGN→USDT.
 
@@ -144,3 +144,15 @@ docker compose exec db psql -U postgres -d bitbounty -c \
   "select id, external_id, type, status, error, received_at from events where source = 'bitnob' order by id desc limit 5;"
 ```
 Expect a row with `status = processed`. Server log on a mismatch: `[bitnob] rejected webhook: bad or missing signature`.
+
+## B2: payout pipeline
+`apps/server/src/payouts/` (see its README): quote → initialize → finalize with retries, idempotency and crash recovery. Client calls added in `packages/bitnob`: `initializePayout(quoteId, {reference, beneficiary, callback_url})` (`callback_url` is required by the spec), `finalizePayout(quoteId, { retries: 0 })` (no body, irreversible, **always sent once**: a replay of a finalize that went through answers 409/422 "already finalized"), `getPayout(id)` (`id` = the payout id returned by the quote, not the quote id).
+
+Sandbox run (aborts unless `whoami` says `environment=sandbox`; Bitnob also whitelists caller IPs, a non-whitelisted IP gets `403 IP address not whitelisted`):
+```bash
+# read-only: whoami, banks/SN, bank_code resolution, one quote + settlement_amount check
+pnpm --filter @bitbounty/server payout:smoke -- --dry-run +221XXXXXXXXX wave "<name>" 137
+# full pipeline, finalizes for real (sandbox): run by a human, after BITNOB_SN_BANK_CODES is set
+pnpm --filter @bitbounty/server payout:smoke -- +221XXXXXXXXX wave "<name>" 137
+```
+Result: _not run yet_. Blocked on the SN bank codes (sandbox lists none) and on the IP whitelist.
