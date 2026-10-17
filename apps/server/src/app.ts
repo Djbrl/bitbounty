@@ -1,5 +1,8 @@
+import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
+import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
+import { bitnobProxyRoutes } from "./dev/bitnob-proxy.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
 import { DrizzleEventStore } from "./github/drizzle-event-store.js";
 import { InMemoryEventStore, type EventStore } from "./github/event-store.js";
@@ -19,6 +22,13 @@ import {
 } from "./github/claims/index.js";
 import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
 import { agentRoutes, agentsFromEnv, AgentService, DrizzleAgentSpending, ListAgentSpending, StaticAgentRegistry } from "./agents/index.js";
+import {
+  applyFundingPaid,
+  BitnobFunderCustomers,
+  BitnobRates,
+  InMemoryFundingStore,
+  LightningFunding,
+} from "./funding/index.js";
 
 export const app = new Hono();
 
@@ -26,12 +36,24 @@ app.get("/", (c) => c.json({ name: "bitbounty-server", message: "hello" }));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
+// DEV ONLY (F7): /dev/bitnob/* forwards teammates' Bitnob sandbox calls, signed with this server's keys.
+// Not mounted (404) unless DEV_PROXY_TOKEN is set. See src/dev/bitnob-proxy.ts and docs/bitnob-api.md.
+const devProxyToken = process.env.DEV_PROXY_TOKEN?.trim();
+if (devProxyToken) {
+  const hasKeys = Boolean(process.env.BITNOB_CLIENT_ID?.trim() && process.env.BITNOB_CLIENT_SECRET?.trim());
+  // The server signs itself: a BITNOB_PROXY_TOKEN in the server's own env is ignored here.
+  const env = { ...process.env, BITNOB_PROXY_TOKEN: "" };
+  app.route("/", bitnobProxyRoutes({ token: devProxyToken, client: hasKeys ? new BitnobClient(readBitnobConfig(env)) : null }));
+  console.log(`[dev-proxy] /dev/bitnob/* enabled${hasKeys ? "" : " (no Bitnob keys: calls answer 503)"}`);
+}
+
 /** G3, G4 and A2 register their handlers here: `githubDispatcher.on("issue_comment", …)`. */
 export const githubDispatcher = new GithubDispatcher();
 
 /** Postgres when DATABASE_URL is set (Docker, Railway), otherwise in memory (tests, offline demo). */
 export const database = process.env.DATABASE_URL ? createDb(process.env.DATABASE_URL) : null;
-const store: EventStore = database ? new DrizzleEventStore(database.db) : new InMemoryEventStore();
+/** Inbound webhook log + dedupe, shared by /webhooks/github and /webhooks/bitnob (`source` tells them apart). */
+export const eventStore: EventStore = database ? new DrizzleEventStore(database.db) : new InMemoryEventStore();
 /** Bounties and claims, shared by G3 (comments), G4 (PRs) and A2 (checks). */
 export const bountyRepo: BountyRepo = database ? new DrizzleBountyRepo(database.db) : new InMemoryBountyRepo();
 console.log(
@@ -112,7 +134,41 @@ if (checkRunDeps) registerCheckRun(githubDispatcher, checkRunDeps);
 
 const secret = process.env.GITHUB_WEBHOOK_SECRET;
 if (secret) {
-  app.route("/", githubWebhookRoutes({ secret, store, dispatcher: githubDispatcher }));
+  app.route("/", githubWebhookRoutes({ secret, store: eventStore, dispatcher: githubDispatcher }));
 } else {
   app.post("/webhooks/github", (c) => c.json({ error: "GITHUB_WEBHOOK_SECRET is not set" }, 503));
 }
+
+/** B2 (payouts) and B4 (NGN deposits) register here: `bitnobDispatcher.on("payouts.withdrawal.success", …)`. */
+export const bitnobDispatcher = new GithubDispatcher();
+
+const bitnobSecret = process.env.BITNOB_WEBHOOK_SECRET;
+if (bitnobSecret) {
+  app.route(
+    "/",
+    // Same store as /webhooks/github: Postgres (DrizzleEventStore) when DATABASE_URL is set.
+    bitnobWebhookRoutes({ secret: bitnobSecret, store: eventStore, dispatcher: bitnobDispatcher }),
+  );
+} else {
+  app.post("/webhooks/bitnob", (c) => c.json({ error: "BITNOB_WEBHOOK_SECRET is not set" }, 503));
+}
+
+// B1: Lightning funding. Amount and status come from the shared bountyRepo; a paid invoice moves the
+// bounty to `funded` and publishes funding.paid (at least once, via the funding outbox).
+// In-memory FundingStore until the Drizzle one lands (see src/funding/README.md). No HTTP route yet (W3).
+export const lightningFunding =
+  process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET
+    ? (() => {
+        const client = new BitnobClient(readBitnobConfig());
+        const lf = new LightningFunding({
+          client,
+          store: new InMemoryFundingStore(),
+          rates: new BitnobRates(client),
+          customers: new BitnobFunderCustomers(client),
+          bounties: bountyRepo,
+          emit: applyFundingPaid(bountyRepo, eventBus),
+        });
+        lf.startPolling();
+        return lf;
+      })()
+    : null;

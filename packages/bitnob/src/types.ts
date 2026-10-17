@@ -101,6 +101,32 @@ export interface PayoutQuote {
   expires_at: string;
 }
 
+export interface PayoutBeneficiary {
+  destination_type: "mobile_money" | "bank" | "swift";
+  country: string;
+  account_name: string;
+  /** Mobile money: the number without "+", e.g. "221771234567". */
+  account_number: string;
+  /** From `GET /api/payouts/banks/:country`. */
+  bank_code: string;
+}
+
+export interface InitializePayoutInput {
+  reference: string;
+  beneficiary: PayoutBeneficiary;
+  /** Required by the spec: where Bitnob sends this payout's webhooks. */
+  callback_url: string;
+  payment_reason?: string;
+  customer_id?: string;
+}
+
+/** A payout record (quote, initialize and GET all return this shape). */
+export interface Payout extends PayoutQuote {
+  beneficiary?: Partial<PayoutBeneficiary>;
+  provider_settlement_id?: string;
+  [key: string]: unknown;
+}
+
 export interface CreateVirtualAccountInput {
   customer_id: string;
   currency: "NGN";
@@ -161,4 +187,47 @@ export interface TradingQuote {
 export interface Bank {
   bank_name: string;
   bank_code: string;
+}
+
+export interface ExchangeRate {
+  base_currency: string;
+  target_currency: string;
+  buy_rate: string;
+  sell_rate: string;
+  mid_rate: string;
+  valid_for_seconds?: number;
+}
+
+export interface TradingPrice {
+  base_currency: string;
+  quote_currency: string;
+  /** Quote currency per 1 base, e.g. USDT per BTC. */
+  price: string;
+}
+
+export interface TradingOrderInput {
+  base_currency: string;
+  quote_currency: string;
+  side: "BUY" | "SELL";
+  quantity: string;
+  /** From a fresh `createTradingQuote` (NGN quotes live ~30 s in sandbox, ~10 s in production). */
+  quote_id: string;
+  /** Idempotency key; also lets you fetch the order with `getTradingOrder(reference)`. */
+  reference: string;
+  price?: string;
+  quantity_in_base_units?: boolean;
+}
+
+export interface TradingOrder {
+  id: string;
+  base_currency: string;
+  quote_currency: string;
+  side: string;
+  quantity: string;
+  price: string;
+  status: string;
+  filled_quantity: string;
+  remaining_quantity: string;
+  quote_id: string;
+  reference: string;
 }

@@ -1,12 +1,32 @@
 /**
  * F5 sandbox check: whoami + the 4 calls the demo depends on.
- *   pnpm smoke            (reads BITNOB_CLIENT_ID / BITNOB_CLIENT_SECRET from ../../.env)
+ *   pnpm smoke                              (reads BITNOB_CLIENT_ID / BITNOB_CLIENT_SECRET from ../../.env)
+ *   pnpm smoke --env-file /path/to/.env     (any .env, e.g. the main checkout's from a git worktree)
  * Prints one OK/KO line per call and the raw responses; paste the result in docs/bitnob-api.md.
- * Never prints the secret.
+ * Never prints the secret. Stops after whoami unless it says environment=sandbox (--allow-production to override).
  */
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { BitnobClient, BitnobError, readBitnobConfig } from "../src/index.js";
 
+// --env-file <path> | --env-file=<path>: loaded on top of what's already in the environment.
+const args = process.argv.slice(2);
+const envArg = args.findIndex((a) => a === "--env-file" || a.startsWith("--env-file="));
+if (envArg >= 0) {
+  const a = args[envArg]!;
+  const file = a.includes("=") ? a.slice(a.indexOf("=") + 1) : args[envArg + 1];
+  if (!file || !existsSync(resolve(file))) {
+    console.error(`--env-file: ${file ? `${resolve(file)} not found` : "missing path"}`);
+    process.exit(1);
+  }
+  process.loadEnvFile(resolve(file));
+}
+const allowProduction = args.includes("--allow-production");
+
 const run = Date.now();
+/** Naira sold in the trading quotes. 5000 was more than the sandbox balance. */
+const NGN_QUOTE = "1000";
+const MAX_DEPOSITS = 5;
 const results: { step: string; ok: boolean; note: string }[] = [];
 
 async function step<T>(name: string, fn: () => Promise<T>, note: (r: T) => string): Promise<T | undefined> {
@@ -35,6 +55,10 @@ try {
 const me = await step("whoami", () => client.whoami(), (r) => `${r.client_name}, environment=${r.environment}`);
 if (!me) {
   console.error("\nwhoami failed: fix the keys before trying the other calls.");
+  process.exit(1);
+}
+if (me.environment !== "sandbox" && !allowProduction) {
+  console.error(`\nwhoami says environment=${me.environment}, not sandbox: stopping (pass --allow-production to go on).`);
   process.exit(1);
 }
 
@@ -70,7 +94,11 @@ if (payer) {
 }
 
 // 2. Senegal payout quote (+ the mobile money directory for bank_code).
-await step("2a. SN providers", () => client.getBanks("SN"), (r) => r.map((b) => `${b.bank_name}=${b.bank_code}`).join(", "));
+await step(
+  "2a. SN providers",
+  () => client.getBanks("SN"),
+  (r) => (r.length ? r.map((b) => `${b.bank_name}=${b.bank_code}`).join(", ") : "none listed (sandbox returns banks: null)"),
+);
 for (const from_asset of ["USDT", "BTC"] as const) {
   await step(
     `2. SN payout quote from ${from_asset}`,
@@ -113,11 +141,20 @@ if (funder) {
     (r) => `id=${r.id} ${r.bank_name} ${r.account_number}`,
   );
   if (va) {
-    await step(
-      "3. simulate deposit",
-      () => client.simulateDeposit(va.id),
-      (r) => `credited ${r.transaction.amount} kobo, NGN balance now ${r.new_balance} kobo`,
-    );
+    // The quotes below sell NGN_QUOTE naira: deposit until the credits cover it (fixed amount per call).
+    // The sandbox returns new_balance: "", so we add up the credited amounts ourselves.
+    let creditedKobo = 0;
+    for (let i = 1; i <= MAX_DEPOSITS && creditedKobo < Number(NGN_QUOTE) * 100; i++) {
+      const dep = await step(
+        `3. simulate deposit #${i}`,
+        () => client.simulateDeposit(va.id),
+        (r) =>
+          `credited ${r.transaction.amount} kobo (${r.transaction.status}), new_balance ${r.new_balance ? `${r.new_balance} kobo` : "not returned"}`,
+      );
+      const credited = Number(dep?.transaction.amount);
+      if (!dep || !(credited > 0)) break;
+      creditedKobo += credited;
+    }
   }
 }
 
@@ -125,7 +162,7 @@ if (funder) {
 for (const quote_currency of ["BTC", "USDT"]) {
   await step(
     `4. NGN→${quote_currency} quote`,
-    () => client.createTradingQuote({ base_currency: "NGN", quote_currency, side: "SELL", quantity: "5000" }),
+    () => client.createTradingQuote({ base_currency: "NGN", quote_currency, side: "SELL", quantity: NGN_QUOTE }),
     (r) => `id=${r.id} ${r.exchange.send_quantity} ${r.exchange.send_currency} → ${r.exchange.receive_quantity} ${r.exchange.receive_currency}, expires ${r.expires_at}`,
   );
 }

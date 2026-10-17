@@ -6,7 +6,7 @@ import type { Me, PayoutProvider } from "../../../../fixtures/types";
 import { Button, buttonClass, cx, PhoneFrame } from "../ui";
 import { onboardingApi, type OnboardingApi } from "./api";
 import {
-  attemptsLeftAfterFailure,
+  classifyAmountFailure,
   formatCountdown,
   formatDateFr,
   formatSnPhone,
@@ -35,7 +35,14 @@ const API_ERROR_FR: Record<string, string> = {
   wrong_code: "Code incorrect. Vérifie le SMS et réessaie.",
   phone_and_provider_required: "Choisis un opérateur et entre ton numéro.",
   network_error: "Pas de connexion. Réessaie dans un instant.",
+  send_failed: "L'envoi du montant test a échoué. Réessaie dans un instant.",
+  too_many_tests: "Trop de montants test envoyés sur ce compte. Contacte-nous.",
+  sms_not_verified: "Valide d'abord le code reçu par SMS.",
+  no_test: "Aucun montant test en attente. Recommence l'étape SMS.",
+  number_changed: "Ton numéro a changé : un nouveau montant test est nécessaire.",
+  invalid_amount: "Entre un montant en FCFA, sans décimales (par ex. 125).",
 };
+const LOCKED_FR = "Trop d'essais. Par sécurité, ce compte est bloqué : on t'enverra un nouveau montant test d'ici 24 h.";
 const apiError = (code: string) => API_ERROR_FR[code] ?? "Une erreur est survenue. Réessaie.";
 
 /** Developer onboarding on /me: provider + number, SMS code, test amount, verified. All French. */
@@ -117,14 +124,15 @@ export function Onboarding({ me: initialMe, api = onboardingApi }: OnboardingPro
       setConfirmedAmount(n);
       return go("verified");
     }
-    if (res.error !== "wrong_amount") return setError(apiError(res.error));
-    const left = attemptsLeftAfterFailure(failed, res.attemptsLeft);
+    const failure = classifyAmountFailure(res, failed);
+    if (failure.kind === "other") return setError(apiError(res.error));
     setFailed((f) => f + 1);
     setAmount("");
-    if (left === 0) {
+    if (failure.kind === "locked") {
       setLocked(true);
-      return setError("Trop d'essais. Par sécurité, ce compte est bloqué : on t'enverra un nouveau montant test d'ici 24 h.");
+      return setError(LOCKED_FR);
     }
+    const left = failure.attemptsLeft;
     setError(`Ce n'est pas le bon montant. Il te reste ${left} essai${left > 1 ? "s" : ""}.`);
   }
 

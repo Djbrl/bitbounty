@@ -23,4 +23,9 @@ describe("server", () => {
     const res = await app.request("/webhooks/github", { method: "POST", body: "{}" });
     expect(res.status).toBe(503);
   });
+
+  it("refuses Bitnob webhooks with 503 when no secret is configured", async () => {
+    const res = await app.request("/webhooks/bitnob", { method: "POST", body: "{}" });
+    expect(res.status).toBe(503);
+  });
 });
