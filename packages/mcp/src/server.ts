@@ -21,7 +21,7 @@ export function createBitbountyServer(api: BitbountyApi): McpServer {
         "Fails if the repo isn't allowed for this agent, the amount is above the per-task max, or the monthly budget would be exceeded (check get_budget first).",
       inputSchema: {
         repo: z.string().describe('GitHub repository, "owner/name"'),
-        issue_number: z.number().int().positive().describe("Number of the existing issue to put the bounty on"),
+        issue_number: z.number().int().positive().max(2_147_483_647).describe("Number of the existing issue to put the bounty on"),
         amount_xof: z.number().int().min(1000).describe("What the developer receives, in whole FCFA, at least 1000 (e.g. 10000)"),
         criteria: z
           .array(z.string())

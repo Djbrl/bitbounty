@@ -1,6 +1,7 @@
 // pnpm --filter @bitbounty/server agent:create --name demo-agent --owner Djbrl --budget 100000 --max 20000 --repos owner/a,owner/b
 // Prints the key ONCE and the JSON entry to add to BITBOUNTY_AGENTS (only the key's hash is stored).
 import { randomUUID } from "node:crypto";
+import { agentLimitsError } from "./service.js";
 import { agentSchema, generateAgentKey, hashAgentKey, type Agent } from "./registry.js";
 
 const usage =
@@ -32,14 +33,22 @@ if (!name || !owner || repos.length === 0) {
   process.exit(1);
 }
 
+const monthlyBudgetXof = int("budget");
+const perTaskMaxXof = int("max");
+const limitsError = agentLimitsError(monthlyBudgetXof, perTaskMaxXof);
+if (limitsError) {
+  console.error(`${limitsError}\n${usage}`);
+  process.exit(1);
+}
+
 const key = generateAgentKey();
 const agent: Agent = {
   id: randomUUID(),
   name,
   ownerLogin: owner,
   keyHash: hashAgentKey(key),
-  monthlyBudgetXof: int("budget"),
-  perTaskMaxXof: int("max"),
+  monthlyBudgetXof,
+  perTaskMaxXof,
   allowedRepos: repos,
   revoked: false,
 };

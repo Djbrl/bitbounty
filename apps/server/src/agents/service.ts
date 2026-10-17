@@ -74,6 +74,22 @@ export class AgentError extends Error {
 const REPO_RE = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
 /** Smallest agent bounty: below this a bounty is noise (and each one posts a GitHub comment). */
 export const MIN_AGENT_BOUNTY_XOF = 1_000;
+/** Largest issue number we accept: `bounties.issue_number` is a Postgres `integer` (int4). */
+export const MAX_ISSUE_NUMBER = 2_147_483_647;
+
+/**
+ * Why an owner's limits can't work, or undefined when they can (used by `agent:create`):
+ * a budget below the smallest bounty, or a per-task max the budget can never cover.
+ */
+export function agentLimitsError(monthlyBudgetXof: number, perTaskMaxXof: number): string | undefined {
+  if (monthlyBudgetXof < MIN_AGENT_BOUNTY_XOF) {
+    return `--budget ${monthlyBudgetXof} is below the smallest bounty (${MIN_AGENT_BOUNTY_XOF} FCFA): the agent could never post one`;
+  }
+  if (perTaskMaxXof > monthlyBudgetXof) {
+    return `--max ${perTaskMaxXof} is above --budget ${monthlyBudgetXof}: one task can't cost more than the whole month`;
+  }
+  return undefined;
+}
 
 /**
  * The agent's side of BitBounty: post a bounty (unfunded, the human owner pays it from the
@@ -101,8 +117,8 @@ export class AgentService {
   async post(agent: Agent, input: PostBountyInput): Promise<{ bounty: AgentBountyView; warnings: string[] }> {
     const repo = input.repo.trim();
     if (!REPO_RE.test(repo)) throw new AgentError("invalid_input", 'repo must be "owner/name"', 400);
-    if (!Number.isSafeInteger(input.issueNumber) || input.issueNumber < 1) {
-      throw new AgentError("invalid_input", "issue_number must be a positive whole number", 400);
+    if (!Number.isSafeInteger(input.issueNumber) || input.issueNumber < 1 || input.issueNumber > MAX_ISSUE_NUMBER) {
+      throw new AgentError("invalid_input", `issue_number must be a whole number from 1 to ${MAX_ISSUE_NUMBER}`, 400);
     }
     if (!Number.isSafeInteger(input.amountXof) || input.amountXof < MIN_AGENT_BOUNTY_XOF) {
       throw new AgentError("invalid_input", `amount_xof must be a whole number of FCFA, at least ${MIN_AGENT_BOUNTY_XOF}`, 400);

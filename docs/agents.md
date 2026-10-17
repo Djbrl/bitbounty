@@ -12,6 +12,7 @@ It prints the key **once** (give it to the agent) and a JSON entry. Add the entr
 ```
 BITBOUNTY_AGENTS=[{"id":"…","name":"demo-agent","ownerLogin":"Djbrl","keyHash":"…","monthlyBudgetXof":30000,"perTaskMaxXof":20000,"allowedRepos":["galsen-oss/wolof-i18n"],"revoked":false}]
 ```
+- The CLI refuses a `--budget` below 1000 FCFA (the smallest bounty) and a `--max` above `--budget`.
 - Only the key's SHA-256 is stored. A lost key can't be recovered: create a new one.
 - **Revoke**: set `"revoked": true` (or remove the entry) and restart.
 - An invalid entry stops the server at startup with a clear message, so a typo can't silently open or close access.
@@ -41,7 +42,7 @@ Tools: `post_bounty`, `get_bounty`, `cancel_bounty`, `get_budget`. On a refusal 
 - **Per task**: `amount_xof` ≤ `perTaskMaxXof` → else `403 over_task_max`.
 - **Budget**: bounties posted this UTC month and not cancelled/refunded count against `monthlyBudgetXof` → else `403 over_budget`. Parallel requests from one agent are serialized, so they can't overspend together. Budgets reset on the 1st of the month.
 - **One bounty per issue**, shared with `/bounty` comments → `409 issue_has_bounty`.
-- Input: whole FCFA, at least 1 000, 1–6 criteria of ≤ 300 characters, `owner/name` repo → else `400 invalid_input`.
+- Input: whole FCFA, at least 1 000, 1–6 criteria of ≤ 300 characters, `owner/name` repo, `issue_number` from 1 to 2 147 483 647 (the database's integer limit) → else `400 invalid_input`.
 - The issue number isn't checked against GitHub yet: the agent should only post on issues that exist (follow-up).
 - Creation goes through `createBounty()` (event `bounty.created`), cancellation through `transition()` (event `bounty.cancelled`, actor `agent:<id>`). When the GitHub App is configured, the bot posts its status comment on the issue like for `/bounty`. If GitHub is down, the bounty is still created and the answer carries a warning.
 

@@ -88,6 +88,14 @@ describe("bitbounty MCP server", () => {
     expect(seen).toHaveLength(0);
   });
 
+  it("rejects an issue number Postgres can't store (2^31) before calling the API", async () => {
+    const { impl, seen } = fakeFetch(() => ({ status: 201, body: {} }));
+    const c = await connect(impl);
+    const res = await c.callTool({ name: "post_bounty", arguments: { repo: "a/b", issue_number: 2 ** 31, amount_xof: 10_000, criteria: ["x"] } });
+    expect(res.isError).toBe(true);
+    expect(seen).toHaveLength(0);
+  });
+
   it("get_bounty, cancel_bounty and get_budget hit the right endpoints (ids are URL-encoded)", async () => {
     const { impl, seen } = fakeFetch(() => ({ status: 200, body: { ok: true } }));
     const c = await connect(impl);
