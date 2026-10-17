@@ -1,6 +1,7 @@
 import type { BacklogIssue } from "./types.js";
 
-export const REPO_RE = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
+/** `owner/name`. The name can't be `.` or `..`: those would turn the API URL into another path. */
+export const REPO_RE = /^[A-Za-z0-9-]{1,39}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,100}$/;
 
 export interface FetchIssuesOptions {
   /** Token for private repos and a higher rate limit (installation token or PAT). Optional for public repos. */

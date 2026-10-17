@@ -31,13 +31,20 @@ export const DEFAULT_DEADLINE_MS = 120_000;
 
 /** Backlog-specific tripwire on top of the verifier's: talking to the pricer about price, fit or confidence. */
 const BACKLOG_INJECTION_PATTERNS: RegExp[] = [
-  /\b(price_xof|fits|confidence|issue_number)\b\s*[:=]/i,
+  /\b(price_xof|issue_number)\b\s*[:=]/i,
+  // `fits` / `confidence` only with a value: "Where X Fits: …" is a heading, "fits: true" is an order.
+  /\b(fits|confidence)\b["']?\s*[:=]\s*["']?(true|false|yes|no|high|medium|low|élevée|haute)\b/i,
   /\b(set|mark|make|price|rate)\b[^\n]{0,40}\b(price_xof|fits|confidence)\b/i,
   /\b(ignorez|oubliez|ignore[rz]?)\b[^\n]{0,40}(consignes|instructions|règles|regles|précédent)/i,
   /\b(note|message)\s+(au|aux|to the)\s+(relecteur|reviewer|pricer|modèle|model)/i,
   /\b(vaut|worth|price it at|mettez|put)\b[^\n]{0,30}\d[\d\s.,]{3,}\s*(fcfa|xof|cfa)/i,
   /\bconfidence\s+(high|élevée)\b|\bhigh confidence\b/i,
+  // Notes aimed at whoever estimates or selects it.
+  /\b(pre-?approved|pré-?approuvée?|system note|note système|select it|cochez[- ]la|à cocher|estimateur|whoever estimates)\b/i,
 ];
+
+/** Above this, a suggestion is never pre-selected: a human looks at big prices first. */
+export const PRESELECT_MAX_XOF = 50_000;
 
 export function looksLikeInjection(title: string, body: string): boolean {
   return detectInjection(title, body) || BACKLOG_INJECTION_PATTERNS.some((re) => re.test(`${title}\n${body}`));
@@ -80,11 +87,13 @@ export async function suggestBacklog(
 
   const suggestions: BacklogSuggestion[] = [];
   const seen = new Set<number>();
-  const work = runLimited(batches, opts.concurrency ?? batches.length, async (batch, index) => {
+  // Aborted at the deadline: in-flight model calls are cancelled, no new batch or retry starts.
+  const stop = new AbortController();
+  const work = runLimited(batches, opts.concurrency ?? batches.length, stop.signal, async (batch, index) => {
     const label = `batch ${index + 1}/${batches.length}`;
     let raw: string;
     try {
-      raw = await callWithRetry(client, buildUserPrompt(repoFullName, batch), opts);
+      raw = await callWithRetry(client, buildUserPrompt(repoFullName, batch), opts, stop.signal);
     } catch (err) {
       warnings.push(`${label} failed: ${errorMessage(err)}`);
       return;
@@ -109,6 +118,11 @@ export async function suggestBacklog(
       const injection = looksLikeInjection(issue.title, issue.body);
       if (injection) warnings.push(`#${issue.number}: possible prompt injection in the issue, not pre-selected`);
       const confidence = injection ? "low" : a.confidence;
+      // 0 or a negative price with fits: true is a contradiction: not a bounty.
+      if (!(a.price_xof > 0)) {
+        warnings.push(`#${issue.number}: price ${a.price_xof} with fits: true, skipped`);
+        continue;
+      }
       const priceXof = normalizePrice(a.price_xof);
       suggestions.push({
         id: suggestionId(repoFullName, issue.number),
@@ -119,8 +133,8 @@ export async function suggestBacklog(
         priceXof,
         reason: a.reason.trim(),
         confidence,
-        // A price at the cap is worth a human look before it's ticked.
-        selected: confidence === "high" && priceXof < MAX_PRICE_XOF,
+        // A big price is worth a human look before it's ticked.
+        selected: confidence === "high" && priceXof <= PRESELECT_MAX_XOF && priceXof < MAX_PRICE_XOF,
       });
     }
   });
@@ -134,7 +148,10 @@ export async function suggestBacklog(
     }),
   ]);
   clearTimeout(deadline);
-  if (timedOut) warnings.push(`stopped after ${Math.round(deadlineMs / 1000)} s: partial results`);
+  if (timedOut) {
+    stop.abort();
+    warnings.push(`stopped after ${Math.round(deadlineMs / 1000)} s: partial results`);
+  }
   // Freeze what we return: batches still running after the deadline can't change it.
   const done = [...suggestions];
 
@@ -162,21 +179,29 @@ export async function priceRepoBacklog(
   return suggestBacklog(repoFullName, issues, opts);
 }
 
-async function callWithRetry(client: VerifierClient, user: string, opts: SuggestOptions): Promise<string> {
+async function callWithRetry(client: VerifierClient, user: string, opts: SuggestOptions, stop: AbortSignal): Promise<string> {
   const retries = opts.retries ?? 1;
   const timeoutMs = opts.timeoutMs ?? 90_000;
   const backoff = opts.backoffMs ?? 1_000;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, backoff * 2 ** (attempt - 1)));
+    if (stop.aborted) throw new Error("stopped at the deadline");
     const ctrl = new AbortController();
     let timer: NodeJS.Timeout | undefined;
+    let onStop = () => {};
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         ctrl.abort();
         reject(new Error(`timed out after ${timeoutMs} ms`));
       }, timeoutMs);
+      // The deadline cancels the call too, even with a client that ignores the signal.
+      onStop = () => {
+        ctrl.abort();
+        reject(new Error("stopped at the deadline"));
+      };
     });
+    stop.addEventListener("abort", onStop, { once: true });
     try {
       return await Promise.race([
         client.complete({ system: SYSTEM_PROMPT, user, schema: backlogAnswerJsonSchema, signal: ctrl.signal }),
@@ -187,15 +212,22 @@ async function callWithRetry(client: VerifierClient, user: string, opts: Suggest
       if (!isRetryable(err)) break;
     } finally {
       clearTimeout(timer);
+      stop.removeEventListener("abort", onStop);
     }
+    if (stop.aborted) break;
   }
   throw lastErr;
 }
 
-async function runLimited<T>(items: T[], limit: number, fn: (item: T, index: number) => Promise<void>): Promise<void> {
+async function runLimited<T>(
+  items: T[],
+  limit: number,
+  stop: AbortSignal,
+  fn: (item: T, index: number) => Promise<void>,
+): Promise<void> {
   let next = 0;
   const workers = Array.from({ length: Math.min(Math.max(1, limit), items.length) }, async () => {
-    while (next < items.length) {
+    while (next < items.length && !stop.aborted) {
       const i = next++;
       await fn(items[i]!, i);
     }

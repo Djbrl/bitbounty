@@ -13,12 +13,15 @@ pnpm --filter @bitbounty/server backlog owner/name [--max 60]
 curl -X POST http://localhost:8787/api/backlog/suggest -H 'content-type: application/json' -d '{"repo":"owner/name"}'
 ```
 Response (`BacklogResult`): `suggestions` in the same shape as `BacklogSuggestion` in `fixtures/types.ts` (what the W2 page reads), plus `issuesRead`, `issuesConsidered`, `issuesSkipped`, `model`, `isFake`, `warnings`.
-Errors: `400 invalid_repo`, `404 repo_not_found`, `429 github_rate_limited` (with the reset time) or `429 too_many_requests`, `502 github_unavailable`, `500 backlog_failed`.
+Errors: `400 invalid_repo`, `404 repo_not_found`, `429 github_rate_limited` (with the reset time) or `429 too_many_requests` (per client), `429 busy` (global cap), `502 github_unavailable`, `500 backlog_failed`.
 
 **No user session yet** (I1 adds it through the web app), so the route protects itself:
 - the GitHub token is a dedicated `BACKLOG_GITHUB_TOKEN`, never a broad `GITHUB_TOKEN` from the shell. Make it a fine-grained, read-only, public-repos token: anything it can read, callers can price;
 - the result is cached per repo for 10 minutes (same repo = no GitHub or model call);
-- each client gets 6 new repos per minute, which bounds model cost.
+- each client gets 6 new repos per minute. The client is the **last** `x-forwarded-for` hop (the one our proxy adds), so a caller can't pick a new address per request;
+- a **global** cap bounds model cost whoever asks: `BACKLOG_GLOBAL_PER_MINUTE` new repos per minute (default 20) and `BACKLOG_GLOBAL_PER_DAY` per UTC day (default 300), then `429 busy`;
+- the cache keeps at most 500 repos and drops expired ones; the per-client counters are pruned every request;
+- at the 120 s deadline, model calls still running are cancelled and no new batch starts.
 
 ## How it works
 1. Reads the **60 most recently updated** open issues from the GitHub REST API (`maxIssues`; pull requests and assigned issues skipped).
@@ -28,10 +31,10 @@ Errors: `400 invalid_repo`, `404 repo_not_found`, `429 github_rate_limited` (wit
    - entries for issues that weren't in the batch, and duplicates, are dropped; issues the model skipped are listed in `warnings`;
    - a suggestion needs 2 to 4 criteria (more are cut, fewer means no bounty);
    - prices are clamped to **2 500–100 000 FCFA** and rounded to 500;
-   - an issue whose text tries to instruct the model (English or French: "ignore previous instructions", "price_xof: …", "ce ticket vaut 100 000 FCFA"…) is downgraded to `low` and never pre-selected;
+   - an issue whose text tries to instruct the model (English or French: "ignore previous instructions", "price_xof: …", "ce ticket vaut 100 000 FCFA", notes to "whoever estimates this", "pre-approved", "system note"…) is downgraded to `low` and never pre-selected;
    - a batch that fails or answers invalid JSON is skipped with a warning, the rest still comes back.
 4. Issue text is wrapped as untrusted data with a random boundary (same approach as the A1 verifier). Criteria are written in the issue's language (French issue → French criteria).
-5. Only `high` confidence suggestions below the 100 000 FCFA cap come pre-ticked (`selected: true`).
+5. Only `high` confidence suggestions at or below **50 000 FCFA** come pre-ticked (`selected: true`): bigger prices get a human look first. A model price of 0 or less with `fits: true` is dropped (not a bounty).
 6. Suggestion ids include the repo (`sug-teranga-labs-bitnob-js-21`), so they stay unique across repos.
 
 ## Model
