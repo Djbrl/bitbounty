@@ -1,4 +1,7 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["src/**/*.test.ts"]
+  "compilerOptions": { "rootDir": "src" },
+  "include": ["src"],
+  // drizzle-event-store imports packages/db by relative path until F3 makes it a workspace package.
+  "exclude": ["src/**/*.test.ts", "src/github/drizzle-event-store.ts"]
 }

@@ -17,7 +17,7 @@ const SATS_PER_XOF = 1.618; // BTC ≈ $110k, $1 ≈ 562 FCFA
 const toSats = (xof) => Math.round(xof * SATS_PER_XOF);
 const toUsdtUnits = (xof) => Math.ceil((xof / 562) * 100) * 10_000; // 1 USDT = 1_000_000 units, cent precision
 const toKobo = (xof) => Math.ceil((xof * 2.633) / 1000) * 1000 * 100; // ₦1,000 steps (simulate-deposit)
-const label = (a) => `💰 ${a.toLocaleString('fr-FR').replace(/ | /g, ' ')} FCFA`;
+const label = (a) => `💰 ${a.toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' ')} FCFA`;
 
 // ---------------- users ----------------
 const users = {
