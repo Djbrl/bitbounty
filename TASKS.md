@@ -5,7 +5,7 @@ Principle: **contract first, then everything is built against mocks and interfac
 
 ## The board, explained simply
 
-**What it is.** 33 small jobs, each with a points value (1 to 5 for how big it is). Nobody owns an area. You take a job, have your AI agent write it, test it, document it, open one pull request, and a teammate checks it. Once it's merged, the points are yours. Points decide 80% of the prize.
+**What it is.** 40 small jobs, each with a points value (1 to 5 for how big it is). Nobody owns an area. You take a job, have your AI agent write it, test it, document it, open one pull request, and a teammate checks it. Once it's merged, the points are yours. Points decide 80% of the prize.
 
 **The 4 waves, in order.**
 - **Wave 0, the foundations (6 jobs, 15:00–16:15).** Things everyone else needs: the rulebook (F2, do it first), the empty project online (F1), the database (F3), fake data for every page (F4), Bitnob answering (F5), the GitHub bot hearing comments (F6). One person per job, all at once.
