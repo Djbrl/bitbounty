@@ -90,12 +90,14 @@ Example with P = $1,000 and points 30 / 28 / 25 / 17 (T = 100): $290, $274, $250
 | | | |
 
 ### Points tally (filled in during the event)
-| Member | Tasks done | Reviews | Points |
+Status at Sat 17 Oct, 20:00. Merged tasks only; reviews and the F1/F3 splits still to be agreed by the 2 uninvolved members.
+
+| Member | Tasks merged | Reviews | Points |
 | --- | --- | --- | --- |
-| | | | |
-| | | | |
-| | | | |
-| | | | |
+| Djbrl | F4, F6, W1–W9, G1–G5, A1, A2 (42) · F1 deploy + F3 finish (split to agree, up to 5) · D7 landing (5, pending trailer + review) | – | 42 (+ up to 10) |
+| Rabatou | F2, F5 (5) · B1–B5 open | – | 5 |
+| Kml221-bot | F1 monorepo #46 (split to agree, up to 3) · F3 base #49 (split to agree, up to 2) · A3, A4 open | – | 0 (+ up to 5) |
+| cheikhteej | – | – | 0 |
 
 ---
 
