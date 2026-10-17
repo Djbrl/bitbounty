@@ -5,6 +5,7 @@
 import bounties from "../../../../fixtures/bounties.json";
 import receipts from "../../../../fixtures/receipts.json";
 import type { BountyDetail, Receipt } from "../../../../fixtures/types";
+import { apiBaseUrl, load } from "../../lib/api";
 import { handleMock, type Fixtures } from "../../lib/mock-api";
 
 export type { BountyDetail, Receipt };
@@ -18,16 +19,21 @@ function get<T>(path: string[]): T | null {
 
 /** GET /api/bounties/:id — null when the id is unknown (page renders a 404). */
 export async function getBounty(id: string): Promise<BountyDetail | null> {
-  return get<BountyDetail>(["bounties", id]);
+  return load(`/api/bounties/${encodeURIComponent(id)}`, () => get<BountyDetail>(["bounties", id]));
 }
 
 /** GET /api/receipts/:id — null when the id is unknown. */
 export async function getReceipt(id: string): Promise<Receipt | null> {
-  return get<Receipt>(["receipts", id]);
+  return load(`/api/receipts/${encodeURIComponent(id)}`, () => get<Receipt>(["receipts", id]));
 }
 
 /** Receipt id for a paid bounty, if one exists (links /b → /r). */
 export async function receiptIdForBounty(bountyId: string): Promise<string | null> {
+  // Real server: the receipt id is the succeeded payout's id.
+  if (apiBaseUrl()) {
+    const b = await getBounty(bountyId);
+    return b?.payout?.status === "succeeded" ? b.payout.id : null;
+  }
   const all = fx.receipts as Record<string, Receipt>;
   return Object.values(all).find((r) => r.bountyId === bountyId)?.id ?? null;
 }

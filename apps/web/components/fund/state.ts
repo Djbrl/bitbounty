@@ -61,5 +61,7 @@ export function errorMessage(code: string): string {
   if (code === "already_funded") return "This bounty is already funded.";
   if (code === "bounty_not_found") return "This bounty does not exist.";
   if (code === "invalid_rail") return "This payment method is not available.";
+  // I1 review: the server answers 503 funding_not_configured when it has no Bitnob keys. Not a network problem.
+  if (code === "funding_not_configured") return "Funding is not set up on this server yet. Ask the BitBounty team to configure it, then try again.";
   return "Could not reach BitBounty. Check your connection and try again.";
 }
