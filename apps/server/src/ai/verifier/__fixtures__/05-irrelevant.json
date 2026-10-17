@@ -1,0 +1,43 @@
+{
+  "name": "irrelevant diff: README typo for a crash fix",
+  "expected": [
+    "fail"
+  ],
+  "input": {
+    "issue": {
+      "title": "Checkout crashes when the cart is empty",
+      "body": "Clicking Checkout with 0 items throws `Cannot read properties of undefined (reading 'price')`."
+    },
+    "criteria": [
+      {
+        "text": "Checkout with an empty cart shows a message instead of throwing"
+      },
+      {
+        "text": "A test reproduces the empty-cart checkout"
+      }
+    ],
+    "diff": "diff --git a/README.md b/README.md\nindex 9999999..aaaaaaa 100644\n--- a/README.md\n+++ b/README.md\n@@ -1,4 +1,4 @@\n # Shop\n \n-An exemple shop built with Next.js.\n+An example shop built with Next.js.\n",
+    "ci": {
+      "status": "success"
+    }
+  },
+  "fakeAnswer": {
+    "criteria": [
+      {
+        "text": "Checkout with an empty cart shows a message instead of throwing",
+        "met": false,
+        "evidence": "Only README.md changes; checkout code untouched"
+      },
+      {
+        "text": "A test reproduces the empty-cart checkout",
+        "met": false,
+        "evidence": "No test files in the diff"
+      }
+    ],
+    "verdict": "fail",
+    "summary": "The PR only fixes a README typo and does not touch checkout.",
+    "risk_flags": [
+      "touches unrelated files"
+    ]
+  }
+}

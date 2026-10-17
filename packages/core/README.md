@@ -44,6 +44,7 @@ Amounts are positive integers in the smallest unit: FCFA, sats, kobo, USDT base 
 | submitted | `maintainer.pay` | verified |
 | submitted | `maintainer.hold` | on_hold |
 | submitted | `maintainer.reject` | funded |
+| submitted | `pr.linked` (new push from the claimant, verdict reset) | submitted |
 | verified | `maintainer.hold` | on_hold |
 | verified | `payout.started` | paying |
 | paying | `payout.succeeded` | paid |

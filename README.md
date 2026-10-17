@@ -13,6 +13,7 @@ Built at **Code & Chain Dakar 2026** (Bitnob), 17–18 Oct 2026. Hacking starts 
 | [docs/product.md](docs/product.md) | Product definition, UX flows, edge cases, positioning |
 | [docs/bitnob-api.md](docs/bitnob-api.md) | Bitnob API cheat sheet |
 | [docs/setup.md](docs/setup.md) | Run locally, commands, deploy to Railway and Vercel |
+| [docs/auth.md](docs/auth.md) | Sign in with GitHub (Auth.js), session fields, env and one-time setup |
 
 Status: **monorepo scaffolded** (`apps/web`, `apps/server`). Run it with `pnpm install && pnpm dev`, see [docs/setup.md](docs/setup.md).
 
@@ -89,12 +90,14 @@ Example with P = $1,000 and points 30 / 28 / 25 / 17 (T = 100): $290, $274, $250
 | | | |
 
 ### Points tally (filled in during the event)
-| Member | Tasks done | Reviews | Points |
+Status at Sat 17 Oct, 20:00. Merged tasks only; reviews and the F1/F3 splits still to be agreed by the 2 uninvolved members.
+
+| Member | Tasks merged | Reviews | Points |
 | --- | --- | --- | --- |
-| | | | |
-| | | | |
-| | | | |
-| | | | |
+| Djbrl | F4, F6, W1–W9, G1–G5, A1, A2 (42) · F1 deploy + F3 finish (split to agree, up to 5) · D7 landing (5, pending trailer + review) | – | 42 (+ up to 10) |
+| Rabatou | F2, F5 (5) · B1–B5 open | – | 5 |
+| Kml221-bot | F1 monorepo #46 (split to agree, up to 3) · F3 base #49 (split to agree, up to 2) · A3, A4 open | – | 0 (+ up to 5) |
+| cheikhteej | – | – | 0 |
 
 ---
 

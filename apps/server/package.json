@@ -6,19 +6,26 @@
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
     "build": "tsc -p tsconfig.build.json",
-    "start": "node --env-file-if-exists=../../.env dist/index.js",
+    "start": "node --conditions=bitbounty-dist --env-file-if-exists=../../.env dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "dev:webhook": "tsx --env-file-if-exists=../../.env src/github/dev-server.ts"
+    "dev:webhook": "tsx --env-file-if-exists=../../.env src/github/dev-server.ts",
+    "verify:fixtures": "tsx --env-file-if-exists=../../.env src/ai/verifier/run-fixtures.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@bitbounty/core": "workspace:*",
+    "@bitbounty/db": "workspace:*",
     "@hono/node-server": "^2.1.5",
     "@octokit/app": "^16.1.4",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.13"
+    "hono": "^4.13.13",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"

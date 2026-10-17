@@ -1,1 +1,133 @@
 @import "tailwindcss";
+
+/*
+ * BitBounty design tokens (W1). Ported from the build kit (research/buildkit) and the landing page.
+ * Raw values live on :root and flip in dark mode; @theme inline exposes them as Tailwind utilities
+ * (bg-paper, text-ink, border-rule, text-money, bg-pending-soft, font-display, ...), so every
+ * utility follows the theme without `dark:` variants.
+ * Dark mode: follows the OS, or force it with <html data-theme="dark|light">.
+ */
+:root {
+  --bb-paper: #f4f5f1;
+  --bb-sheet: #ffffff;
+  --bb-ink: #111614;
+  --bb-muted: #5d6762;
+  --bb-rule: #d9ddd6;
+  --bb-chip: #e8ebe5;
+
+  --bb-money: #0d7a52;
+  --bb-money-soft: #dff3e8;
+  --bb-money-bright: #3cc77e;
+  --bb-pending: #b7790b;
+  --bb-pending-soft: #fff4d6;
+  --bb-claim: #2a62d6;
+  --bb-claim-soft: #e2ecff;
+  --bb-danger: #c2412d;
+  --bb-danger-soft: #fde6e1;
+  --bb-agent: #8250df;
+  --bb-agent-soft: #efe7fd;
+
+  --bb-forest: #0b1f17;
+  --bb-on-solid: #ffffff;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bb-paper: #0e1211;
+    --bb-sheet: #151b19;
+    --bb-ink: #e6ece8;
+    --bb-muted: #93a29a;
+    --bb-rule: #26302c;
+    --bb-chip: #1d2522;
+    --bb-money: #36c48f;
+    --bb-money-soft: #12352a;
+    --bb-pending: #e3a93a;
+    --bb-pending-soft: #3a2c10;
+    --bb-claim: #6c9cff;
+    --bb-claim-soft: #17284a;
+    --bb-danger: #f07a62;
+    --bb-danger-soft: #42201a;
+    --bb-agent: #b392f0;
+    --bb-agent-soft: #2c2044;
+    --bb-on-solid: #07100d;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bb-paper: #0e1211;
+  --bb-sheet: #151b19;
+  --bb-ink: #e6ece8;
+  --bb-muted: #93a29a;
+  --bb-rule: #26302c;
+  --bb-chip: #1d2522;
+  --bb-money: #36c48f;
+  --bb-money-soft: #12352a;
+  --bb-pending: #e3a93a;
+  --bb-pending-soft: #3a2c10;
+  --bb-claim: #6c9cff;
+  --bb-claim-soft: #17284a;
+  --bb-danger: #f07a62;
+  --bb-danger-soft: #42201a;
+  --bb-agent: #b392f0;
+  --bb-agent-soft: #2c2044;
+  --bb-on-solid: #07100d;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-paper: var(--bb-paper);
+  --color-sheet: var(--bb-sheet);
+  --color-ink: var(--bb-ink);
+  --color-muted: var(--bb-muted);
+  --color-rule: var(--bb-rule);
+  --color-chip: var(--bb-chip);
+  --color-money: var(--bb-money);
+  --color-money-soft: var(--bb-money-soft);
+  --color-money-bright: var(--bb-money-bright);
+  --color-pending: var(--bb-pending);
+  --color-pending-soft: var(--bb-pending-soft);
+  --color-claim: var(--bb-claim);
+  --color-claim-soft: var(--bb-claim-soft);
+  --color-danger: var(--bb-danger);
+  --color-danger-soft: var(--bb-danger-soft);
+  --color-agent: var(--bb-agent);
+  --color-agent-soft: var(--bb-agent-soft);
+  --color-forest: var(--bb-forest);
+  --color-on-solid: var(--bb-on-solid);
+
+  --font-display: var(--font-bricolage), "Arial Narrow", system-ui, sans-serif;
+  --font-body: var(--font-instrument), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+  --font-sans: var(--font-body);
+
+  --radius-card: 12px;
+  --radius-phone: 38px;
+}
+
+html,
+body {
+  background: var(--bb-paper);
+  color: var(--bb-ink);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid var(--bb-money);
+  outline-offset: 2px;
+}

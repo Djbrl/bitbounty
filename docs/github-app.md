@@ -13,7 +13,7 @@ checks the `X-Hub-Signature-256` HMAC, stores each delivery once in the `events`
 | Client ID | `Iv23liCkNNOVL2DflyZ1` → `GITHUB_CLIENT_ID` |
 | Visibility | Public (any account can install it) |
 | Webhook URL | `https://smee.io/gk8M8VuUD4ZMaO7A` → `WEBHOOK_PROXY_URL` (switch to `https://<railway-host>/webhooks/github` once deployed) |
-| Callback URL (OAuth, W9) | `http://localhost:3000/api/auth/callback/github` |
+| Callback URLs (OAuth, W9) | `http://localhost:3000/api/auth/callback/github` · to add: `https://bitbounty-app.vercel.app/api/auth/callback/github` (see [auth.md](auth.md)) |
 | Settings page | https://github.com/settings/apps/bitbounty-dakar |
 
 **Repository permissions:** Issues read & write · Pull requests read & write · Checks read & write ·
@@ -50,8 +50,8 @@ npm run dev:webhook             # → http://localhost:3001/webhooks/github
 npx smee-client --url https://smee.io/gk8M8VuUD4ZMaO7A --target http://localhost:3001/webhooks/github
 ```
 
-Once F1/F3 are merged, the main server mounts `githubWebhookRoutes(...)` with `DrizzleEventStore`
-and rows land in Postgres; point `--target` at that server's port instead.
+The main server (`apps/server/src/app.ts`) mounts `githubWebhookRoutes(...)` with `DrizzleEventStore`
+when `DATABASE_URL` is set, so rows land in the Postgres `events` table; point `--target` at that server's port instead.
 
 Note: only one person should run the smee client against the shared channel at a time, or
 each delivery gets processed by several laptops.
@@ -69,7 +69,7 @@ each delivery gets processed by several laptops.
 
 ```ts
 import { GithubDispatcher, githubWebhookRoutes, createGithubApp } from "./github/index.js";
-import { DrizzleEventStore } from "./github/drizzle-event-store.js";
+import { DrizzleEventStore } from "./github/index.js";  // events table from @bitbounty/db
 
 const gh = createGithubApp();                       // reads GITHUB_APP_ID / _PRIVATE_KEY / _WEBHOOK_SECRET
 const dispatcher = new GithubDispatcher()
@@ -84,3 +84,61 @@ const octokit = await gh.getInstallationOctokit(e.installationId!);
 Handler keys: `"*"`, `"<event>"` or `"<event>.<action>"`. A handler that throws marks the event
 `failed` and returns 500, so GitHub's redelivery retries it; a `processed` event is never re-run.
 Keep handlers quick (enqueue to pg-boss for slow work): GitHub times out after 10 s.
+
+## 6. PR detection and merge (G4)
+
+`apps/server/src/github/pr/` registers on `githubDispatcher` for `pull_request` and publishes on
+`eventBus` (exported from `app.ts`; in-memory until pg-boss, same `publish`/`subscribe` interface).
+
+| Webhook | Effect |
+|---|---|
+| `opened` / `edited` / `synchronize` / `reopened`, body or title says `Fixes #n` (or closes/resolves, `owner/repo#n`, full issue URL) | if the bounty on #n is `claimed`/`submitted` and the PR author is the claimant → bounty `submitted`, `pr.linked` (new head sha on each push, verdict reset) |
+| same, PR author isn't the claimant | no link; polite comment on the PR (on `opened`/`reopened` only) |
+| same, bounty `funded` but unclaimed | no link; comment pointing to `/claim` |
+| same, bounty `unfunded` / no bounty / cross-repo ref | ignored |
+| `closed` + `merged` on the linked PR | `pr.merged` with `mergeSha`, `authorLogin`, `mergedByLogin`, `ciGreen` (check runs + statuses on the head sha, our own check excluded) |
+| `closed` + `merged`, not linked (no `Fixes #n`, or by a non-claimant) | comment on the issue: "Is PR #34 the fix for #12? `/pay @awa`" |
+| `closed` without merge | nothing; reopening relinks |
+
+Refs inside code, fenced blocks and HTML comments (PR templates) are ignored. One keyword per
+issue, like GitHub: `Fixes #1, fixes #2` links both, `Fixes #1, #2` only #1. Bounty lookups go
+through `BountyRepo` (in-memory until F3). Comments use the App installation when
+`GITHUB_APP_ID`/`GITHUB_PRIVATE_KEY` are set, otherwise they are logged.
+
+## 7. Comment commands (G3)
+
+`apps/server/src/github/wiring/` registers `issue_comment.created` on `githubDispatcher` (only when
+`GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY` and `GITHUB_WEBHOOK_SECRET` are set):
+
+1. Comments by bots, or without a command line, are dropped before any API call.
+2. The author's real repo permission is read (`GET /repos/{o}/{r}/collaborators/{u}/permission`)
+   and passed to `parseCommand` (G1), so an org member with write access counts as a maintainer.
+3. `/bounty` → `createBounty`; `/claim /unclaim /pay /hold /reject /cancel` → `transition()` (F2).
+   The bounty is saved with a compare-and-set on its status (`BountyRepo.update`, in
+   `apps/server/src/bounties/repo.ts`, shared with G4) and the event goes on `eventBus`.
+4. The status comment (G2) is edited in place: by `statusCommentId`, else found by its marker in a
+   bot comment, else posted. The issue keeps exactly one `bounty: <status>` label plus `💰 <amount> FCFA`.
+5. Parser and transition errors get a short `@user …` reply quoting the error. `/bounty` and `/claim`
+   on a closed issue, commands on a PR, and `/extend` / `/criteria` (not wired yet) also get a reply.
+
+Env: `WEB_BASE_URL` (links in the comment), `BOT_LANG` (`en`|`fr`), optional `GITHUB_BOT_LOGIN`.
+All GitHub writes go through `GithubWriter` (`FakeGithubWriter` in tests).
+
+## 7. Verification check run (A2)
+
+`apps/server/src/ai/check-run/` registers on `githubDispatcher` for `pull_request.opened` /
+`synchronize` / `reopened`. If the PR closes (`Fixes #n`) an issue whose bounty is
+`funded`/`claimed`/`submitted`/`verified` (looked up in G4's `BountyRepo`):
+
+1. creates a check run **"BitBounty verification"** `in_progress` on the head sha (inside the webhook);
+2. after answering the webhook (GitHub's 10 s limit), fetches the PR diff (`application/vnd.github.diff`)
+   and CI (check runs + statuses, our own check excluded) and calls A1's `verify()`;
+3. completes it: `pass` → success, `fail` → failure, `unsure` → neutral, with a summary listing each
+   criterion and its evidence, and saying it is advice: a human maintainer decides;
+4. publishes `verify.done` on the shared `eventBus`.
+
+A newer push makes older runs finish as `skipped` ("Superseded") with no verdict and no `verify.done`.
+Verifier down, diff unreadable (GitHub 406 on huge PRs) or any crash → `neutral`, never a false failure.
+The verifier is Claude when `ANTHROPIC_API_KEY` is set, else A1's offline heuristic fake (the check says so).
+Disabled when the GitHub App env is missing. Demo switch until F3 stores bounties:
+`CHECK_RUN_DEMO_LOOKUP=issue` treats any issue a PR closes as funded, criteria from its "Done when".

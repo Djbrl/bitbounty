@@ -1,0 +1,45 @@
+{
+  "name": "pass: health endpoint implemented with a test",
+  "expected": [
+    "pass"
+  ],
+  "input": {
+    "issue": {
+      "title": "Add a /health endpoint",
+      "body": "Our load balancer needs a health check. Add `GET /health`."
+    },
+    "criteria": [
+      {
+        "text": "GET /health responds 200 with JSON {\"status\":\"ok\"}"
+      },
+      {
+        "text": "An automated test covers GET /health"
+      }
+    ],
+    "diff": "diff --git a/src/app.ts b/src/app.ts\nindex 1a2b3c4..5d6e7f8 100644\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -8,6 +8,8 @@ export function createApp() {\n   const app = new Hono();\n \n+  app.get(\"/health\", (c) => c.json({ status: \"ok\" }, 200));\n+\n   app.route(\"/api\", api);\n   return app;\n }\ndiff --git a/src/app.test.ts b/src/app.test.ts\nnew file mode 100644\nindex 0000000..9abcdef\n--- /dev/null\n+++ b/src/app.test.ts\n@@ -0,0 +1,10 @@\n+import { describe, expect, it } from \"vitest\";\n+import { createApp } from \"./app\";\n+\n+describe(\"GET /health\", () => {\n+  it(\"returns 200 and status ok\", async () => {\n+    const res = await createApp().request(\"/health\");\n+    expect(res.status).toBe(200);\n+    expect(await res.json()).toEqual({ status: \"ok\" });\n+  });\n+});\n",
+    "ci": {
+      "status": "success",
+      "checks": [
+        "test (ubuntu-latest): success",
+        "lint: success"
+      ]
+    }
+  },
+  "fakeAnswer": {
+    "criteria": [
+      {
+        "text": "GET /health responds 200 with JSON {\"status\":\"ok\"}",
+        "met": true,
+        "evidence": "src/app.ts adds app.get(\"/health\") returning c.json({ status: \"ok\" }, 200)"
+      },
+      {
+        "text": "An automated test covers GET /health",
+        "met": true,
+        "evidence": "src/app.test.ts asserts status 200 and body {status:\"ok\"}"
+      }
+    ],
+    "verdict": "pass",
+    "summary": "The diff adds the /health route and a test for it. CI is green.",
+    "risk_flags": []
+  }
+}
