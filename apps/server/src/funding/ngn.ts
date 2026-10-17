@@ -224,6 +224,7 @@ export class NgnFunding {
 
   /** A naira deposit arrived (B5 webhook, or a sandbox simulate response). */
   async handleDeposit(deposit: DepositUpdate): Promise<NgnAccount | null> {
+    if (deposit.kind !== "ngn_virtual_account") return null; // stablecoin deposits are not naira
     if (!deposit.virtualAccountId || deposit.amountMinor === null || !deposit.reference) {
       this.log.error(`[funding] unreadable naira deposit ignored: ${JSON.stringify(deposit)}`);
       return null;
@@ -270,8 +271,10 @@ export class NgnFunding {
       const sim = await this.opts.client.simulateDeposit(account.virtualAccountId);
       const kobo = /^\d+$/.test(sim.transaction.amount) ? Number(sim.transaction.amount) : null;
       const after = await this.handleDeposit({
+        kind: "ngn_virtual_account",
         virtualAccountId: account.virtualAccountId,
         reference: sim.transaction.reference,
+        // The simulate response is in kobo ("100000" = ₦1,000), unlike the webhook's major units.
         amountMinor: kobo,
         currency: sim.transaction.currency,
       });

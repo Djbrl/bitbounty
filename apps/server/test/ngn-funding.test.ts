@@ -131,7 +131,7 @@ function setup(over: Partial<NgnFundingOptions> = {}) {
 }
 
 const TARGET = { bountyId: "b1", amountXof: 10_000, funderId: "lagos-co" };
-const deposit = (va: string, ref: string, kobo: number) => ({ virtualAccountId: va, reference: ref, amountMinor: kobo, currency: "NGN" });
+const deposit = (va: string, ref: string, kobo: number) => ({ kind: "ngn_virtual_account" as const, virtualAccountId: va, reference: ref, amountMinor: kobo, currency: "NGN" });
 
 describe("naira account", () => {
   it("opens a naira account for bounty + fee + buffer, in whole naira", async () => {
@@ -176,7 +176,7 @@ describe("done when: simulated deposits → naira sold for bitcoin → funding.p
     const dispatcher = new GithubDispatcher();
     ngn.register(dispatcher);
     const app = bitnobWebhookRoutes({ secret: "s", store: new InMemoryEventStore(), dispatcher, log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } });
-    const body = JSON.stringify({ event: "virtual_account.deposit.success", eventId: "e1", data: { virtual_account_id: account.virtualAccountId, amount: "50000", currency: "NGN", reference: "bank-tx-1" } });
+    const body = JSON.stringify({ event: "virtual_account.deposit.success", eventId: "e1", data: { virtual_account_id: account.virtualAccountId, amount: "500.00", currency: "NGN", reference: "bank-tx-1" } });
     const res = await app.request("/webhooks/bitnob", { method: "POST", body, headers: { "x-bitnob-signature": signBitnobPayload("s", body) } });
     expect(res.status).toBe(200);
     expect(events.map((e) => e.type)).toEqual(["funding.paid"]);
@@ -268,9 +268,10 @@ describe("reviewer checklist", () => {
   });
 
   it.each([
-    ["no reference", { virtualAccountId: "va-1", reference: null, amountMinor: 1, currency: "NGN" }],
-    ["no amount", { virtualAccountId: "va-1", reference: "x", amountMinor: null, currency: "NGN" }],
-    ["wrong currency", { virtualAccountId: "va-1", reference: "x", amountMinor: 50_000, currency: "USD" }],
+    ["no reference", { kind: "ngn_virtual_account" as const, virtualAccountId: "va-1", reference: null, amountMinor: 1, currency: "NGN" }],
+    ["no amount", { kind: "ngn_virtual_account" as const, virtualAccountId: "va-1", reference: "x", amountMinor: null, currency: "NGN" }],
+    ["wrong currency", { kind: "ngn_virtual_account" as const, virtualAccountId: "va-1", reference: "x", amountMinor: 50_000, currency: "USD" }],
+    ["stablecoin kind", { kind: "stablecoin" as const, virtualAccountId: "va-1", reference: "x", amountMinor: 50_000, currency: "NGN" }],
   ])("ignores a deposit with %s", async (_n, d) => {
     const { ngn, accounts } = setup();
     const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
