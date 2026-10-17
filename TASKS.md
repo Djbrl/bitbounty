@@ -54,6 +54,7 @@ Points feed the prize split. The rules are in the [README](README.md#prize-agree
 | [F4](https://github.com/Djbrl/bitbounty/issues/4) | `fixtures/*.json` for every page + Next mock route `/api/*` serving them | 2 | F2 | every page can fetch its data |
 | [F5](https://github.com/Djbrl/bitbounty/issues/5) | Bitnob: account, sandbox keys, HMAC client, `whoami` + test of the **4 key calls** (invoice, SN payout quote, VA simulate, NGN quote), results written in the README | 2 | – | 4 calls documented OK/KO |
 | [F6](https://github.com/Djbrl/bitbounty/issues/6) | GitHub App: registration, permissions, webhook receiver (smee) + signature check + `events` table (dedupe) | 2 | F1 | a test comment shows up in `events` |
+| [F7](https://github.com/Djbrl/bitbounty/issues/88) | **Bitnob sandbox proxy**: `/dev/bitnob/*` on the always-on server re-signs teammates' calls with its keys (IP allowlist + no shared secrets), token-gated, sandbox-only | 2 (proposed) | F5 F1 | whoami + invoice through the tunnel with token; 401/403/404 cases |
 
 ## Wave 1: parallel building (16:15 → 00:00)
 ### Money (Bitnob)
