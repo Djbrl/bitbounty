@@ -44,6 +44,33 @@ export function toSummary(d: BountyDetail): BountySummary {
   return { ...b, claimedBy: c?.userLogin ?? null, prNumber: submission?.prNumber ?? null };
 }
 
+/** Bounty id the mock gives a backlog suggestion once "Fund N bounties" creates it (sug-1 -> b-sug-1). */
+export const backlogBountyId = (suggestionId: string) => `b-${suggestionId}`;
+
+/** The unfunded bounty a funded backlog suggestion becomes (stateless: derived from dashboard.json). */
+function backlogBounty(fx: Fixtures, bid: string): BountyDetail | undefined {
+  const s = fx.dashboard?.backlog.find((x) => backlogBountyId(x.id) === bid);
+  const tpl = fx.bounties.find((b) => b.status === 'unfunded');
+  if (!s || !tpl) return undefined;
+  return {
+    ...tpl,
+    id: bid,
+    repoFullName: s.repoFullName,
+    issueNumber: s.issueNumber,
+    issueTitle: s.issueTitle,
+    issueUrl: `https://github.com/${s.repoFullName}/issues/${s.issueNumber}`,
+    amountXof: s.priceXof,
+    criteria: s.criteria,
+    criteriaConfirmed: true,
+    funderLogin: fx.dashboard.maintainer,
+    fundings: [],
+    claims: [],
+    submission: null,
+    payout: null,
+    timeline: [],
+  };
+}
+
 function fundingSession(fx: Fixtures, d: { amountXof: number }, rail: FundingRail, now: Date): FundingSession {
   const tpl = fx.funding[rail];
   const ratio = d.amountXof / tpl.amountXof;
@@ -68,7 +95,7 @@ export function handleMock(
   now: Date = new Date(),
 ): MockResult {
   const [root, id, sub] = path;
-  const find = (bid: string) => fx.bounties.find((b) => b.id === bid);
+  const find = (bid: string) => fx.bounties.find((b) => b.id === bid) ?? backlogBounty(fx, bid);
 
   if (method === 'GET' && root === 'bounties' && !id) {
     const statuses = query.get('status')?.split(',').filter(Boolean) as BountyStatus[] | undefined;
@@ -113,7 +140,7 @@ export function handleMock(
     const picked = fx.dashboard.backlog.filter((s) => ids.includes(s.id));
     if (!picked.length) return err(400, 'nothing_selected');
     const amount = picked.reduce((s, x) => s + x.priceXof, 0);
-    return ok({ count: picked.length, suggestions: picked.map((s) => s.id), session: fundingSession(fx, { amountXof: amount }, (body.rail as FundingRail) ?? 'lightning', now) });
+    return ok({ count: picked.length, suggestions: picked.map((s) => s.id), bountyIds: picked.map((s) => backlogBountyId(s.id)), session: fundingSession(fx, { amountXof: amount }, (body.rail as FundingRail) ?? 'lightning', now) });
   }
 
   if (root === 'me') {

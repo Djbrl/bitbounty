@@ -71,10 +71,12 @@ describe("shape", () => {
     expect(statuses).toContain("claimed");
   });
 
-  it("routes to /pay of the first funded suggestion, with the batch", () => {
-    expect(payHref({ count: 2, suggestions: ["sug-1", "sug-4"] })).toBe("/pay/sug-1?batch=sug-1,sug-4");
-    expect(payHref({ count: 1, suggestions: ["sug-2"] })).toBe("/pay/sug-2");
-    expect(payHref({ count: 0, suggestions: [] })).toBeNull();
+  it("routes to /pay of the first created bounty, with the batch", () => {
+    expect(payHref({ count: 2, suggestions: ["sug-1", "sug-4"], bountyIds: ["b-sug-1", "b-sug-4"] })).toBe(
+      "/pay/b-sug-1?batch=b-sug-1,b-sug-4",
+    );
+    expect(payHref({ count: 1, suggestions: ["sug-2"], bountyIds: ["b-sug-2"] })).toBe("/pay/b-sug-2");
+    expect(payHref({ count: 0, suggestions: [], bountyIds: [] })).toBeNull();
   });
 
   it("labels and initials", () => {
@@ -87,9 +89,9 @@ describe("shape", () => {
 
 describe("fundBacklog", () => {
   it("POSTs the ids to /api/backlog/fund", async () => {
-    const fetcher = vi.fn(async () => Response.json({ count: 2, suggestions: ["sug-1", "sug-2"], session: {} }));
+    const fetcher = vi.fn(async () => Response.json({ count: 2, suggestions: ["sug-1", "sug-2"], bountyIds: ["b-sug-1", "b-sug-2"], session: {} }));
     const res = await fundBacklog(["sug-1", "sug-2"], fetcher as unknown as typeof fetch);
-    expect(res).toEqual({ count: 2, suggestions: ["sug-1", "sug-2"] });
+    expect(res).toEqual({ count: 2, suggestions: ["sug-1", "sug-2"], bountyIds: ["b-sug-1", "b-sug-2"] });
     expect(fetcher).toHaveBeenCalledWith("/api/backlog/fund", expect.objectContaining({ method: "POST", body: '{"ids":["sug-1","sug-2"]}' }));
   });
 

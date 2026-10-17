@@ -8,6 +8,8 @@ export type DashboardData = Dashboard & { bounties: BountySummary[] };
 export interface FundResult {
   count: number;
   suggestions: string[];
+  /** Bounties created for those suggestions, same order; /pay takes one of these. */
+  bountyIds: string[];
 }
 
 /** Platform fee shown in the bar; the mock funding session charges the same 5%. */
@@ -55,11 +57,11 @@ export function toggleAll(backlog: BacklogSuggestion[], selected: string[]): str
   return selected.length === backlog.length ? [] : backlog.map((s) => s.id);
 }
 
-/** Where "Fund N bounties" goes: the pay page of the first one, carrying the whole batch. */
+/** Where "Fund N bounties" goes: the pay page of the first created bounty, carrying the whole batch. */
 export function payHref(result: FundResult): string | null {
-  const [first] = result.suggestions;
+  const [first] = result.bountyIds;
   if (!first) return null;
-  const batch = result.suggestions.length > 1 ? `?batch=${result.suggestions.map(encodeURIComponent).join(",")}` : "";
+  const batch = result.bountyIds.length > 1 ? `?batch=${result.bountyIds.map(encodeURIComponent).join(",")}` : "";
   return `/pay/${encodeURIComponent(first)}${batch}`;
 }
 

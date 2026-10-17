@@ -10,5 +10,5 @@ export async function fundBacklog(ids: string[], fetcher: typeof fetch = fetch):
   });
   const json = (await res.json().catch(() => ({}))) as Partial<FundResult> & { error?: string };
   if (!res.ok) throw new Error(json.error ?? `http_${res.status}`);
-  return { count: json.count ?? 0, suggestions: json.suggestions ?? [] };
+  return { count: json.count ?? 0, suggestions: json.suggestions ?? [], bountyIds: json.bountyIds ?? [] };
 }

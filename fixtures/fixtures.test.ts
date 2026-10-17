@@ -76,6 +76,12 @@ test('pages: board, dashboard, backlog, users, receipts, live', () => {
   const batch = json(post('backlog/fund', {}));
   assert.equal(batch.count, 5);
   assert.equal(batch.session.amountXof, 7500 + 12000 + 5000 + 10000 + 6000);
+  assert.deepEqual(batch.bountyIds, ['b-sug-1', 'b-sug-2', 'b-sug-3', 'b-sug-4', 'b-sug-5']);
+  const created = json(get(`bounties/${batch.bountyIds[0]}`));
+  assert.equal(created.status, 'unfunded');
+  assert.equal(created.amountXof, 7500);
+  assert.equal(json(post(`bounties/${batch.bountyIds[0]}/funding`, { rail: 'lightning' })).amountXof, 7500);
+  assert.equal(get('bounties/b-sug-99').status, 404);
   assert.equal(post('backlog/fund', { ids: [] }).status, 400);
   assert.equal(json(get('users/awa-ndiaye')).work[0].receiptId, 'r-107');
   assert.equal(get('users/nobody').status, 404);
