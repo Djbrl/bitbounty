@@ -50,7 +50,7 @@ const VERDICT_LABEL: Record<Verdict, string> = {
 export function renderReport(report: VerificationReport, ctx: SummaryContext): CheckRunOutput {
   const lines: string[] = [];
   lines.push(`**Verdict: ${VERDICT_LABEL[report.verdict]}**`, "", ADVICE, "");
-  lines.push(`Bounty \`${sanitize(ctx.bountyId, 80)}\` · issue #${ctx.issueNumber} · commit \`${ctx.headSha.slice(0, 7)}\``);
+  lines.push(`Bounty \`${ctx.bountyId.replace(/[`\s]/g, "").slice(0, 80)}\` · issue #${ctx.issueNumber} · commit \`${ctx.headSha.slice(0, 7)}\``);
   lines.push(`CI: ${ctx.ci.status} · verifier: ${sanitize(ctx.verifierName, 80)}`, "");
   lines.push(`### Summary`, "", sanitize(report.summary, 1_500), "");
   lines.push(`### Criteria`, "");

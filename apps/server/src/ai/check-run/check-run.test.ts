@@ -125,7 +125,7 @@ describe("CheckRunPublisher", () => {
     expect(summary).toContain("2. ❌ Not met: Has tests");
     expect(summary).toContain("advice, not approval");
     expect(summary).toMatch(/human maintainer decides/);
-    expect(summary).toContain("issue #12");
+    expect(summary).toContain("Bounty `b1` · issue #12 · commit `sha1`");
   });
 
   it("ignores PRs not linked to a funded bounty", async () => {
