@@ -1,5 +1,5 @@
 import type { PayoutProvider } from "@bitbounty/core";
-import type { Beneficiary } from "../payouts/rails.js";
+import { PayoutConfigError, type Beneficiary } from "../payouts/rails.js";
 
 const PROVIDERS: readonly PayoutProvider[] = ["wave", "orange", "free"];
 
@@ -36,12 +36,15 @@ export function readPayoutAccounts(env: NodeJS.ProcessEnv = process.env): Map<st
   return out;
 }
 
-/** `getBeneficiary` for B2: claim user ids are `github:<login>`. */
+/**
+ * `getBeneficiary` for B2: claim user ids are `github:<login>`. A missing account is a config error
+ * (`PayoutConfigError`), so B2 fails the payout at once instead of retrying what only a human can fix.
+ */
 export function beneficiaryFromAccounts(accounts: Map<string, Beneficiary>) {
   return async (userId: string): Promise<Beneficiary> => {
     const login = userId.replace(/^github:/, "").toLowerCase();
     const b = accounts.get(login);
-    if (!b) throw new Error(`no payout account for @${login} (set it in PAYOUT_ACCOUNTS until W4 onboarding is wired)`);
+    if (!b) throw new PayoutConfigError(`no payout account for @${login} (set it in PAYOUT_ACCOUNTS until W4 onboarding is wired)`);
     return b;
   };
 }

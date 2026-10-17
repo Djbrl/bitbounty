@@ -29,7 +29,7 @@ import {
   LightningFunding,
 } from "./funding/index.js";
 import { InMemoryPayoutStore, PayoutService, readBankCodeFallback } from "./payouts/index.js";
-import { beneficiaryFromAccounts, readPayoutAccounts, Settlement } from "./settlement/index.js";
+import { beneficiaryFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement } from "./settlement/index.js";
 import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
@@ -170,7 +170,8 @@ export const settlement = new Settlement({
     return payoutService.start(req);
   },
   sync: (bounty) => statusSync?.(bounty) ?? Promise.resolve(),
-  objectionMs: Number(process.env.OBJECTION_WINDOW_MINUTES ?? 0) * 60_000,
+  // Validated at boot: a bad value refuses to start instead of paying at once.
+  objectionMs: readObjectionWindowMs(),
 }).register();
 
 if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
