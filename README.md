@@ -68,7 +68,8 @@ The split covers any cash prize the team wins (overall placing or partner award)
    - **Tested:** code tasks ship with automated tests that pass (`pnpm test`). If something really can't be tested automatically (UI, sandbox calls), the PR gives the manual test steps and proof (screenshot, log, response).
    - **Documented:** the PR description says what changes, why, and how to test it. If the behaviour, a command, an endpoint or a variable changes, the matching doc (`docs/`, README, `.env.example`) is updated in the same PR.
    - Non-code tasks (pitch, video, demo): the PR or issue links the deliverable and says how it was checked.
-6. **Reviews are worth +0.5 points each**, capped at 5 points per person.
+   - **Adversarial review is mandatory.** The reviewer (another member) doesn't just read the code: they **try to break it**. They run it, try bad inputs and edge cases (each issue lists some), look for shortcuts in the diff, and post a comment saying what they tried and what they found. The PR is merged only once the findings are fixed or accepted by both. A PR merged without an adversarial review comment earns no points.
+6. **Adversarial reviews are worth +0.5 points each** (with the comment listing what was tried), capped at 5 points per person.
 7. **Task points are fixed before 15:30 on Saturday**, agreed by 2 members. A task added later is sized by 2 members before anyone takes it. Points don't change after the task is claimed.
 8. **Stale tasks:** a claimed task with no commit or message for 90 minutes goes back to the pool. Its points go to whoever finishes it.
 9. **Disputes** about a task are settled by the 2 members not involved in it. Their decision is final.
