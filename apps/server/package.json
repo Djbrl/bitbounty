@@ -15,6 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
     "@bitbounty/core": "workspace:*",
+    "@bitbounty/db": "workspace:*",
     "@hono/node-server": "^2.1.5",
     "@octokit/app": "^16.1.4",
     "drizzle-orm": "^0.45.4",
@@ -23,6 +24,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"

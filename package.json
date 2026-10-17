@@ -10,7 +10,10 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "eslint .",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @bitbounty/db db:generate",
+    "db:migrate": "pnpm --filter @bitbounty/db db:migrate",
+    "db:seed": "pnpm --filter @bitbounty/db db:seed"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

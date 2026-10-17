@@ -1,11 +1,13 @@
+import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
 import { GithubDispatcher } from "./github/dispatcher.js";
-import { InMemoryEventStore } from "./github/event-store.js";
+import { DrizzleEventStore } from "./github/drizzle-event-store.js";
+import { InMemoryEventStore, type EventStore } from "./github/event-store.js";
 import { githubWebhookRoutes } from "./github/webhook.js";
 import { InMemoryEventBus, defaultPrDeps, registerPrHandlers } from "./github/pr/index.js";
+import { InMemoryBountyRepo } from "./bounties/repo.js";
 import { createGithubApp } from "./github/app-client.js";
 import { installationWriterFactory, registerCommentWiring } from "./github/wiring/index.js";
-import { InMemoryBountyRepo } from "./bounties/repo.js";
 import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
 
 export const app = new Hono();
@@ -17,14 +19,23 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 /** G3, G4 and A2 register their handlers here: `githubDispatcher.on("issue_comment", …)`. */
 export const githubDispatcher = new GithubDispatcher();
 
+/** Postgres when DATABASE_URL is set (Docker, Railway), otherwise in memory (tests, offline demo). */
+export const database = process.env.DATABASE_URL ? createDb(process.env.DATABASE_URL) : null;
+const store: EventStore = database ? new DrizzleEventStore(database.db) : new InMemoryEventStore();
+/** Bounties and claims, shared by G3 (comments), G4 (PRs) and A2 (checks). */
+// TODO(F3 follow-up): DrizzleBountyRepo implements only G4's read side; G3 needs create/update/claims too.
+export const bountyRepo = new InMemoryBountyRepo();
+console.log(
+  database
+    ? "[db] Postgres (DATABASE_URL): DrizzleEventStore; bounties in memory (follow-up)"
+    : "[db] DATABASE_URL not set: InMemoryEventStore + InMemoryBountyRepo",
+);
+
 /** Internal events (`pr.linked`, `pr.merged`, …). In-memory until pg-boss; subscribe with `eventBus.subscribe(type, fn)`. */
 export const eventBus = new InMemoryEventBus();
 
-/** Bounties and claims, shared by G3 (comments) and G4 (PRs). In-memory until F3's DB lands. */
-export const bountyRepo = new InMemoryBountyRepo();
-
 // G4: pull_request opened/edited/synchronize/reopened → pr.linked; closed+merged → pr.merged.
-const prDeps = { ...defaultPrDeps(eventBus), bounties: bountyRepo };
+const prDeps = defaultPrDeps(eventBus, process.env, bountyRepo);
 registerPrHandlers(githubDispatcher, prDeps);
 
 // G3: issue_comment.created → command → transition() → status comment edited in place + label.
@@ -43,10 +54,9 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
 const checkRunDeps = defaultCheckRunDeps(prDeps.bounties, eventBus);
 if (checkRunDeps) registerCheckRun(githubDispatcher, checkRunDeps);
 
-// In-memory store until F3 lands; then swap in DrizzleEventStore (see docs/github-app.md).
 const secret = process.env.GITHUB_WEBHOOK_SECRET;
 if (secret) {
-  app.route("/", githubWebhookRoutes({ secret, store: new InMemoryEventStore(), dispatcher: githubDispatcher }));
+  app.route("/", githubWebhookRoutes({ secret, store, dispatcher: githubDispatcher }));
 } else {
   app.post("/webhooks/github", (c) => c.json({ error: "GITHUB_WEBHOOK_SECRET is not set" }, 503));
 }

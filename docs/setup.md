@@ -25,6 +25,25 @@ pnpm dev          # web on http://localhost:3000, server on http://localhost:878
 | `pnpm lint` | ESLint on the whole repo |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm build` | builds every app |
+| `pnpm db:migrate` | applies the database migrations (`DATABASE_URL`) |
+| `pnpm db:seed` | empties the database and fills it with demo data (one bounty per status) |
+| `pnpm db:generate` | writes a new migration after a schema change |
+
+## Database
+Postgres 16 with Drizzle; schema, migrations and seed live in [`packages/db`](../packages/db/README.md) (`@bitbounty/db`).
+
+```sh
+docker compose up -d db     # Postgres on localhost:5432 (or any Postgres)
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/bitbounty   # the .env.example default
+pnpm db:migrate             # creates the 12 tables (safe to run again)
+pnpm db:seed                # EMPTIES every table, then one bounty in each of the 11 statuses
+docker exec bitbounty-db-1 psql -U postgres -d bitbounty -c 'select status, count(*) from bounties group by 1'
+```
+
+- When `DATABASE_URL` is set the server stores webhooks in `events` (`DrizzleEventStore`, dedupe on `(source, external_id)`) and reads bounties and active claims and writes bounties and submissions through `DrizzleBountyRepo` (G4 PR handlers). Without it both are in memory. It logs `[db] ...` at start to say which.
+- The server applies pending migrations itself at start when `DATABASE_URL` is set, so the Docker server needs no manual migrate.
+- `pnpm install` builds `@bitbounty/db` (`prepare` script): the server imports it from `dist/`. After a schema change: `pnpm db:generate`, commit the new file in `packages/db/drizzle/`.
+- `pnpm test` runs the DB tests on PGlite (in memory). With `DATABASE_URL` set they also run against that Postgres, in a throwaway database created and dropped by the test.
 
 Health checks: server `GET /` returns JSON containing `"message":"hello"`, `GET /health` → `{"status":"ok"}`. Web `/` shows "hello", `/api/health` → `{"status":"ok"}`.
 
@@ -64,7 +83,7 @@ docker compose logs tunnel | grep trycloudflare   # the public API URL
 - **After a code change:** `docker compose up -d --build server`.
 - **The tunnel URL changes when the `tunnel` container restarts** (Mac reboot, Docker restart). Then update `NEXT_PUBLIC_API_URL` on Vercel and redeploy the web.
 - **Keep it up:** Docker Desktop → Settings → "Start Docker Desktop when you sign in"; keep the Mac awake (`caffeinate -dims &`) and plugged in. All services restart on their own (`restart: unless-stopped`).
-- **Database from your machine:** `DATABASE_URL=postgres://postgres:postgres@localhost:5432/bitbounty` (for `pnpm db:migrate` / `db:seed` once F3 lands).
+- **Database from your machine:** `DATABASE_URL=postgres://postgres:postgres@localhost:5432/bitbounty` for `pnpm db:migrate` / `db:seed`; `docker exec bitbounty-db-1 psql -U postgres -d bitbounty` for a shell. The `server` container migrates at start. Rebuild only the server (`docker compose up -d --build server`): never `docker compose down -v` (deletes `pgdata`) and avoid restarting `tunnel` (its URL changes).
 
 ### Web on Vercel
 1. **Add New Project** → import `Djbrl/bitbounty`.
