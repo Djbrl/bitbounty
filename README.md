@@ -8,7 +8,7 @@ Built at **Code & Chain Dakar 2026** (Bitnob), 17–18 Oct 2026. Hacking starts 
 
 | | |
 | --- | --- |
-| [TASKS.md](TASKS.md) | The task board: 40 tasks, points, dependencies, definition of done |
+| [TASKS.md](TASKS.md) | The task board: 41 tasks, points, dependencies, definition of done |
 | [docs/plan.md](docs/plan.md) | Stack, contract, data model, exact Bitnob calls, timeline, demo script |
 | [docs/product.md](docs/product.md) | Product definition, UX flows, edge cases, positioning |
 | [docs/bitnob-api.md](docs/bitnob-api.md) | Bitnob API cheat sheet |

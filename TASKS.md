@@ -5,7 +5,7 @@ Principle: **contract first, then everything is built against mocks and interfac
 
 ## The board, explained simply
 
-**What it is.** 40 small jobs, each with a points value (1 to 5 for how big it is). Nobody owns an area. You take a job, have your AI agent write it, test it, document it, open one pull request, and a teammate checks it. Once it's merged, the points are yours. Points decide 80% of the prize.
+**What it is.** 41 small jobs, each with a points value (1 to 5 for how big it is). Nobody owns an area. You take a job, have your AI agent write it, test it, document it, open one pull request, and a teammate checks it. Once it's merged, the points are yours. Points decide 80% of the prize.
 
 **The 4 waves, in order.**
 - **Wave 0, the foundations (6 jobs, 15:00–16:15).** Things everyone else needs: the rulebook (F2, do it first), the empty project online (F1), the database (F3), fake data for every page (F4), Bitnob answering (F5), the GitHub bot hearing comments (F6). One person per job, all at once.
@@ -15,7 +15,7 @@ Principle: **contract first, then everything is built against mocks and interfac
   - **A, AI:** Claude's check on a fix, showing it in the pull request, "Price my backlog", the server agents use to fund tasks, the agent demo.
   - **W, web pages:** the shared look, then one job per page from the mockups. All built on fake data, so they never wait for the back end.
 - **Wave 2, plugging it together (4 jobs, overnight).** Real data in the pages, a script that runs the whole story end to end, the failure cases for the demo, the Lagos route on the live screen.
-- **Wave 3, the show (6 jobs, Sunday morning).** The demo repo, the pitch slides, rehearsals, a backup video, the README, the submission.
+- **Wave 3, the show (7 jobs, Sunday morning).** Includes D7, the landing page (already live). The demo repo, the pitch slides, rehearsals, a backup video, the README, the submission.
 
 **How to pick.** Take a job whose "depends on" jobs are done (or that only needs fake data). If you're blocked, take a W job, D1 (demo repo) or D2 (pitch). Watch the two paths everything waits on: rulebook → Bitnob → Wave payout, and GitHub bot → commands → merge detection.
 
@@ -113,8 +113,9 @@ Points feed the prize split. The rules are in the [README](README.md#prize-agree
 | [D4](https://github.com/Djbrl/bitbounty/issues/38) | Backup video of the full loop (recording + editing) | 2 | I2 | video ≤ 2 min, link ready |
 | [D5](https://github.com/Djbrl/bitbounty/issues/39) | README, LICENSE, architecture diagram, setup guide, `bitnob` package published | 2 | – | a stranger can run it locally |
 | [D6](https://github.com/Djbrl/bitbounty/issues/40) | Submission form + links checked in private browsing | 1 | all | submitted before 14:00 |
+| [D7](https://github.com/Djbrl/bitbounty/issues/41) | Landing page: scrollytelling story, French, live on Vercel ([site](https://bitbounty-nine.vercel.app), [repo](https://github.com/Djbrl/bitbounty-landing)) | 5 | – | live + public; demo link and trailer filled in; adversarial review on the issue |
 
-**Total = 96 pts.** Wave 0 = 14, wave 1 = 60, wave 2 = 10, wave 3 = 12, plus reviews. Average ≈ 24 pts per person.
+**Total = 101 pts.** Wave 0 = 14, wave 1 = 60, wave 2 = 10, wave 3 = 17, plus reviews. Average ≈ 25 pts per person.
 
 ## Suggested start (people stay free to switch)
 - 15:00 → 16:15: **one of the F's each** (F2 first and fast: everyone reviews it at 15:45).
