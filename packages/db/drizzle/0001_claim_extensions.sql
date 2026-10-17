@@ -1,0 +1,1 @@
+ALTER TABLE "claims" ADD COLUMN "extensions" integer DEFAULT 0 NOT NULL;

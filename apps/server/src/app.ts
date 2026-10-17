@@ -5,7 +5,8 @@ import { DrizzleEventStore } from "./github/drizzle-event-store.js";
 import { InMemoryEventStore, type EventStore } from "./github/event-store.js";
 import { githubWebhookRoutes } from "./github/webhook.js";
 import { InMemoryEventBus, defaultPrDeps, registerPrHandlers } from "./github/pr/index.js";
-import { InMemoryBountyRepo } from "./bounties/repo.js";
+import { InMemoryBountyRepo, type BountyRepo } from "./bounties/repo.js";
+import { DrizzleBountyRepo } from "./bounties/drizzle-repo.js";
 import { createGithubApp } from "./github/app-client.js";
 import { installationWriterFactory, registerCommentWiring } from "./github/wiring/index.js";
 import {
@@ -31,11 +32,10 @@ export const githubDispatcher = new GithubDispatcher();
 export const database = process.env.DATABASE_URL ? createDb(process.env.DATABASE_URL) : null;
 const store: EventStore = database ? new DrizzleEventStore(database.db) : new InMemoryEventStore();
 /** Bounties and claims, shared by G3 (comments), G4 (PRs) and A2 (checks). */
-// TODO(F3 follow-up): DrizzleBountyRepo implements only G4's read side; G3 needs create/update/claims too.
-export const bountyRepo = new InMemoryBountyRepo();
+export const bountyRepo: BountyRepo = database ? new DrizzleBountyRepo(database.db) : new InMemoryBountyRepo();
 console.log(
   database
-    ? "[db] Postgres (DATABASE_URL): DrizzleEventStore; bounties in memory (follow-up)"
+    ? "[db] Postgres (DATABASE_URL): DrizzleEventStore + DrizzleBountyRepo"
     : "[db] DATABASE_URL not set: InMemoryEventStore + InMemoryBountyRepo",
 );
 

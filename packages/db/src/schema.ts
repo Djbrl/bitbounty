@@ -181,6 +181,8 @@ export const claims = pgTable(
     status: claimStatus("status").notNull().default("active"),
     createdAt: createdAt(),
     expiresAt: ts("expires_at").notNull(),
+    /** How many times `/extend` pushed `expires_at` back (G5). */
+    extensions: integer("extensions").notNull().default(0),
   },
   (t) => [
     index("claims_bounty_idx").on(t.bountyId),
