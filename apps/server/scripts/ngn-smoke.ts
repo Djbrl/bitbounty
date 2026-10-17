@@ -18,7 +18,11 @@ const ngn = new NgnFunding({
   customers: new BitnobFunderCustomers(client, () => `lagos-${run}@test.invalid`),
   emit: (e) => console.log("EVENT", JSON.stringify(e)),
   credit: (f, reason) => console.log(`CREDIT funder ${f.funderId}: ${reason}`),
+  // Sandbox caps NGN quotes at the company-wide NGN balance (about ₦3,980 on 2026-10-17).
+  maxNaira: Number(process.env.NGN_SMOKE_MAX_NAIRA ?? 3_000),
 });
+const me = await client.whoami();
+if (me.environment !== "sandbox") throw new Error(`refusing to run against ${me.environment}`);
 
 const { funding, account } = await ngn.account(
   { bountyId: `smoke-${run}`, amountXof, funderId: "lagos" },

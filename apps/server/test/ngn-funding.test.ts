@@ -20,14 +20,26 @@ const T0 = new Date("2026-10-17T22:00:00Z").getTime();
 const RATES: Rates = { xofPerUsdt: async () => 600, usdtPerBtc: async () => 100_000, ngnPerUsdt: async () => 1_500 };
 const IDENTITY = { first_name: "Ada", last_name: "Okafor", phone_number: "+2348012345678", date_of_birth: "1990-01-01" };
 
+/** Mirrors what the sandbox did on 2026-10-17 (see docs/bitnob-api.md, B4). */
 class FakeBitnob {
   now = T0;
   accounts = new Map<string, VirtualAccount>();
   quotes: { id: string; quantity: string; quote_currency: string }[] = [];
+  private quoteExpiry = new Map<string, number>();
+  /** Orders by the reference we sent. */
   orders = new Map<string, TradingOrder>();
+  orderCalls = 0;
   /** Order calls that fail with "quote expired" before one goes through. */
   expiredOrders = 0;
   quoteTtlMs = 30_000;
+  /** Status new orders come back with (the sandbox order was `filled`). */
+  orderStatus = "filled";
+  /** Thrown by createTradingQuote (e.g. the sandbox's balance cap). */
+  quoteError: BitnobError | null = null;
+  /** Thrown once by createTradingOrder: `before` = nothing placed, `after` = placed but the answer was lost. */
+  orderNetworkError: "before" | "after" | null = null;
+  depositKobo = "100000";
+  simulateCalls = 0;
   private n = 0;
   createCustomer = vi.fn(async () => ({ id: "cust-lagos" }) as never);
   async createVirtualAccount(input: { reference: string; customer_id: string }) {
@@ -36,14 +48,17 @@ class FakeBitnob {
     return va;
   }
   async simulateDeposit(id: string) {
+    this.simulateCalls++;
     return {
-      transaction: { id: `tx-${++this.n}`, virtual_account_id: id, amount: "100000", currency: "NGN", status: "completed", reference: `sbx-dep-${this.n}` },
+      transaction: { id: `tx-${++this.n}`, virtual_account_id: id, amount: this.depositKobo, currency: "NGN", status: "completed", reference: `sbx-dep-${this.n}` },
       new_balance: "0",
     };
   }
   async createTradingQuote(input: { quantity: string; quote_currency: string }) {
+    if (this.quoteError) throw this.quoteError;
     const q = { id: `q-${++this.n}`, quantity: input.quantity, quote_currency: input.quote_currency };
     this.quotes.push(q);
+    this.quoteExpiry.set(q.id, this.now + this.quoteTtlMs);
     return {
       ...q,
       base_currency: "NGN",
@@ -54,18 +69,36 @@ class FakeBitnob {
     } as TradingQuote;
   }
   async createTradingOrder(input: { quote_id: string; reference: string; quantity: string }) {
+    this.orderCalls++;
+    if (this.orderNetworkError === "before") {
+      this.orderNetworkError = null;
+      throw new BitnobError("fetch failed", 0, "NETWORK");
+    }
+    // Idempotent on reference: the same reference returns the existing order.
+    const existing = this.orders.get(input.reference);
+    if (existing) return existing;
     if (this.expiredOrders > 0) {
       this.expiredOrders--;
       throw new BitnobError("quote expired", 422, "QUOTE_EXPIRED");
     }
-    const o = { id: `order-${++this.n}`, status: "pending", quote_id: input.quote_id, reference: input.reference, quantity: input.quantity } as TradingOrder;
+    if ((this.quoteExpiry.get(input.quote_id) ?? 0) <= this.now) throw new BitnobError("quote expired", 422, "QUOTE_EXPIRED");
+    const o = { id: `order-${++this.n}`, status: this.orderStatus, quote_id: input.quote_id, reference: input.reference, quantity: input.quantity } as TradingOrder;
     this.orders.set(input.reference, o);
+    if (this.orderNetworkError === "after") {
+      this.orderNetworkError = null;
+      throw new BitnobError("bad gateway", 502, "HTTP_502");
+    }
     return o;
   }
-  async getTradingOrder(ref: string) {
-    const o = this.orders.get(ref);
-    if (!o) throw new BitnobError("not found", 404, "NOT_FOUND");
+  /** By id only: the real API answers 400 "invalid id" for a reference. */
+  async getTradingOrder(id: string) {
+    const o = [...this.orders.values()].find((x) => x.id === id);
+    if (!o) throw new BitnobError("GET /api/trading/orders: 400 VALIDATION_ERROR: invalid id", 400, "VALIDATION_ERROR");
     return o;
+  }
+  /** Orders that sold something. */
+  get sells() {
+    return [...this.orders.values()].filter((o) => !["failed", "cancelled", "expired"].includes(o.status)).length;
   }
 }
 
@@ -245,26 +278,63 @@ describe("reviewer checklist", () => {
     expect((await accounts.getByFunding(funding.id))!.receivedKobo).toBe(0);
   });
 
-  it("server killed after the order went through: resume finishes without a second order", async () => {
-    const { ngn, bitnob, accounts, events } = setup();
-    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
-    await accounts.addDeposit(funding.bitnobRef, "tx-1", 50_000);
-    // What the dead process left: state converting, order placed at Bitnob.
-    await accounts.update(funding.id, "collecting", { state: "converting", orderReference: `ngn-${funding.id}-1` });
-    bitnob.orders.set(`ngn-${funding.id}-1`, { id: "order-x", status: "pending" } as TradingOrder);
+  /** What a process killed mid-conversion leaves: converting, attempt n's reference and quote saved. */
+  async function crashedAt(attempt: number) {
+    const s = setup();
+    const { funding } = await s.ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    await s.accounts.addDeposit(funding.bitnobRef, "tx-1", 50_000);
+    const quote = await s.bitnob.createTradingQuote({ quantity: "500", quote_currency: "BTC" });
+    const ref = `ngn-${funding.id}-${attempt}`;
+    await s.accounts.update(funding.id, "collecting", { state: "converting", claimedKobo: 50_000, orderAttempt: attempt, orderReference: ref, quoteId: quote.id });
+    return { ...s, funding, ref, quote };
+  }
+
+  it("server killed after the order went through: resume re-POSTs the reference, no second sell", async () => {
+    const { ngn, bitnob, accounts, events, funding, ref } = await crashedAt(1);
+    bitnob.orders.set(ref, { id: "order-x", status: "filled", reference: ref } as TradingOrder);
+    bitnob.now += 60_000; // the quote is long gone: only the idempotent re-POST can return the order
     await ngn.resume();
-    expect(bitnob.orders.size).toBe(1);
+    expect(bitnob.sells).toBe(1);
     expect(events).toHaveLength(1);
     expect((await accounts.getByFunding(funding.id))!.orderId).toBe("order-x");
   });
 
-  it("server killed before the order: resume converts it", async () => {
-    const { ngn, accounts, events } = setup();
-    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
-    await accounts.addDeposit(funding.bitnobRef, "tx-1", 50_000);
-    await accounts.update(funding.id, "collecting", { state: "converting", orderReference: `ngn-${funding.id}-1` });
+  it("attempt 1 expired, attempt 2 filled, then a crash: resume does not sell again", async () => {
+    const { ngn, bitnob, events, ref } = await crashedAt(2);
+    bitnob.orders.set(ref, { id: "order-2", status: "filled", reference: ref } as TradingOrder);
+    bitnob.now += 60_000;
+    await ngn.resume();
+    expect(bitnob.sells).toBe(1);
+    expect(bitnob.quotes).toHaveLength(1); // the one from crashedAt: no fresh quote
+    expect(events).toHaveLength(1);
     await ngn.resume();
     expect(events).toHaveLength(1);
+  });
+
+  it("server killed before the order: resume converts it with the next reference", async () => {
+    const { ngn, bitnob, events, funding } = await crashedAt(1);
+    bitnob.now += 60_000;
+    await ngn.resume();
+    expect(events).toHaveLength(1);
+    expect([...bitnob.orders.keys()]).toEqual([`ngn-${funding.id}-2`]);
+  });
+
+  it("a pending order is looked up by id on resume, never by reference", async () => {
+    const { ngn, bitnob, accounts, events } = setup();
+    bitnob.orderStatus = "pending";
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    const a = await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000));
+    expect(a).toMatchObject({ state: "converting", orderId: expect.stringMatching(/^order-/) });
+    expect(events).toHaveLength(0); // no funding.paid for a pending order
+    const getById = vi.spyOn(bitnob, "getTradingOrder");
+    await ngn.resume();
+    expect(events).toHaveLength(0);
+    bitnob.orders.get(`ngn-${funding.id}-1`)!.status = "filled";
+    await ngn.resume();
+    expect(getById).toHaveBeenCalledWith(a!.orderId);
+    expect(events).toHaveLength(1);
+    expect(bitnob.sells).toBe(1);
+    expect((await accounts.getByFunding(funding.id))!.state).toBe("converted");
   });
 
   it("a funded bounty refuses a new naira account", async () => {
@@ -272,5 +342,142 @@ describe("reviewer checklist", () => {
     const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
     await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000));
     await expect(ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY)).rejects.toMatchObject({ code: "ALREADY_FUNDED" });
+  });
+});
+
+describe("review fixes (#65)", () => {
+  it.each([
+    ["422 INSUFFICIENT_FUNDS", new BitnobError("POST /api/trading/quotes failed: 422 INSUFFICIENT_FUNDS: insufficient balance", 422, "INSUFFICIENT_FUNDS")],
+    ["400 INVALID_AMOUNT", new BitnobError("POST /api/trading/quotes failed: 400 INVALID_AMOUNT: amount above configured maximum", 400, "INVALID_AMOUNT")],
+  ])("a quote refused with %s is not re-quoted, and simulate stops depositing", async (_n, err) => {
+    const { ngn, bitnob, events } = setup();
+    bitnob.quoteError = err;
+    const quote = vi.spyOn(bitnob, "createTradingQuote");
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY); // ₦500 → 1 simulated deposit
+    const a = await ngn.simulateUntilFunded(funding.id);
+    expect(a).toMatchObject({ state: "collecting", lastError: err.message });
+    expect(quote).toHaveBeenCalledTimes(1);
+    expect(bitnob.simulateCalls).toBe(1);
+    expect(events).toHaveLength(0);
+    // Calling it again tries one conversion, no more deposits.
+    await ngn.simulateUntilFunded(funding.id);
+    expect(bitnob.simulateCalls).toBe(1);
+    expect(quote).toHaveBeenCalledTimes(2);
+  });
+
+  it("an order refused for another reason than expiry is not retried with a new quote", async () => {
+    const { ngn, bitnob } = setup();
+    vi.spyOn(bitnob, "createTradingOrder").mockRejectedValue(new BitnobError("insufficient balance", 422, "INSUFFICIENT_FUNDS"));
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    const a = await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000));
+    expect(a).toMatchObject({ state: "collecting", lastError: "insufficient balance", orderReference: null });
+    expect(bitnob.quotes).toHaveLength(1);
+  });
+
+  it("refuses a bounty above maxNaira before opening an account", async () => {
+    const { ngn, bitnob } = setup({ maxNaira: 3_000 });
+    await expect(ngn.account(TARGET, IDENTITY)).rejects.toMatchObject({ code: "AMOUNT_TOO_LARGE" }); // ₦27,000
+    expect(bitnob.accounts.size).toBe(0);
+  });
+
+  it("simulate gives up early when the deposits needed exceed maxCalls", async () => {
+    const { ngn, bitnob } = setup();
+    const { funding } = await ngn.account(TARGET, IDENTITY); // ₦27,000 = 27 deposits
+    await expect(ngn.simulateUntilFunded(funding.id, 10)).rejects.toThrow(/more than 10 simulated deposits/);
+    expect(bitnob.simulateCalls).toBe(1);
+  });
+
+  it("a deposit landing during the conversion is credited once, not sold", async () => {
+    const { ngn, bitnob, credited, events } = setup();
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    const realOrder = bitnob.createTradingOrder.bind(bitnob);
+    vi.spyOn(bitnob, "createTradingOrder").mockImplementationOnce(async (input) => {
+      await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-during", 20_000));
+      return realOrder(input);
+    });
+    await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000));
+    expect(bitnob.quotes[0]!.quantity).toBe("500");
+    expect(events).toHaveLength(1);
+    expect(credited.map((c) => c.reason)).toEqual(["late naira deposit of 20000 kobo (during conversion)"]);
+  });
+
+  it("a deposit during a conversion that then fails is sold on the retry, never credited", async () => {
+    const { ngn, bitnob, credited, events } = setup();
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    vi.spyOn(bitnob, "createTradingOrder").mockImplementationOnce(async () => {
+      await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-during", 20_000));
+      throw new BitnobError("insufficient balance", 422, "INSUFFICIENT_FUNDS");
+    });
+    await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000));
+    await ngn.resume();
+    expect(bitnob.quotes.map((q) => q.quantity)).toEqual(["500", "700"]);
+    expect(events).toHaveLength(1);
+    expect(credited.map((c) => c.reason)).toEqual(["over-deposit of 20000 kobo"]);
+  });
+
+  it("network error after the order was placed: reference kept, resume re-POSTs it, one sell", async () => {
+    const { ngn, bitnob, accounts, events } = setup();
+    bitnob.orderNetworkError = "after";
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    const a = await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000));
+    expect(a).toMatchObject({ state: "converting", orderReference: `ngn-${funding.id}-1`, lastError: "bad gateway" });
+    expect(events).toHaveLength(0);
+    bitnob.now += 60_000;
+    await ngn.resume();
+    expect(bitnob.sells).toBe(1);
+    expect(events).toHaveLength(1);
+    expect((await accounts.getByFunding(funding.id))!.state).toBe("converted");
+  });
+
+  it("network error before the order existed: resume moves to the next reference", async () => {
+    const { ngn, bitnob, events } = setup();
+    bitnob.orderNetworkError = "before";
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    expect((await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000)))?.state).toBe("converting");
+    bitnob.now += 60_000;
+    await ngn.resume();
+    expect([...bitnob.orders.keys()]).toEqual([`ngn-${funding.id}-2`]);
+    expect(events).toHaveLength(1);
+  });
+
+  it("a quote with less than the safety margin left is not used", async () => {
+    const { ngn, bitnob } = setup();
+    bitnob.quoteTtlMs = 2_000;
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    expect(await ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000))).toMatchObject({ state: "collecting", lastError: "quote already expired" });
+    expect(bitnob.orderCalls).toBe(0);
+  });
+
+  it("crash between converted and markPaid: resume emits funding.paid once", async () => {
+    const { ngn, bitnob, fundings, events } = setup();
+    const { funding } = await ngn.account({ ...TARGET, amountXof: 100 }, IDENTITY);
+    const markPaid = vi.spyOn(fundings, "markPaid").mockRejectedValueOnce(new Error("killed"));
+    await expect(ngn.handleDeposit(deposit(funding.bitnobRef, "tx-1", 50_000))).rejects.toThrow("killed");
+    markPaid.mockRestore();
+    expect(events).toHaveLength(0);
+    await ngn.resume();
+    await ngn.resume();
+    expect(events).toHaveLength(1);
+    expect(bitnob.sells).toBe(1);
+  });
+});
+
+describe("funder customers (KYC)", () => {
+  it("a funder first seen by Lightning (email only) gets a KYC customer for the naira account", async () => {
+    const createCustomer = vi.fn(async (input: { reference?: string }) => ({ id: `cust-${input.reference}` }) as never);
+    const customers = new BitnobFunderCustomers({ createCustomer });
+    expect(await customers.customerId("acme")).toBe("cust-funder-acme");
+    expect(await customers.customerId("acme", { country_code: "NGA", ...IDENTITY })).toBe("cust-funder-acme-kyc");
+    expect(createCustomer).toHaveBeenLastCalledWith(expect.objectContaining({ email: "funder-acme+kyc@bitbounty.invalid", first_name: "Ada" }));
+    expect(await customers.customerId("acme", IDENTITY)).toBe("cust-funder-acme-kyc");
+    expect(createCustomer).toHaveBeenCalledTimes(2);
+  });
+
+  it("naira first: one KYC customer, reused by Lightning", async () => {
+    const createCustomer = vi.fn(async (input: { reference?: string }) => ({ id: `cust-${input.reference}` }) as never);
+    const customers = new BitnobFunderCustomers({ createCustomer });
+    expect(await customers.customerId("acme", IDENTITY)).toBe("cust-funder-acme");
+    expect(await customers.customerId("acme")).toBe("cust-funder-acme");
+    expect(createCustomer).toHaveBeenCalledTimes(1);
   });
 });

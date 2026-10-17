@@ -120,5 +120,20 @@ Sandbox run: `pnpm --filter @bitbounty/server payout:smoke -- <+221…> wave "<n
 Invoice statuses we read: `paid`/`settled` → paid, `expired`/`cancelled` → expired, anything else pending. To confirm against the sandbox: `pnpm --filter @bitbounty/server lightning:smoke -- 1000`. Result: _not run yet_.
 
 ## B4: naira funding from Lagos
-`apps/server/src/funding/ngn.ts`. Calls: `POST /api/customers` (KYC fields, `country_code: NGA`), `POST /api/virtual-accounts` (`reference: va-<bountyId>-<n>`), `POST /api/virtual-accounts/:id/simulate-deposit` (sandbox, no body), `POST /api/trading/quotes` NGN→BTC `SELL`, whole naira, ≥ ₦500, then `POST /api/trading/orders` with `quote_id` and `reference: ngn-<fundingId>-<n>`; `GET /api/trading/orders/:reference` on resume (new client methods `createTradingOrder`, `getTradingOrder`). Deposits arrive by webhook `virtual_account.deposit.success` (B5) or in the simulate response.
-Sandbox run: `pnpm --filter @bitbounty/server ngn:smoke -- 300`. Result: _not run yet_. To check there: KYC fields the sandbox accepts, the simulate amount (₦1,000?), whether NGN→BTC is offered or only NGN→USDT (`convertTo: "USDT"` then).
+`apps/server/src/funding/ngn.ts`. Calls: `POST /api/customers` (KYC fields, `country_code: NGA`), `POST /api/virtual-accounts` (`reference: va-<bountyId>-<n>`), `POST /api/virtual-accounts/:id/simulate-deposit` (sandbox, no body), `POST /api/trading/quotes` NGN→BTC `SELL`, whole naira, ≥ ₦500, then `POST /api/trading/orders` with `quote_id` and `reference: ngn-<fundingId>-<n>`. Deposits arrive by webhook `virtual_account.deposit.success` (B5) or in the simulate response.
+On resume: `GET /api/trading/orders/:id` with the **order id** only, or re-POST the stored reference + quote (idempotent: the same reference returns the existing order).
+
+Sandbox results (2026-10-17, `environment=sandbox`):
+| Call | Result |
+| --- | --- |
+| `ngn:smoke` end to end (review of #65) | ₦1,000 simulated deposit → NGN→BTC order `filled` → `funding.paid` |
+| VA without KYC (email-only customer) | 400 `missing bvn…`: the customer needs KYC fields (`id_type: bvn`, `id_number`) |
+| `simulate-deposit` | ₦1,000 (`amount: "100000"` kobo) per call |
+| NGN→BTC quote ₦1,000 | OK, `expires_at` 30 s ahead, receive ≈ 0.00000896 BTC |
+| quote ₦100 | 400 `INVALID_AMOUNT`: amount below configured minimum |
+| quote ₦999,999,999 | 400 `INVALID_AMOUNT`: amount above configured maximum |
+| quote ≈ ₦4,000+ | 422 `INSUFFICIENT_FUNDS`: insufficient balance. Sandbox caps quotes at the company-wide NGN balance (≈ ₦3,980 that day) |
+| `GET /api/trading/orders/<reference>` | 400 `VALIDATION_ERROR: invalid id`: only the order id works |
+
+Only an expired quote is re-quoted; `INVALID_AMOUNT` / `INSUFFICIENT_FUNDS` stop the conversion with `lastError` (no loop). `NgnFunding({ maxNaira })` refuses bounties above the cap up front.
+Sandbox run: `pnpm --filter @bitbounty/server ngn:smoke -- 300`.
