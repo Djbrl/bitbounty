@@ -10,8 +10,15 @@ export function apiBaseUrl(env: Env = process.env): string | null {
   return raw ? raw.replace(/\/+$/, "") : null;
 }
 
+/**
+ * Digest carried by auth failures (401/403). In production Next.js strips the message of errors thrown
+ * by server components, but keeps an error's own `digest`, so error.tsx can still tell them apart.
+ */
+export const AUTH_ERROR_DIGEST = "BITBOUNTY_AUTH";
+
 /** The server answered with an error, or couldn't be reached. Pages turn it into their error state. */
 export class ApiError extends Error {
+  readonly digest?: string;
   constructor(
     readonly status: number,
     readonly code: string,
@@ -19,8 +26,21 @@ export class ApiError extends Error {
   ) {
     super(message ?? `${code} (${status})`);
     this.name = "ApiError";
+    if (status === 401 || status === 403) this.digest = AUTH_ERROR_DIGEST;
   }
 }
+
+/** True for a 401/403 from the server, also after Next.js serialised it to the browser (digest only). */
+export function isAuthError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const { status, code, digest } = err as { status?: unknown; code?: unknown; digest?: unknown };
+  if (status === 401 || status === 403 || code === "unauthorized" || code === "forbidden") return true;
+  // Next.js may append "@E<code>" to a digest: match the prefix.
+  return typeof digest === "string" && digest.startsWith(AUTH_ERROR_DIGEST);
+}
+
+/** Message for a 401/403: the session is missing or expired, or the server refused this account. */
+export const AUTH_ERROR_TEXT = "Session expirée ou accès refusé. Reconnectez-vous avec GitHub.";
 
 export interface ApiOptions {
   /** GitHub login of the signed-in user, sent to the server with the internal token. */
@@ -72,11 +92,11 @@ export async function load<T>(path: string, mock: () => T | null | Promise<T | n
 
 /** User-facing text for an error state. */
 export function errorText(err: unknown): string {
+  if (isAuthError(err)) return AUTH_ERROR_TEXT;
   if (err instanceof ApiError || (err && typeof err === "object" && "code" in err)) {
     const code = (err as { code?: string }).code;
     if (code === "server_unreachable") return "Le serveur BitBounty ne répond pas. Réessayez dans un instant.";
     if (code === "server_timeout") return "Le serveur met trop de temps à répondre. Réessayez.";
-    if (code === "unauthorized") return "Connectez-vous avec GitHub pour voir cette page.";
   }
   // In production Next.js hides server error details from the browser: stay generic but useful.
   return "Le serveur BitBounty ne répond pas ou a renvoyé une erreur. Réessayez dans un instant.";
