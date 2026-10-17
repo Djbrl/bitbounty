@@ -11,6 +11,16 @@ export interface FundingRecord extends Funding {
   paymentRequest: string | null;
   expiresAt: string | null;
   createdAt: string;
+  /**
+   * Set by `markPaid`: true if this payment is the one that funds the bounty (its first paid
+   * funding), false if the bounty was already funded (the money is credited to the funder).
+   */
+  fundsBounty?: boolean;
+  /**
+   * Outbox flag: when `funding.paid` (or the credit) was delivered for this paid row. null/missing
+   * while not delivered yet; `poll()` re-delivers such rows until this is set.
+   */
+  notifiedAt?: string | null;
 }
 
 export interface MarkPaidResult {
@@ -30,6 +40,10 @@ export interface FundingStore {
    * is never ignored). null if it was already paid.
    */
   markPaid(id: string, paidAt: string): Promise<MarkPaidResult | null>;
+  /** Paid rows whose event/credit hasn't been delivered yet (the outbox). */
+  listUnnotified(rail: Funding["rail"]): Promise<FundingRecord[]>;
+  /** Records that the row's `funding.paid` (or credit) was delivered. */
+  markNotified(id: string, at: string): Promise<void>;
 }
 
 /** In-memory store. Every method is synchronous inside, so check-and-set can't interleave. */
@@ -68,6 +82,19 @@ export class InMemoryFundingStore implements FundingStore {
     const firstForBounty = ![...this.rows.values()].some((o) => o.bountyId === r.bountyId && o.status === "paid");
     r.status = "paid";
     r.paidAt = paidAt;
+    r.fundsBounty = firstForBounty;
+    r.notifiedAt = null;
     return { funding: { ...r }, firstForBounty };
+  }
+
+  async listUnnotified(rail: Funding["rail"]) {
+    return [...this.rows.values()]
+      .filter((r) => r.rail === rail && r.status === "paid" && !r.notifiedAt)
+      .map((r) => ({ ...r }));
+  }
+
+  async markNotified(id: string, at: string) {
+    const r = this.rows.get(id);
+    if (r) r.notifiedAt = at;
   }
 }
