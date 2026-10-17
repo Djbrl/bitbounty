@@ -4,6 +4,7 @@ import {
   parseEnvelope,
   signBitnobPayload,
   toDepositUpdate,
+  toMinorUnits,
   toPayoutOutcome,
   toPayoutUpdate,
   verifyBitnobSignature,
@@ -159,6 +160,19 @@ describe("POST /webhooks/bitnob", () => {
     expect((await store.get("bitnob", success.event_id))?.status).toBe("processed");
   });
 
+  it("413 on a body over the size limit, before anything is stored", async () => {
+    const store = new InMemoryEventStore();
+    const app = bitnobWebhookRoutes({ secret: SECRET, store, dispatcher: new GithubDispatcher(), maxBodyBytes: 1024 });
+    const body = JSON.stringify({ ...success, pad: "x".repeat(2048) });
+    const res = await app.request("/webhooks/bitnob", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json", "x-bitnob-signature": signBitnobPayload(SECRET, body) },
+    });
+    expect(res.status).toBe(413);
+    expect(store.all()).toHaveLength(0);
+  });
+
   it.each([
     ["invalid JSON", "{not json"],
     ["no event id", JSON.stringify({ event: "payouts.processing", data: {} })],
@@ -168,6 +182,31 @@ describe("POST /webhooks/bitnob", () => {
     const { post, store } = setup();
     expect((await post(body)).status).toBe(400);
     expect(store.all()).toHaveLength(0);
+  });
+});
+
+describe("toMinorUnits", () => {
+  it.each([
+    ["1000.50", "NGN", 100_050],
+    ["1,000.5", "ngn", 100_050],
+    [" 100000 ", "NGN", 10_000_000],
+    [1000.5, "NGN", 100_050],
+    ["0.1", "USD", 10],
+    ["16.5", "USDT", 16_500_000],
+    ["10000", "XOF", 10_000],
+    ["0.00012345", "BTC", 12_345],
+    ["1.10", "XOF", null],
+    ["1.005", "NGN", null],
+    ["-5", "NGN", null],
+    ["1e3", "NGN", null],
+    ["abc", "NGN", null],
+    ["", "NGN", null],
+    [null, "NGN", null],
+    ["10", "ZZZ", null],
+    ["10", null, null],
+    ["99999999999999999999", "NGN", null],
+  ] as const)("%s %s → %s", (amount, currency, expected) => {
+    expect(toMinorUnits(amount, currency)).toBe(expected);
   });
 });
 
@@ -205,18 +244,49 @@ describe("normalizers", () => {
     expect(toPayoutOutcome(raw)).toBe(outcome);
   });
 
-  it("reads a deposit with a camelCase envelope, amount in kobo", () => {
+  it("reads an NGN deposit with a camelCase envelope; the major-unit amount becomes kobo", () => {
     expect(toDepositUpdate(parseEnvelope(deposit)!)).toEqual({
+      kind: "ngn_virtual_account",
       virtualAccountId: "va1",
       reference: "sbx-dep-1",
-      amountMinor: 100000,
+      amountMinor: 10_000_000,
       currency: "NGN",
     });
   });
 
-  it("a non-integer deposit amount is null, not a float", () => {
+  it("a decimal NGN amount is parsed exactly into kobo (regression: was null)", () => {
     const env = parseEnvelope({ ...deposit, data: { ...deposit.data, amount: "1000.50" } })!;
-    expect(toDepositUpdate(env)?.amountMinor).toBeNull();
+    expect(toDepositUpdate(env)?.amountMinor).toBe(100_050);
+  });
+
+  it("deposit.success is a stablecoin deposit, never naira (regression)", () => {
+    const env = parseEnvelope({
+      event: "deposit.success",
+      event_id: "dep-usdt-1",
+      data: { amount: "12.345678", currency: "usdt", reference: "r" },
+    })!;
+    expect(toDepositUpdate(env)).toEqual({
+      kind: "stablecoin",
+      virtualAccountId: null,
+      reference: "r",
+      amountMinor: 12_345_678,
+      currency: "USDT",
+    });
+    const noCurrency = parseEnvelope({ event: "deposit.success", event_id: "d2", data: { amount: "5" } })!;
+    expect(toDepositUpdate(noCurrency)).toMatchObject({ kind: "stablecoin", currency: null, amountMinor: null });
+  });
+
+  it("payouts.initialized without data.status is initiated, not processing (regression)", () => {
+    const env = parseEnvelope({ event: "payouts.initialized", event_id: "e", data: { id: "p" } })!;
+    expect(toPayoutUpdate(env)?.outcome).toBe("initiated");
+  });
+
+  it("a bare top-level id is namespaced with the event name (regression: collided across events)", () => {
+    const a = parseEnvelope({ event: "payouts.processing", id: "p1", data: {} })!;
+    const b = parseEnvelope({ event: "payouts.withdrawal.success", id: "p1", data: {} })!;
+    expect(a.id).toBe("payouts.processing#p1");
+    expect(a.id).not.toBe(b.id);
+    expect(parseEnvelope({ event: "x", event_id: "p1", id: "zzz", data: {} })!.id).toBe("p1");
   });
 
   it("returns null for the other family", () => {
