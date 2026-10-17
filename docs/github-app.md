@@ -50,8 +50,8 @@ npm run dev:webhook             # → http://localhost:3001/webhooks/github
 npx smee-client --url https://smee.io/gk8M8VuUD4ZMaO7A --target http://localhost:3001/webhooks/github
 ```
 
-Once F1/F3 are merged, the main server mounts `githubWebhookRoutes(...)` with `DrizzleEventStore`
-and rows land in Postgres; point `--target` at that server's port instead.
+The main server (`apps/server/src/app.ts`) mounts `githubWebhookRoutes(...)` with `DrizzleEventStore`
+when `DATABASE_URL` is set, so rows land in the Postgres `events` table; point `--target` at that server's port instead.
 
 Note: only one person should run the smee client against the shared channel at a time, or
 each delivery gets processed by several laptops.
@@ -69,7 +69,7 @@ each delivery gets processed by several laptops.
 
 ```ts
 import { GithubDispatcher, githubWebhookRoutes, createGithubApp } from "./github/index.js";
-import { DrizzleEventStore } from "./github/drizzle-event-store.js";
+import { DrizzleEventStore } from "./github/index.js";  // events table from @bitbounty/db
 
 const gh = createGithubApp();                       // reads GITHUB_APP_ID / _PRIVATE_KEY / _WEBHOOK_SECRET
 const dispatcher = new GithubDispatcher()

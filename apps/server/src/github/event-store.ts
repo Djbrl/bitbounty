@@ -1,6 +1,6 @@
 /**
  * Storage for inbound webhook events: audit log + dedupe on the delivery id.
- * Shape matches the `events` table in packages/db/src/schema/events.ts
+ * Shape matches the `events` table in `@bitbounty/db` (packages/db/src/schema.ts)
  * (shared with the Bitnob receiver, B5, via `source`).
  */
 
