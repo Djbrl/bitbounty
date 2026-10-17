@@ -7,7 +7,7 @@ import type { BountyRepo as PrBountyRepo } from "../github/pr/ports.js";
  * (apps/server/src/github/pr/ports.ts); G3 adds what comment commands need: create with
  * one-bounty-per-issue, a compare-and-set update for races (two `/claim` at once), the
  * status comment id and claims. One instance serves both, so G4 sees what G3 writes.
- * In-memory until F3 (packages/db) lands; a Drizzle version implements the same interface.
+ * `DrizzleBountyRepo` (./drizzle-repo.ts) is the Postgres version; both pass repo.contract.test.ts.
  */
 
 /** A claim plus the GitHub login of who holds it (the status comment and G4 need it). */

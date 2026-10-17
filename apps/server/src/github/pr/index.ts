@@ -14,14 +14,14 @@ export {
   InMemoryEventBus,
   RecordingNotifier,
 } from "./fakes.js";
-export { DrizzleBountyRepo } from "./drizzle-bounty-repo.js";
+export { DrizzleBountyRepo } from "../../bounties/drizzle-repo.js";
 export { BITBOUNTY_CHECK_NAME, OctokitCiReader, OctokitNotifier } from "./octokit.js";
 export type * from "./ports.js";
 
 /**
  * Production wiring: Octokit adapters when the GitHub App env is set, otherwise
  * console comments and "CI not green" (bounties go on_hold → maintainer decides).
- * `bounties` defaults to in-memory; app.ts passes a DrizzleBountyRepo when DATABASE_URL is set.
+ * `bounties` defaults to in-memory; app.ts passes the shared repo (Drizzle when DATABASE_URL is set).
  */
 export function defaultPrDeps(
   bus: EventBus,
