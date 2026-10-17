@@ -57,7 +57,12 @@ Everything else is refused. `paid`, `refunded` and `cancelled` are terminal.
 Rules this encodes: no claim before funding; no cancel once a PR is in; a merged bounty whose payout fails stays reserved for the developer; the verifier's verdict is a signal and only matters when `pr.merged` arrives.
 
 `bounty.created` is emitted by `createBounty()`, it is not a transition.
-Duplicate external events (same webhook twice) are deduped upstream by the `events` table; a replay that reaches `transition()` is refused as illegal.
+Duplicate external events (same webhook twice) are deduped upstream by the `events` table. A replay that still reaches `transition()` is refused as illegal when it would move the bounty again (`funding.paid`, `claim.created`, `pr.merged`, `payout.*`…). Two events loop on `submitted` and are accepted as no-ops when replayed: `pr.linked` for the same PR and commit (the verdict is kept) and `verify.done` with the same verdict.
+
+Extra guards beyond the table:
+- `bounty.cancelled` is refused (`SUBMISSION_LOCKED`) once a PR was ever submitted, even after `/reject` sent the bounty back to `funded` (`bounty.hadSubmission`). `/reject` still reopens the bounty for a new claimant.
+- `pr.linked` records `bounty.prNumber` / `bounty.headSha`. `verify.done` for another PR or commit, and `pr.merged` for another PR, are refused (`STALE_EVENT`). A bounty without these fields (older data) skips the check.
+- Event types are looked up as own keys only (`constructor`, `__proto__`… are refused), and a non-object event is refused.
 
 ## Test
 ```bash

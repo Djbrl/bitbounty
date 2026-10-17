@@ -7,12 +7,14 @@ import type { BountyRepo as PrBountyRepo } from "../github/pr/ports.js";
  * (apps/server/src/github/pr/ports.ts); G3 adds what comment commands need: create with
  * one-bounty-per-issue, a compare-and-set update for races (two `/claim` at once), the
  * status comment id and claims. One instance serves both, so G4 sees what G3 writes.
- * In-memory until F3 (packages/db) lands; a Drizzle version implements the same interface.
+ * `DrizzleBountyRepo` (./drizzle-repo.ts) is the Postgres version; both pass repo.contract.test.ts.
  */
 
 /** A claim plus the GitHub login of who holds it (the status comment and G4 need it). */
 export interface ClaimRecord extends Claim {
   login: string;
+  /** How many times `/extend` pushed `expiresAt` back (G5). Missing = 0. */
+  extensions?: number;
 }
 
 export type CreateResult = { created: true; bounty: Bounty } | { created: false; bounty: Bounty };
@@ -35,6 +37,13 @@ export interface BountyRepo extends PrBountyRepo {
   /** The claim with status `active` on this bounty, if any. */
   activeClaim(bountyId: string): Promise<ClaimRecord | undefined>;
   setClaimStatus(claimId: string, status: Claim["status"]): Promise<void>;
+
+  // --- G5: claim timer ---
+  findClaim(claimId: string): Promise<ClaimRecord | undefined>;
+  /** Every claim with status `active` (the timer sweep re-arms from this after a restart). */
+  listActiveClaims(): Promise<ClaimRecord[]>;
+  /** `/extend`: new deadline and extension count. */
+  extendClaim(claimId: string, expiresAt: string, extensions: number): Promise<void>;
 }
 
 export class InMemoryBountyRepo extends PrInMemoryBountyRepo implements BountyRepo {
@@ -80,9 +89,25 @@ export class InMemoryBountyRepo extends PrInMemoryBountyRepo implements BountyRe
     const c = this.claims.get(claimId);
     if (!c) return;
     this.claims.set(claimId, { ...c, status });
-    if (status !== "active" && this.claimants.get(c.bountyId)?.claimId === claimId) {
+    if (status === "active") {
+      this.claimants.set(c.bountyId, { claimId: c.id, userId: c.userId, login: c.login });
+    } else if (this.claimants.get(c.bountyId)?.claimId === claimId) {
       this.claimants.delete(c.bountyId);
     }
+  }
+
+  async findClaim(claimId: string) {
+    const c = this.claims.get(claimId);
+    return c ? { ...c } : undefined;
+  }
+
+  async listActiveClaims() {
+    return [...this.claims.values()].filter((c) => c.status === "active").map((c) => ({ ...c }));
+  }
+
+  async extendClaim(claimId: string, expiresAt: string, extensions: number) {
+    const c = this.claims.get(claimId);
+    if (c) this.claims.set(claimId, { ...c, expiresAt, extensions });
   }
 
   /** Test helper. */

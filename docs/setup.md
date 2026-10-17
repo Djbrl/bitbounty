@@ -40,7 +40,7 @@ pnpm db:seed                # EMPTIES every table, then one bounty in each of th
 docker exec bitbounty-db-1 psql -U postgres -d bitbounty -c 'select status, count(*) from bounties group by 1'
 ```
 
-- When `DATABASE_URL` is set the server stores webhooks in `events` (`DrizzleEventStore`, dedupe on `(source, external_id)`) and reads bounties and active claims and writes bounties and submissions through `DrizzleBountyRepo` (G4 PR handlers). Without it both are in memory. It logs `[db] ...` at start to say which.
+- When `DATABASE_URL` is set the server stores webhooks in `events` (`DrizzleEventStore`, dedupe on `(source, external_id)`) and keeps bounties, claims and submissions in Postgres through `DrizzleBountyRepo` (apps/server/src/bounties/drizzle-repo.ts, shared by G3 comments, G4 PRs, G5 claim timers and A2 checks), so they survive a restart. Without it both are in memory. It logs `[db] ...` at start to say which.
 - The server applies pending migrations itself at start when `DATABASE_URL` is set, so the Docker server needs no manual migrate.
 - `pnpm install` builds `@bitbounty/db` (`prepare` script): the server imports it from `dist/`. After a schema change: `pnpm db:generate`, commit the new file in `packages/db/drizzle/`.
 - `pnpm test` runs the DB tests on PGlite (in memory). With `DATABASE_URL` set they also run against that Postgres, in a throwaway database created and dropped by the test.
@@ -81,6 +81,7 @@ docker compose logs tunnel | grep trycloudflare   # the public API URL
 
 - **Check:** `curl <tunnel-url>/health` → `{"status":"ok"}`; an unsigned `POST <tunnel-url>/webhooks/github` → 401.
 - **After a code change:** `docker compose up -d --build server`.
+- **Venue / restrictive Wi-Fi:** the tunnel uses `--protocol http2` (TCP 443) because some networks block QUIC (UDP), which silently kills the default quick tunnel.
 - **The tunnel URL changes when the `tunnel` container restarts** (Mac reboot, Docker restart). Then update `NEXT_PUBLIC_API_URL` on Vercel and redeploy the web.
 - **Keep it up:** Docker Desktop → Settings → "Start Docker Desktop when you sign in"; keep the Mac awake (`caffeinate -dims &`) and plugged in. All services restart on their own (`restart: unless-stopped`).
 - **Database from your machine:** `DATABASE_URL=postgres://postgres:postgres@localhost:5432/bitbounty` for `pnpm db:migrate` / `db:seed`; `docker exec bitbounty-db-1 psql -U postgres -d bitbounty` for a shell. The `server` container migrates at start. Rebuild only the server (`docker compose up -d --build server`): never `docker compose down -v` (deletes `pgdata`) and avoid restarting `tunnel` (its URL changes).

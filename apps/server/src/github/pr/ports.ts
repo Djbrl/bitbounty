@@ -14,7 +14,7 @@ export interface Claimant {
   login: string;
 }
 
-/** Bounty storage: `InMemoryBountyRepo` (tests, offline) or `DrizzleBountyRepo` (Postgres). */
+/** Bounty storage: `InMemoryBountyRepo` (tests, offline) or `DrizzleBountyRepo` (Postgres, src/bounties/drizzle-repo.ts). */
 export interface BountyRepo {
   findById(id: string): Promise<Bounty | undefined>;
   findByIssue(repoFullName: string, issueNumber: number): Promise<Bounty | undefined>;

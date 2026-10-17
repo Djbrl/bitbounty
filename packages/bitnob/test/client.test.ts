@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
+import { inspect } from "node:util";
 import { describe, expect, it, vi } from "vitest";
-import { BitnobClient, BitnobError, authHeaders, readBitnobConfig, signature } from "../src/index.js";
+import { BitnobClient, BitnobError, authHeaders, parseRetryAfter, readBitnobConfig, signature } from "../src/index.js";
 
 const ID = "86f1b05e-2e35-40bf-a85d-fd3de44d216b";
 const SECRET = "sk_test_secret";
@@ -112,6 +113,52 @@ describe("request", () => {
   });
 });
 
+describe("payout calls", () => {
+  it("initialize posts the quote id, reference and beneficiary; finalize has no body; get by payout id", async () => {
+    const { fetch, calls } = fakeFetch(
+      ok({ payout: { id: "p1", status: "INITIATED" } }),
+      ok({ payout: { id: "p1", status: "processing" } }),
+      ok({ payout: { id: "p1", status: "success" } }),
+    );
+    const c = client(fetch);
+    const beneficiary = {
+      destination_type: "mobile_money" as const,
+      country: "SN",
+      account_name: "Awa Diop",
+      account_number: "221771234567",
+      bank_code: "WAVE",
+    };
+    await c.initializePayout("QT2_1", { reference: "pay-b1-1", beneficiary, callback_url: "https://x.test/webhooks/bitnob" });
+    expect(calls[0]!.url).toBe("https://api.bitnob.com/api/payouts/QT2_1/initialize");
+    expect(JSON.parse(calls[0]!.init.body as string)).toEqual({
+      quote_id: "QT2_1",
+      reference: "pay-b1-1",
+      beneficiary,
+      callback_url: "https://x.test/webhooks/bitnob",
+    });
+    expect((await c.finalizePayout("QT2_1"))?.status).toBe("processing");
+    expect(calls[1]!.url).toBe("https://api.bitnob.com/api/payouts/QT2_1/finalize");
+    expect(calls[1]!.init.body).toBeUndefined();
+    expect((await c.getPayout("p1")).status).toBe("success");
+    expect(calls[2]!.url).toBe("https://api.bitnob.com/api/payouts/p1");
+  });
+
+  it("finalize tolerates an empty data", async () => {
+    const { fetch } = fakeFetch(json(200, { success: true, message: "ok", data: null }));
+    await expect(client(fetch).finalizePayout("QT2_1")).resolves.toBeUndefined();
+  });
+
+  it("finalize with { retries: 0 } is sent once, even on a timeout or 5xx (no blind replay)", async () => {
+    const timeout = Object.assign(new Error("aborted"), { name: "TimeoutError" });
+    const a = fakeFetch(timeout, ok({ payout: { status: "processing" } }));
+    await expect(client(a.fetch).finalizePayout("QT2_1", { retries: 0 })).rejects.toMatchObject({ code: "TIMEOUT" });
+    expect(a.calls).toHaveLength(1);
+    const b = fakeFetch(json(503, { code: "UNAVAILABLE" }), ok({ payout: { status: "processing" } }));
+    await expect(client(b.fetch).finalizePayout("QT2_1", { retries: 0 })).rejects.toMatchObject({ status: 503 });
+    expect(b.calls).toHaveLength(1);
+  });
+});
+
 describe("errors (reviewer checklist)", () => {
   it("wrong secret: a clear BitnobError, not a crash, and never the secret", async () => {
     const { fetch } = fakeFetch(
@@ -193,5 +240,141 @@ describe("config", () => {
 
   it("refuses an empty secret in the constructor", () => {
     expect(() => new BitnobClient({ clientId: ID, clientSecret: "" })).toThrow(BitnobError);
+  });
+});
+
+describe("review fixes (F5 post-merge)", () => {
+  it("never exposes the secret through inspect, JSON.stringify or keys", () => {
+    const c = client(fakeFetch().fetch);
+    expect(inspect(c, { depth: 10, showHidden: true })).not.toContain(SECRET);
+    expect(JSON.stringify(c)).not.toContain(SECRET);
+    expect(JSON.stringify(Object.entries(c))).not.toContain(SECRET);
+    expect(String(c)).not.toContain(SECRET);
+  });
+
+  it("still signs with the secret held in the private field", async () => {
+    const { fetch, calls } = fakeFetch(ok({ environment: "sandbox" }));
+    await client(fetch).whoami();
+    const c = calls[0]!;
+    const expected = createHmac("sha256", SECRET)
+      .update(`${ID}:${header(c, "x-auth-timestamp")}:${header(c, "x-auth-nonce")}:`)
+      .digest("hex");
+    expect(header(c, "x-auth-signature")).toBe(expected);
+  });
+
+  it("getBanks returns [] when the sandbox answers banks: null", async () => {
+    const { fetch } = fakeFetch(ok({ banks: null }));
+    expect(await client(fetch).getBanks("SN")).toEqual([]);
+  });
+
+  it("honours Retry-After (seconds) on 429", async () => {
+    const waits: number[] = [];
+    const { fetch, calls } = fakeFetch(
+      new Response("{}", { status: 429, headers: { "retry-after": "7" } }),
+      ok({ environment: "sandbox" }),
+    );
+    const c = client(fetch, { sleep: async (ms) => void waits.push(ms) });
+    await expect(c.whoami()).resolves.toMatchObject({ environment: "sandbox" });
+    expect(calls).toHaveLength(2);
+    expect(waits).toEqual([7000]);
+  });
+
+  it("honours Retry-After as an HTTP date, capped by maxRetryAfterMs", async () => {
+    const waits: number[] = [];
+    const later = new Date(NOW.getTime() + 120_000).toUTCString();
+    const { fetch } = fakeFetch(
+      new Response("{}", { status: 429, headers: { "retry-after": later } }),
+      ok({}),
+    );
+    await client(fetch, { sleep: async (ms) => void waits.push(ms), maxRetryAfterMs: 5_000 }).whoami();
+    expect(waits).toEqual([5_000]);
+  });
+
+  it("falls back to the backoff without (or with a bad) Retry-After", async () => {
+    const waits: number[] = [];
+    const { fetch } = fakeFetch(
+      new Response("{}", { status: 429, headers: { "retry-after": "soon" } }),
+      json(429, {}),
+      ok({}),
+    );
+    await client(fetch, { sleep: async (ms) => void waits.push(ms), retryDelayMs: 100 }).whoami();
+    expect(waits).toEqual([100, 200]);
+  });
+
+  it("parseRetryAfter", () => {
+    expect(parseRetryAfter(null, NOW, 30_000)).toBeUndefined();
+    expect(parseRetryAfter("2", NOW, 30_000)).toBe(2000);
+    expect(parseRetryAfter("0", NOW, 30_000)).toBe(0);
+    expect(parseRetryAfter("3600", NOW, 30_000)).toBe(30_000);
+    expect(parseRetryAfter(new Date(NOW.getTime() - 5000).toUTCString(), NOW, 30_000)).toBe(0);
+    expect(parseRetryAfter("-1", NOW, 30_000)).toBeUndefined();
+  });
+});
+
+describe("proxy mode (F7)", () => {
+  const TOKEN = "team-proxy-token";
+
+  it("sends the bearer token and X-Dev-User instead of HMAC headers, and needs no keys", async () => {
+    const { fetch, calls } = fakeFetch(ok({ environment: "sandbox" }));
+    const c = new BitnobClient({
+      clientId: "",
+      clientSecret: "",
+      baseUrl: "https://tunnel.example/dev/bitnob/",
+      proxyToken: TOKEN,
+      proxyUser: "awa",
+      fetch,
+    });
+    expect(c.proxyMode).toBe(true);
+    expect((await c.whoami()).environment).toBe("sandbox");
+    const call = calls[0]!;
+    expect(call.url).toBe("https://tunnel.example/dev/bitnob/api/whoami");
+    expect(header(call, "authorization")).toBe(`Bearer ${TOKEN}`);
+    expect(header(call, "x-dev-user")).toBe("awa");
+    expect(header(call, "x-auth-signature")).toBeUndefined();
+    expect(header(call, "x-auth-client")).toBeUndefined();
+  });
+
+  it("is read from BITNOB_PROXY_TOKEN / BITNOB_BASE_URL / BITNOB_PROXY_USER", () => {
+    expect(
+      readBitnobConfig({
+        BITNOB_PROXY_TOKEN: ` ${TOKEN} `,
+        BITNOB_BASE_URL: "https://tunnel.example/dev/bitnob",
+        BITNOB_PROXY_USER: "awa",
+      }),
+    ).toEqual({
+      clientId: "",
+      clientSecret: "",
+      baseUrl: "https://tunnel.example/dev/bitnob",
+      proxyToken: TOKEN,
+      proxyUser: "awa",
+    });
+    expect(() => readBitnobConfig({ BITNOB_PROXY_TOKEN: TOKEN })).toThrow("BITNOB_BASE_URL");
+  });
+
+  it("never shows the proxy token in inspect() or JSON", () => {
+    const c = new BitnobClient({ clientId: "", clientSecret: "", baseUrl: "https://t.example", proxyToken: TOKEN });
+    expect(inspect(c, { depth: 10, showHidden: true })).not.toContain(TOKEN);
+    expect(JSON.stringify(c)).not.toContain(TOKEN);
+  });
+
+  it("still requires keys without a proxy token", () => {
+    expect(() => new BitnobClient({ clientId: "", clientSecret: "" })).toThrow("required");
+  });
+});
+
+describe("forward (dev proxy upstream)", () => {
+  it("makes one signed attempt and returns status and body unchanged, even on 5xx", async () => {
+    const { fetch, calls } = fakeFetch(new Response("oops", { status: 502, headers: { "content-type": "text/plain" } }));
+    const r = await client(fetch).forward("POST", "/api/customers", '{"a":1}');
+    expect(r).toEqual({ status: 502, contentType: "text/plain", body: "oops" });
+    expect(calls).toHaveLength(1);
+    expect(header(calls[0]!, "x-auth-signature")).toBe(signature(ID, SECRET, "1792249200", "nonce1", '{"a":1}'));
+  });
+
+  it("refuses paths outside /api/ on the configured host", async () => {
+    const { fetch, calls } = fakeFetch();
+    await expect(client(fetch).forward("GET", "/x")).rejects.toThrow(BitnobError);
+    await expect(client(fetch).forward("GET", "@evil.example/api/")).rejects.toThrow(BitnobError);
+    expect(calls).toHaveLength(0);
   });
 });

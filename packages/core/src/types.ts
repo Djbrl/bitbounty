@@ -47,6 +47,14 @@ export interface Bounty {
   verdict: Verdict | null;
   /** The GitHub comment the bot keeps editing. */
   statusCommentId: number | null;
+  /**
+   * True once a PR was submitted (or a merge confirmed by `/pay`). Stays true after `/reject`:
+   * the funder can't cancel any more (product.md, "Funder cancels after a PR"). Missing = false.
+   */
+  hadSubmission?: boolean;
+  /** The PR and commit `pr.linked` recorded. `verify.done` / `pr.merged` must match them. Missing = not checked. */
+  prNumber?: number | null;
+  headSha?: string | null;
   createdAt: string;
   expiresAt: string | null;
 }

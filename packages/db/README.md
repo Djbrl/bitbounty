@@ -38,7 +38,7 @@ const rows = await db.select().from(bounties);
 ```
 It is consumed from `dist/`, which `pnpm install` builds (`prepare`); rebuild with `pnpm --filter @bitbounty/db build` after editing `src/`. The web app imports tables and enums only from `@bitbounty/db/schema` (no driver).
 
-The server (`apps/server`) depends on it: `DrizzleEventStore` writes webhooks to `events`, `DrizzleBountyRepo` (apps/server/src/github/pr) backs the PR handlers, and `src/index.ts` runs `runMigrations()` at start when `DATABASE_URL` is set.
+The server (`apps/server`) depends on it: `DrizzleEventStore` writes webhooks to `events`, `DrizzleBountyRepo` (apps/server/src/bounties/drizzle-repo.ts) stores bounties, claims and submissions, and `src/index.ts` runs `runMigrations()` at start when `DATABASE_URL` is set.
 
 ## Deploy
 The server applies migrations at start (Docker and Railway alike). To run them by hand from built JS: `node packages/db/dist/cli/migrate.js`.
