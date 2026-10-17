@@ -166,7 +166,7 @@ export function liveStream(live: Live, { loop = true, speed = 1 } = {}): Readabl
         timer = setTimeout(() => {
           send('transition', live.events[i]);
           run(i + 1);
-        }, live.events[i].delayMs / speed);
+        }, live.events[i]!.delayMs / speed);
       };
       run(0);
     },
