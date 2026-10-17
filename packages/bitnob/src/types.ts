@@ -204,3 +204,30 @@ export interface TradingPrice {
   /** Quote currency per 1 base, e.g. USDT per BTC. */
   price: string;
 }
+
+export interface TradingOrderInput {
+  base_currency: string;
+  quote_currency: string;
+  side: "BUY" | "SELL";
+  quantity: string;
+  /** From a fresh `createTradingQuote` (NGN quotes live ~30 s in sandbox, ~10 s in production). */
+  quote_id: string;
+  /** Idempotency key; also lets you fetch the order with `getTradingOrder(reference)`. */
+  reference: string;
+  price?: string;
+  quantity_in_base_units?: boolean;
+}
+
+export interface TradingOrder {
+  id: string;
+  base_currency: string;
+  quote_currency: string;
+  side: string;
+  quantity: string;
+  price: string;
+  status: string;
+  filled_quantity: string;
+  remaining_quantity: string;
+  quote_id: string;
+  reference: string;
+}
