@@ -80,8 +80,10 @@ Run the 4 key calls against the sandbox:
 ```bash
 # BITNOB_CLIENT_ID / BITNOB_CLIENT_SECRET in the repo-root .env (see .env.example)
 cd packages/bitnob && pnpm install && pnpm smoke
+# From a git worktree (no .env there), point at the main checkout's file:
+pnpm smoke --env-file /path/to/bitbounty/.env
 ```
-The script prints the raw responses and a summary table to paste below.
+`--env-file` (or `--env-file=<path>`) loads that file; variables already set in the shell win. The script runs `whoami` first and stops unless it says `environment=sandbox` (`--allow-production` to override). It prints the raw responses and a summary table to paste below. The client retries a 429 after its `Retry-After` delay (seconds or HTTP date, capped at 30 s), and keeps the secret in a `#private` field so `inspect()` / `JSON.stringify()` of a client never show it.
 
 What the spec says, before the run:
 - Lightning invoice needs a `customer_id` (the script creates a customer first).
@@ -89,13 +91,28 @@ What the spec says, before the run:
 - `simulate-deposit` takes **no body**; the sandbox credits a fixed amount (₦1,000 per call per our notes, spec example shows 100000 kobo).
 - Trading quote: `side` is upper case (`BUY`/`SELL`), `quantity` a string in major units. The spec's NGN example is NGN→USDT; the script tries NGN→BTC and NGN→USDT.
 
+Sandbox run, 17 10 2026 20:40 UTC (`pnpm smoke --env-file …`, keys of the "bitnob hackathon" sandbox app):
+
 | Call | Result | Notes |
 | --- | --- | --- |
-| whoami | _not run yet_ | needs sandbox keys |
-| 1. Lightning invoice | _not run yet_ | |
-| 2. SN payout quote | _not run yet_ | |
-| 3. NGN virtual account + simulate deposit | _not run yet_ | |
-| 4. NGN→BTC quote | _not run yet_ | |
+| whoami | OK | bitnob hackathon, environment=sandbox |
+| customer (payer) | OK | id=01a14b97-b61d-7cd6-adc0-d643b7a1e28a |
+| 1. lightning invoice | OK | id=01a14b97-b6a9-7fa0-b3fc-3836b983fa04 status=pending bolt11=lntb10u1p4d8hgupp5g6p0nu… |
+| 1b. get lightning invoice | OK | status=pending |
+| 2a. SN providers | OK | none listed (sandbox returns banks: null) |
+| 2. SN payout quote from USDT | OK | quote_id=QT2_21052948 sends 0.232397 USDT for 137 XOF, fees=0, expires 2026-10-17T20:55:56Z |
+| 2. SN payout quote from BTC | OK | quote_id=QT2_21052949 sends 0.00000284 BTC for 137 XOF, fees=0, expires 2026-10-17T20:45:57Z |
+| customer (Lagos funder) | OK | id=01a14b66-4be9-73a7-b8bf-902141d1a9c0 |
+| 3a. NGN virtual account | OK | id=01a14b97-ba92-75d4-8777-4ce448ec019f Sandbox Bank 900023453543 |
+| 3. simulate deposit #1 | OK | credited 100000 kobo (completed), new_balance not returned |
+| 4. NGN→BTC quote | OK | 1000 NGN → 0.00000896 BTC, expires after 30 s |
+| 4. NGN→USDT quote | OK | 1000 NGN → 0.7311985267008806 USDT, expires after 30 s |
+
+What the run taught us:
+- **No SN `bank_code` in the sandbox.** `GET /api/payouts/banks/SN` answers `banks: null` (the client returns `[]`). B2's `POST /api/payouts/:quoteId/initialize` needs `beneficiary.bank_code` for `mobile_money`, so in the sandbox B2 can't take the Wave / Orange Money codes from this endpoint: it needs a configured fallback (to confirm with Bitnob at the workshop), or initialize will be refused.
+- The SN payout quote works from both USDT and BTC, with `fees=0` in the sandbox. Observed lifetimes: about 16 min (USDT) and 6 min (BTC), so B2 must re-quote rather than assume 15 min.
+- `simulate-deposit` credits a fixed **100000 kobo (₦1,000)** per call and returns `new_balance: ""`. The smoke script adds up the credits itself and deposits until they cover the quote.
+- NGN trading quotes use `quantity: "1000"` (₦1,000 = one deposit); the earlier `"5000"` was more than the sandbox balance. They expire after 30 s.
 
 ## B5: webhook receiver
 `POST /webhooks/bitnob` on `apps/server` (`src/bitnob/`), mounted when `BITNOB_WEBHOOK_SECRET` is set (503 otherwise).

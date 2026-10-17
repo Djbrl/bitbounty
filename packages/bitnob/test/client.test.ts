@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
+import { inspect } from "node:util";
 import { describe, expect, it, vi } from "vitest";
-import { BitnobClient, BitnobError, authHeaders, readBitnobConfig, signature } from "../src/index.js";
+import { BitnobClient, BitnobError, authHeaders, parseRetryAfter, readBitnobConfig, signature } from "../src/index.js";
 
 const ID = "86f1b05e-2e35-40bf-a85d-fd3de44d216b";
 const SECRET = "sk_test_secret";
@@ -239,5 +240,73 @@ describe("config", () => {
 
   it("refuses an empty secret in the constructor", () => {
     expect(() => new BitnobClient({ clientId: ID, clientSecret: "" })).toThrow(BitnobError);
+  });
+});
+
+describe("review fixes (F5 post-merge)", () => {
+  it("never exposes the secret through inspect, JSON.stringify or keys", () => {
+    const c = client(fakeFetch().fetch);
+    expect(inspect(c, { depth: 10, showHidden: true })).not.toContain(SECRET);
+    expect(JSON.stringify(c)).not.toContain(SECRET);
+    expect(JSON.stringify(Object.entries(c))).not.toContain(SECRET);
+    expect(String(c)).not.toContain(SECRET);
+  });
+
+  it("still signs with the secret held in the private field", async () => {
+    const { fetch, calls } = fakeFetch(ok({ environment: "sandbox" }));
+    await client(fetch).whoami();
+    const c = calls[0]!;
+    const expected = createHmac("sha256", SECRET)
+      .update(`${ID}:${header(c, "x-auth-timestamp")}:${header(c, "x-auth-nonce")}:`)
+      .digest("hex");
+    expect(header(c, "x-auth-signature")).toBe(expected);
+  });
+
+  it("getBanks returns [] when the sandbox answers banks: null", async () => {
+    const { fetch } = fakeFetch(ok({ banks: null }));
+    expect(await client(fetch).getBanks("SN")).toEqual([]);
+  });
+
+  it("honours Retry-After (seconds) on 429", async () => {
+    const waits: number[] = [];
+    const { fetch, calls } = fakeFetch(
+      new Response("{}", { status: 429, headers: { "retry-after": "7" } }),
+      ok({ environment: "sandbox" }),
+    );
+    const c = client(fetch, { sleep: async (ms) => void waits.push(ms) });
+    await expect(c.whoami()).resolves.toMatchObject({ environment: "sandbox" });
+    expect(calls).toHaveLength(2);
+    expect(waits).toEqual([7000]);
+  });
+
+  it("honours Retry-After as an HTTP date, capped by maxRetryAfterMs", async () => {
+    const waits: number[] = [];
+    const later = new Date(NOW.getTime() + 120_000).toUTCString();
+    const { fetch } = fakeFetch(
+      new Response("{}", { status: 429, headers: { "retry-after": later } }),
+      ok({}),
+    );
+    await client(fetch, { sleep: async (ms) => void waits.push(ms), maxRetryAfterMs: 5_000 }).whoami();
+    expect(waits).toEqual([5_000]);
+  });
+
+  it("falls back to the backoff without (or with a bad) Retry-After", async () => {
+    const waits: number[] = [];
+    const { fetch } = fakeFetch(
+      new Response("{}", { status: 429, headers: { "retry-after": "soon" } }),
+      json(429, {}),
+      ok({}),
+    );
+    await client(fetch, { sleep: async (ms) => void waits.push(ms), retryDelayMs: 100 }).whoami();
+    expect(waits).toEqual([100, 200]);
+  });
+
+  it("parseRetryAfter", () => {
+    expect(parseRetryAfter(null, NOW, 30_000)).toBeUndefined();
+    expect(parseRetryAfter("2", NOW, 30_000)).toBe(2000);
+    expect(parseRetryAfter("0", NOW, 30_000)).toBe(0);
+    expect(parseRetryAfter("3600", NOW, 30_000)).toBe(30_000);
+    expect(parseRetryAfter(new Date(NOW.getTime() - 5000).toUTCString(), NOW, 30_000)).toBe(0);
+    expect(parseRetryAfter("-1", NOW, 30_000)).toBeUndefined();
   });
 });

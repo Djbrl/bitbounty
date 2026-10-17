@@ -19,6 +19,9 @@ import type { BountyRepo, ClaimRecord, CreateResult } from "./repo.js";
  *   never clashes with a real one. Installation sync can replace it later.
  * - `ClaimRecord.extensions` ↔ `claims.extensions` (0 when never extended).
  * - Submission ids: readable ids (`sub-<bountyId>-<pr>`) map to a stable uuid (`toUuid`).
+ * - `Bounty.hadSubmission` / `prNumber` / `headSha` (core's no-refund-after-a-PR rule and
+ *   commit binding) have no column: they're read from `submissions` (whether any row exists;
+ *   the latest row's PR and commit, like `currentSubmission`).
  */
 
 type BountyRow = typeof bounties.$inferSelect;
@@ -55,8 +58,17 @@ export class DrizzleBountyRepo implements BountyRepo {
 
   /** Bounties joined with their repo name and, for human funders, the funder's login. */
   private select() {
+    const latest = (col: AnyColumn) =>
+      sql`(select ${col} from ${submissions} where ${submissions.bountyId} = ${bounties.id} order by ${submissions.createdAt} desc limit 1)`;
     return this.db
-      .select({ bounty: bounties, repoFullName: repos.fullName, funderLogin: users.login })
+      .select({
+        bounty: bounties,
+        repoFullName: repos.fullName,
+        funderLogin: users.login,
+        hadSubmission: sql<boolean>`exists (select 1 from ${submissions} where ${submissions.bountyId} = ${bounties.id})`,
+        prNumber: latest(submissions.prNumber).mapWith(Number),
+        headSha: latest(submissions.headSha).mapWith(String),
+      })
       .from(bounties)
       .innerJoin(repos, eq(bounties.repoId, repos.id))
       .leftJoin(users, and(eq(bounties.funderKind, "human"), eq(users.id, bounties.funderId)));
@@ -292,9 +304,20 @@ export class DrizzleBountyRepo implements BountyRepo {
   }
 }
 
-function toBounty(row: { bounty: BountyRow; repoFullName: string; funderLogin: string | null }): Bounty {
+function toBounty(row: {
+  bounty: BountyRow;
+  repoFullName: string;
+  funderLogin: string | null;
+  hadSubmission: boolean | null;
+  prNumber: number | null;
+  headSha: string | null;
+}): Bounty {
   const b = row.bounty;
   return {
+    // Only present once a PR was linked, like a bounty built by core's `transition()`.
+    ...(row.hadSubmission === true ? { hadSubmission: true } : {}),
+    ...(row.prNumber != null ? { prNumber: row.prNumber } : {}),
+    ...(row.headSha != null ? { headSha: row.headSha } : {}),
     id: b.id,
     repoFullName: row.repoFullName,
     issueNumber: b.issueNumber,
