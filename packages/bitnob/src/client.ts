@@ -34,6 +34,11 @@ export interface BitnobConfig {
   nonce?: () => string;
 }
 
+export interface RequestOptions {
+  /** Overrides `BitnobConfig.retries` for this call (0 = a single attempt). */
+  retries?: number;
+}
+
 /** Any failed Bitnob call. Never contains the client secret. */
 export class BitnobError extends Error {
   constructor(
@@ -85,13 +90,19 @@ export class BitnobClient {
   }
 
   /** Signed call; returns the envelope's `data`. Throws `BitnobError`. */
-  async request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+  async request<T>(
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    path: string,
+    body?: unknown,
+    opts: RequestOptions = {},
+  ): Promise<T> {
     // Sign exactly the string we send (compact JSON), or "" without a body.
     const raw = body === undefined ? "" : JSON.stringify(body);
     const url = this.cfg.baseUrl + path;
     let lastError: BitnobError | undefined;
+    const retries = opts.retries ?? this.cfg.retries;
 
-    for (let attempt = 0; attempt <= this.cfg.retries; attempt++) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
       if (attempt > 0) await sleep(this.cfg.retryDelayMs * 2 ** (attempt - 1));
       // Fresh timestamp + nonce on every attempt, so a retry is never seen as a replay.
       const headers: Record<string, string> = {
@@ -179,11 +190,17 @@ export class BitnobClient {
     return data.payout;
   }
 
-  /** Commits the debit and releases the payout. Irreversible. */
-  async finalizePayout(quoteId: string): Promise<Payout | undefined> {
+  /**
+   * Commits the debit and releases the payout. Irreversible.
+   * Pass `{ retries: 0 }` from payout code: a blind replay of a finalize that timed out
+   * may have gone through, and the caller must ask `getPayout` instead.
+   */
+  async finalizePayout(quoteId: string, opts?: RequestOptions): Promise<Payout | undefined> {
     const data = await this.request<{ payout?: Payout } | undefined>(
       "POST",
       `/api/payouts/${encodeURIComponent(quoteId)}/finalize`,
+      undefined,
+      opts,
     );
     return data?.payout;
   }

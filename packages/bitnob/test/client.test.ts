@@ -146,6 +146,16 @@ describe("payout calls", () => {
     const { fetch } = fakeFetch(json(200, { success: true, message: "ok", data: null }));
     await expect(client(fetch).finalizePayout("QT2_1")).resolves.toBeUndefined();
   });
+
+  it("finalize with { retries: 0 } is sent once, even on a timeout or 5xx (no blind replay)", async () => {
+    const timeout = Object.assign(new Error("aborted"), { name: "TimeoutError" });
+    const a = fakeFetch(timeout, ok({ payout: { status: "processing" } }));
+    await expect(client(a.fetch).finalizePayout("QT2_1", { retries: 0 })).rejects.toMatchObject({ code: "TIMEOUT" });
+    expect(a.calls).toHaveLength(1);
+    const b = fakeFetch(json(503, { code: "UNAVAILABLE" }), ok({ payout: { status: "processing" } }));
+    await expect(client(b.fetch).finalizePayout("QT2_1", { retries: 0 })).rejects.toMatchObject({ status: 503 });
+    expect(b.calls).toHaveLength(1);
+  });
 });
 
 describe("errors (reviewer checklist)", () => {
