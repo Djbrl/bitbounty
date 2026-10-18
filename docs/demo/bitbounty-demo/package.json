@@ -1,0 +1,14 @@
+{
+  "name": "bitbounty-demo",
+  "version": "0.1.0",
+  "description": "Small helpers for FCFA amounts and Lightning sats. The demo repo of BitBounty.",
+  "type": "module",
+  "main": "src/fcfa.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
