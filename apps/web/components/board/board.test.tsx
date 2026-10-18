@@ -104,7 +104,7 @@ describe("BoardView", () => {
 
   it("renders hero stats, funded rows, external rows and the live column", async () => {
     const board = await getBoard();
-    const html = renderToStaticMarkup(<BoardView board={board} payouts={payouts} issues={{}} />);
+    const html = renderToStaticMarkup(<BoardView board={board} payouts={payouts} issues={{}} lang="en" />);
     expect(html).toContain(String(board.stats.paidCount));
     expect(html).toContain(formatXof(board.stats.paidTotalXof));
     expect(html).toContain(`${board.stats.medianMinutesMergeToPay} min`);
@@ -118,7 +118,7 @@ describe("BoardView", () => {
 
   it("renders the empty states", () => {
     const empty: Board = { stats: { paidCount: 0, paidTotalXof: 0, medianMinutesMergeToPay: 0, developersPaid: 0 }, bounties: [], external: [] };
-    const html = renderToStaticMarkup(<BoardView board={empty} payouts={[]} issues={{}} />);
+    const html = renderToStaticMarkup(<BoardView board={empty} payouts={[]} issues={{}} lang="en" />);
     expect(html).toContain("No funded issues right now");
     expect(html).toContain("No payouts yet");
     expect(html).not.toContain("Paid in dollars elsewhere");

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { LANG_COOKIE, parseLang } from "@/components/app-shell/mode";
+import { readCookie } from "@/components/hunt/data";
 import { BoardView } from "../../components/board/board-view";
 import { getBoard, getIssueIndex, getRecentPayouts } from "../../components/board/data";
 
@@ -10,7 +12,16 @@ export const metadata: Metadata = {
 // Rendered per request: the data comes from the server (I1), never baked in at build time.
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  const [board, payouts, issues] = await Promise.all([getBoard(), getRecentPayouts(), getIssueIndex()]);
-  return <BoardView board={board} payouts={payouts} issues={issues} />;
+type Params = { q?: string | string[] };
+
+export default async function Home({ searchParams }: { searchParams: Promise<Params> }) {
+  const [board, payouts, issues, langCookie, params] = await Promise.all([
+    getBoard(),
+    getRecentPayouts(),
+    getIssueIndex(),
+    readCookie(LANG_COOKIE),
+    searchParams,
+  ]);
+  const q = (Array.isArray(params.q) ? params.q[0] : params.q) ?? "";
+  return <BoardView board={board} payouts={payouts} issues={issues} lang={parseLang(langCookie)} q={q.slice(0, 100)} now={Date.now()} />;
 }
