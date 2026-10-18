@@ -25,7 +25,7 @@ export default async function MePage({ searchParams }: Props) {
   return (
     <Page
       width="narrow"
-      nav={{ items: [{ href: "/", label: "Bounties" }, { href: "/me", label: "Mon compte" }], active: "/me", initials }}
+      nav={{ items: [{ href: "/explore", label: "Bounties" }, { href: "/me", label: "Mon compte" }], active: "/me", initials }}
     >
       {/* key: a new ?state= remounts the flow at the right step */}
       <Onboarding key={state ?? "default"} me={me} />

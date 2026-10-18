@@ -20,7 +20,7 @@ export default async function ProfilePage({ params }: Props) {
   const data = await fetchProfile(decodeURIComponent(login));
   if (!data) notFound();
   return (
-    <Page nav={{ items: [{ href: "/explore", label: "Explore" }, { href: "/live", label: "Live" }] }}>
+    <Page nav={{ items: [{ href: "/explore", label: "Board" }, { href: "/live", label: "Live" }] }}>
       <ProfileView data={data} />
     </Page>
   );

@@ -21,7 +21,7 @@ export default async function FundPage({ params }: Props) {
     <Page
       nav={{
         items: [
-          { href: "/explore", label: "Explore" },
+          { href: "/explore", label: "Board" },
           { href: "/dashboard", label: "Dashboard" },
         ],
         initials: bounty.funderLogin.slice(0, 2),

@@ -8,7 +8,7 @@ export default function ReceiptNotFound() {
         <h1 className="text-2xl font-extrabold">Reçu introuvable</h1>
         <p className="text-muted">Ce reçu n&apos;existe pas, ou le lien est incorrect.</p>
         <Link href="/explore" className={buttonClass({ className: "justify-self-center" })}>
-          Voir les bounties
+          Retour au tableau
         </Link>
       </Card>
     </Page>

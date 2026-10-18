@@ -9,7 +9,7 @@ export default function BountyNotFound() {
         <h1 className="text-2xl font-extrabold">Bounty not found</h1>
         <p className="text-muted">This bounty doesn&apos;t exist, or the link is wrong.</p>
         <Link href="/explore" className={buttonClass({ className: "justify-self-center" })}>
-          Explore bounties
+          Back to the board
         </Link>
       </Card>
     </Page>
