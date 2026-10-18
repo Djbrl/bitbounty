@@ -45,6 +45,14 @@ export class FakeBitnob {
     if (!inv) throw new Error(`no invoice ${id}`);
     return inv;
   }
+  /** Sandbox simulate-payment (B1 "Pay (sandbox)" button). */
+  simulated: string[] = [];
+  async simulateLightningPayment(id: string) {
+    const inv = await this.getLightningInvoice(id);
+    this.simulated.push(id);
+    inv.status = "paid";
+    return inv;
+  }
   /** What a funder's wallet does. */
   payInvoice(id: string) {
     this.invoices.get(id)!.status = "paid";

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { Button, Card, Dot, Pill, buttonClass, cx, formatXof } from "../ui";
-import { FundApiError, createFunding, pollFunding } from "./api";
+import { FundApiError, createFunding, pollFunding, simulateFunding } from "./api";
 import { CopyButton } from "./copy-button";
 import type { BountyStatus, FundBounty, FundingRail, FundingSession } from "./data";
 import { RAIL_META, formatCountdown, groupAccountNumber, msLeft, sourceAmount, sourceAmountRaw } from "./format";
@@ -82,7 +82,7 @@ export function FundView({ bounty }: FundViewProps) {
             <RailTabs rail={state.rail} onSelect={(rail) => dispatch({ type: "select", rail })} />
             <div role="tabpanel" id={`fund-panel-${state.rail}`} aria-labelledby={`fund-tab-${state.rail}`}>
               {session && now != null && msLeft(session.expiresAt, now) > 0 ? (
-                <RailPanel session={session} now={now} />
+                <RailPanel session={session} now={now} bountyId={bounty.id} onPaid={() => dispatch({ type: "paid" })} />
               ) : (
                 <Card padding="lg" className="grid min-h-[200px] place-items-center gap-3 text-center text-sm text-muted">
                   {state.error ? (
@@ -216,7 +216,48 @@ function Mono({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
-function RailPanel({ session, now }: { session: FundingSession; now: number }) {
+/** Testnet / signet / regtest BOLT11 (Bitnob sandbox): real wallets refuse it. */
+export function isTestInvoice(invoice: string): boolean {
+  return /^(lightning:)?ln(tb|tbs|bcrt)/i.test(invoice.trim());
+}
+
+/** "Pay (sandbox)": settles a sandbox invoice through the server (Bitnob simulate-payment). */
+function SandboxPayButton({ bountyId, onPaid }: { bountyId: string; onPaid?: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <Button
+        variant="primary"
+        size="sm"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setError(null);
+          simulateFunding(bountyId).then(
+            (r) => {
+              if (r.status === "paid") onPaid?.();
+              setBusy(false); // pending: the status poll shows paid shortly
+            },
+            (e: unknown) => {
+              setBusy(false);
+              setError(e instanceof FundApiError && e.code === "sandbox_only" ? "Sandbox payment unavailable on this server." : "Sandbox payment failed. Try again.");
+            },
+          );
+        }}
+      >
+        {busy ? "Paying…" : "Pay (sandbox)"}
+      </Button>
+      {error && (
+        <span role="alert" className="text-[12.5px] text-danger">
+          {error}
+        </span>
+      )}
+    </>
+  );
+}
+
+function RailPanel({ session, now, bountyId, onPaid }: { session: FundingSession; now: number; bountyId: string; onPaid?: () => void }) {
   if (session.rail === "ngn") {
     const va = session.virtualAccount;
     return (
@@ -253,6 +294,7 @@ function RailPanel({ session, now }: { session: FundingSession; now: number }) {
 
   const ln = session.rail === "lightning";
   const value = ln ? session.invoice : session.address;
+  const testnet = ln && isTestInvoice(session.invoice);
   return (
     <Card padding="lg" className="grid items-center justify-items-center gap-5 sm:grid-cols-[180px_minmax(0,1fr)] sm:justify-items-stretch">
       <QrCode value={value} label={ln ? "Lightning invoice QR code" : "USDT deposit address QR code"} className="sm:max-w-none" />
@@ -271,7 +313,13 @@ function RailPanel({ session, now }: { session: FundingSession; now: number }) {
           ) : (
             <CopyButton value={sourceAmountRaw(session)} label="Copy amount" />
           )}
+          {testnet && <SandboxPayButton bountyId={bountyId} onPaid={onPaid} />}
         </div>
+        {testnet && (
+          <p className="text-[12.5px] text-muted" data-testid="fund-sandbox-note">
+            Test invoice (testnet): real wallets like Blink refuse it. Use “Pay (sandbox)”.
+          </p>
+        )}
         {!ln && <p className="text-[12.5px] text-muted">Send exactly this amount on {session.network}. Other networks are lost.</p>}
         <Countdown session={session} now={now} />
         <Waiting />

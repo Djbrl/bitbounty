@@ -27,6 +27,14 @@ export function createFunding(id: string, rail: FundingRail): Promise<FundingSes
   });
 }
 
+/**
+ * Browser: POST /api/bounties/:id/funding/simulate → settles the open sandbox (testnet) invoice.
+ * The server refuses (403 sandbox_only) on production Bitnob keys.
+ */
+export function simulateFunding(id: string): Promise<PollResult> {
+  return call(`/api/bounties/${encodeURIComponent(id)}/funding/simulate`, { method: "POST" });
+}
+
 /** Browser: GET /api/bounties/:id/funding → pending | paid. */
 export function pollFunding(id: string): Promise<PollResult> {
   return call(`/api/bounties/${encodeURIComponent(id)}/funding`);

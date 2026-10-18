@@ -4,7 +4,10 @@ import funding from "../../../../fixtures/funding.json";
 import type { BountyStatus, FundingSession } from "./data";
 import { getFundBounty } from "./data";
 import { formatCountdown, formatNaira, formatUsdt, groupAccountNumber, msLeft, sourceAmount, summaryLines } from "./format";
-import { FundView, fundOutcome, payState, type FundOutcome } from "./fund-view";
+import bounties from "../../../../fixtures/bounties.json";
+import dashboard from "../../../../fixtures/dashboard.json";
+import { handleMock, type Fixtures } from "../../lib/mock-api";
+import { FundView, fundOutcome, isTestInvoice, payState, type FundOutcome } from "./fund-view";
 import { encodeQr, qrPath } from "./qr";
 import { QrCode } from "./qr-code";
 import { errorMessage, fundReducer, initialFundState, needsSession } from "./state";
@@ -239,5 +242,19 @@ describe("fund page", () => {
     expect(qr).toContain('data-qr-size="21"');
     const card = sp(renderToStaticMarkup(<SummaryCard bounty={getFundBounty("b-101")!} session={ln} sats={17474} />));
     expect(card).toContain("10 800 F · 17 474 sats");
+  });
+
+  it("offers the sandbox pay only for testnet invoices, and the mock settles it", () => {
+    expect(isTestInvoice(funding.lightning.invoice)).toBe(true); // fixture is lntbs (signet)
+    expect(isTestInvoice("lntb10u1p4d8hgupp5g6p0nu")).toBe(true);
+    expect(isTestInvoice("lnbcrt100n1abc")).toBe(true);
+    expect(isTestInvoice("lnbc10u1p4d8hgupp5")).toBe(false);
+
+    const fx = { bounties, dashboard, funding } as unknown as Fixtures;
+    const q = new URLSearchParams();
+    const id = "b-101";
+    expect(handleMock(fx, "POST", ["bounties", id, "funding"], q, { rail: "lightning" })).toMatchObject({ status: 200 });
+    expect(handleMock(fx, "POST", ["bounties", id, "funding", "simulate"], q)).toMatchObject({ status: 200, json: { status: "paid" } });
+    expect(handleMock(fx, "GET", ["bounties", id, "funding"], q)).toMatchObject({ json: { status: "paid" } });
   });
 });

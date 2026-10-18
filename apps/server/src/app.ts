@@ -203,6 +203,19 @@ if (bitnobSecret) {
 /** Fundings (B1), shared with the read API (I1) so /b/:id shows them. In memory until DrizzleFundingStore lands. */
 export const fundingStore = new InMemoryFundingStore();
 
+/**
+ * "Pay (sandbox)" gate: true only when Bitnob's whoami says these keys are **sandbox**
+ * (BITNOB_SANDBOX_PAY=0 turns it off). Asked once; a failed whoami is retried next time.
+ */
+function sandboxKeys(client: BitnobClient): () => Promise<boolean> {
+  if (process.env.BITNOB_SANDBOX_PAY?.trim() === "0") return async () => false;
+  let known: boolean | undefined;
+  return async () => {
+    if (known === undefined) known = (await client.whoami()).environment === "sandbox";
+    return known;
+  };
+}
+
 export const lightningFunding =
   process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET
     ? (() => {
@@ -214,6 +227,7 @@ export const lightningFunding =
           customers: new BitnobFunderCustomers(client),
           bounties: bountyRepo,
           emit: applyFundingPaid(bountyRepo, eventBus),
+          isSandbox: sandboxKeys(client),
         });
         lf.startPolling();
         return lf;
