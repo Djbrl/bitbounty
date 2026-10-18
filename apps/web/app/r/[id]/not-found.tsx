@@ -7,7 +7,7 @@ export default function ReceiptNotFound() {
       <Card padding="lg" className="grid gap-3 text-center">
         <h1 className="font-display text-2xl font-extrabold">Reçu introuvable</h1>
         <p className="text-muted">Ce reçu n&apos;existe pas, ou le lien est incorrect.</p>
-        <Link href="/" className={buttonClass({ className: "justify-self-center" })}>
+        <Link href="/explore" className={buttonClass({ className: "justify-self-center" })}>
           Retour au tableau
         </Link>
       </Card>

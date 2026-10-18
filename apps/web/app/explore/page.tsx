@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { BoardView } from "../components/board/board-view";
-import { getBoard, getIssueIndex, getRecentPayouts } from "../components/board/data";
+import { BoardView } from "../../components/board/board-view";
+import { getBoard, getIssueIndex, getRecentPayouts } from "../../components/board/data";
 
 export const metadata: Metadata = {
   title: "BitBounty · Paid issues",
