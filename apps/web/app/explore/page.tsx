@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { LANG_COOKIE, parseLang } from "@/components/app-shell/mode";
 import { readCookie } from "@/components/hunt/data";
 import { BoardView } from "../../components/board/board-view";
+import { orFallback } from "../../lib/api";
 import { getBoard, getIssueIndex, getRecentPayouts } from "../../components/board/data";
 
 export const metadata: Metadata = {
@@ -17,8 +18,8 @@ type Params = { q?: string | string[] };
 export default async function Home({ searchParams }: { searchParams: Promise<Params> }) {
   const [board, payouts, issues, langCookie, params] = await Promise.all([
     getBoard(),
-    getRecentPayouts(),
-    getIssueIndex(),
+    orFallback(getRecentPayouts(), [], "recent payouts"),
+    orFallback(getIssueIndex(), {}, "issue index"),
     readCookie(LANG_COOKIE),
     searchParams,
   ]);

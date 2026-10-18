@@ -3,7 +3,7 @@
 import receipts from "../../../../fixtures/receipts.json";
 import users from "../../../../fixtures/users.json";
 import type { Profile, Receipt } from "../../../../fixtures/types";
-import { apiBaseUrl, apiGet } from "../../lib/api";
+import { apiBaseUrl, apiGet, orFallback } from "../../lib/api";
 import { handleMock, type Fixtures } from "../../lib/mock-api";
 
 const fx = { users, receipts } as unknown as Fixtures;
@@ -144,7 +144,7 @@ export async function fetchProfile(login: string, now: Date = new Date()): Promi
   if (!p) return null;
   const receipts = new Map<string, Receipt | null>();
   await Promise.all(
-    p.work.map(async (w) => receipts.set(w.receiptId, await apiGet<Receipt>(`/api/receipts/${encodeURIComponent(w.receiptId)}`))),
+    p.work.map(async (w) => receipts.set(w.receiptId, await orFallback(apiGet<Receipt>(`/api/receipts/${encodeURIComponent(w.receiptId)}`), null, `receipt ${w.receiptId}`))),
   );
   return shapeProfile(p, (id) => receipts.get(id) ?? null, now);
 }
