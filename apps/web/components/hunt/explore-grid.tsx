@@ -47,9 +47,9 @@ export function ExploreGrid({ bounties, lang, now, q = "" }: { bounties: BountyS
                 ))}
               </select>
             </label>
-            <label className="grid min-w-0 flex-1 gap-1 text-[12px] text-muted sm:max-w-64">
+            <label className="grid min-w-0 flex-1 basis-full gap-1 text-[12px] text-muted sm:basis-auto sm:max-w-64">
               {t.search}
-              <input type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} className={SELECT} />
+              <input type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} className={`${SELECT} w-full min-w-0`} />
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-1.5" aria-label={t.amount} role="group">
