@@ -67,9 +67,12 @@ export function FundView({ bounty }: FundViewProps) {
   return (
     <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <div className="grid min-w-0 gap-4">
-        <h1 className="text-2xl font-extrabold tracking-tight">
-          {state.phase === "funded" ? "Bounty funded" : "Fund this bounty"}
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-extrabold tracking-tight">
+            {state.phase === "funded" ? "Bounty funded" : "Fund this bounty"}
+          </h1>
+          <PayState state={payState(state.phase, state.error, session, now)} />
+        </div>
         {state.phase === "funded" ? (
           <FundedPanel bounty={bounty} />
         ) : (
@@ -100,6 +103,34 @@ export function FundView({ bounty }: FundViewProps) {
       </div>
       <SummaryCard bounty={bounty} session={fundedSession} sats={state.sats} />
     </div>
+  );
+}
+
+export type PayStateKey = "preparing" | "waiting" | "expired" | "error" | "paid";
+
+/** U5: the one state the payer needs to read at a glance. */
+export function payState(phase: string, error: string | null, session: FundingSession | null, now: number | null): PayStateKey {
+  if (phase === "funded") return "paid";
+  if (error) return "error";
+  if (!session || now == null) return "preparing";
+  return msLeft(session.expiresAt, now) > 0 ? "waiting" : "expired";
+}
+
+const PAY_STATE = {
+  preparing: { tone: "neutral", label: "Preparing", pulse: true },
+  waiting: { tone: "pending", label: "Waiting for payment", pulse: true },
+  expired: { tone: "pending", label: "Expired · refreshing", pulse: false },
+  error: { tone: "danger", label: "Not available", pulse: false },
+  paid: { tone: "money-solid", label: "Paid", pulse: false },
+} as const;
+
+function PayState({ state }: { state: PayStateKey }) {
+  const m = PAY_STATE[state];
+  return (
+    <Pill tone={m.tone} data-pay-state={state} role="status">
+      <Dot pulse={m.pulse} className="bg-current" />
+      {m.label}
+    </Pill>
   );
 }
 

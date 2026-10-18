@@ -1,4 +1,4 @@
-import { installations, payoutAccounts, repos, users, type Database } from "@bitbounty/db";
+import { payoutAccounts, users, type Database } from "@bitbounty/db";
 import { eq, sql } from "drizzle-orm";
 import { ensureUserId } from "../bounties/drizzle-repo.js";
 import { normalizePreferences, type Profile, type ProfilePatch, type ProfileStore } from "./profile.js";
@@ -31,7 +31,6 @@ export class DrizzleProfileStore implements ProfileStore {
     const id = await ensureUserId(this.db, login);
     const cur = await this.get(login);
     const set: Partial<typeof users.$inferInsert> = {};
-    if (patch.defaultMode) set.defaultMode = patch.defaultMode;
     if (patch.preferences) set.preferences = { ...normalizePreferences(patch.preferences, cur.preferences) };
     if (patch.done && !cur.onboardedAt) set.onboardedAt = new Date();
     if (Object.keys(set).length) await this.db.update(users).set(set).where(eq(users.id, id));
@@ -45,15 +44,4 @@ export class DrizzleProfileStore implements ProfileStore {
       .values({ userId, lightningAddress: address, country: "SN" })
       .onConflictDoUpdate({ target: payoutAccounts.userId, set: { lightningAddress: address } });
   }
-}
-
-/** Repos under a GitHub App installation owned by `login` (what G3/installation sync stored). */
-export async function installedReposOf(db: Database, login: string): Promise<string[]> {
-  const rows = await db
-    .select({ fullName: repos.fullName })
-    .from(repos)
-    .innerJoin(installations, eq(repos.installationId, installations.id))
-    .where(sql`lower(${installations.accountLogin}) = lower(${login})`)
-    .limit(100);
-  return rows.map((r) => r.fullName);
 }

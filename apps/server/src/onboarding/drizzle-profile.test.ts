@@ -1,7 +1,7 @@
 import { createDb, runMigrations, seed } from "@bitbounty/db";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DrizzleProfileStore, installedReposOf } from "./drizzle-profile.js";
+import { DrizzleProfileStore } from "./drizzle-profile.js";
 
 const url = process.env.DATABASE_URL;
 
@@ -33,18 +33,14 @@ describe.skipIf(!url)("DrizzleProfileStore (DATABASE_URL)", () => {
     expect(await store.get("nobody-yet")).toMatchObject({ defaultMode: null, onboardedAt: null, lightningAddress: null, preferences: { step: 1, currency: "xof" } });
   });
 
-  it("saves mode, preferences, onboardedAt (once) and the Lightning Address", async () => {
-    await store.update("Awa-New", { defaultMode: "hunt", preferences: { role: "hunt", stack: ["Go"], step: 2 } });
+  it("saves preferences, onboardedAt (once) and the Lightning Address", async () => {
+    await store.update("Awa-New", { preferences: { role: "hunt", stack: ["Go"], step: 2 } });
     const done = await store.update("awa-new", { preferences: { step: 3 }, done: true });
-    expect(done).toMatchObject({ defaultMode: "hunt", preferences: { role: "hunt", stack: ["Go"], step: 3 } });
+    expect(done).toMatchObject({ preferences: { role: "hunt", stack: ["Go"], step: 3 } });
     expect(done.onboardedAt).toMatch(/^\d{4}-/);
     expect((await store.update("awa-new", { done: true })).onboardedAt).toBe(done.onboardedAt);
     await store.setLightningAddress("awa-new", "awa@blink.sv");
     await store.setLightningAddress("awa-new", "awa2@blink.sv");
     expect((await store.get("AWA-NEW")).lightningAddress).toBe("awa2@blink.sv");
-  });
-
-  it("lists repos under the user's installations", async () => {
-    expect(Array.isArray(await installedReposOf(conn.db, "Djbrl"))).toBe(true);
   });
 });

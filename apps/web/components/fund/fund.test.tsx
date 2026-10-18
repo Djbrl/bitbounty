@@ -4,7 +4,7 @@ import funding from "../../../../fixtures/funding.json";
 import type { FundingSession } from "./data";
 import { getFundBounty } from "./data";
 import { formatCountdown, formatNaira, formatUsdt, groupAccountNumber, msLeft, sourceAmount, summaryLines } from "./format";
-import { FundView } from "./fund-view";
+import { FundView, payState } from "./fund-view";
 import { encodeQr, qrPath } from "./qr";
 import { QrCode } from "./qr-code";
 import { errorMessage, fundReducer, initialFundState, needsSession } from "./state";
@@ -165,6 +165,17 @@ describe("fund page", () => {
     const html = renderToStaticMarkup(<FundView bounty={getFundBounty("b-102")!} />);
     expect(html).toContain("Funded");
     expect(html).not.toContain('role="tab"');
+    expect(html).toContain('data-pay-state="paid"');
+  });
+
+  it("shows one clear state: preparing, waiting, expired, error, paid (U5)", () => {
+    const exp = new Date(ln.expiresAt).getTime();
+    expect(payState("paying", null, null, null)).toBe("preparing");
+    expect(payState("paying", null, ln, exp - 1000)).toBe("waiting");
+    expect(payState("paying", null, ln, exp + 1000)).toBe("expired");
+    expect(payState("paying", "boom", ln, exp - 1000)).toBe("error");
+    expect(payState("funded", null, ln, exp + 1000)).toBe("paid");
+    expect(renderToStaticMarkup(<FundView bounty={getFundBounty("b-101")!} />)).toContain('data-pay-state="preparing"');
   });
 
   it("renders a scannable QR and the summary card", () => {

@@ -176,8 +176,6 @@ export function handleMock(
     const st = mockOnboarding(fx);
     if (method === 'GET') return ok(st);
     if (method === 'POST') {
-      if (body.defaultMode !== undefined && body.defaultMode !== 'maintain' && body.defaultMode !== 'hunt') return err(400, 'invalid_default_mode');
-      if (body.defaultMode) st.defaultMode = body.defaultMode as OnboardingState['defaultMode'];
       if (body.preferences && typeof body.preferences === 'object') st.preferences = { ...st.preferences, ...(body.preferences as Partial<OnboardingState['preferences']>) };
       if (body.done === true && !st.onboardedAt) st.onboardedAt = now.toISOString();
       return ok(st);
@@ -193,6 +191,18 @@ export function handleMock(
     const masked = `${m[1]!.slice(0, 2)}***@${m[2]}`;
     mockOnboarding(fx).lightningAddress = masked;
     return ok({ lightningAddress: masked });
+  }
+
+  // U2: the app shell's workspace (the web also remembers it in the bb_mode cookie).
+  if (root === 'me' && id === 'mode') {
+    // U1: /welcome saves the mode here too; the mock remembers it with the onboarding answers.
+    const st = (globalThis as Holder)[ONBOARDING_KEY];
+    if (method === 'GET') return ok({ defaultMode: st?.defaultMode ?? null, installedRepos: (fx.dashboard?.repos ?? []).map((r) => r.fullName) });
+    if (method === 'POST') {
+      if (body.mode !== 'hunt' && body.mode !== 'maintain') return err(400, 'invalid_mode');
+      if (st) st.defaultMode = body.mode;
+      return ok({ defaultMode: body.mode });
+    }
   }
 
   if (root === 'me') {

@@ -25,6 +25,7 @@ function setup(opts: { checker?: { check: (a: string) => Promise<unknown> } } = 
       checker: checker as never,
       getLogin: (c) => requestUser(c, TOKEN),
       languagesOf: async () => ["TypeScript", "Go"],
+      modeOf: async () => "hunt",
       reposOf: async () => ["awa-dev/api"],
     }),
   );
@@ -49,7 +50,7 @@ describe("U1 onboarding routes", () => {
     const body = await (await call("GET", "/api/me/onboarding")).json();
     expect(body).toMatchObject({
       login: "awa-dev",
-      defaultMode: null,
+      defaultMode: "hunt",
       onboardedAt: null,
       preferences: { role: null, stack: [], currency: "xof", language: "fr", repo: null, step: 1 },
       lightningAddress: null,
@@ -59,10 +60,11 @@ describe("U1 onboarding routes", () => {
     });
   });
 
-  it("saves mode, preferences and step; done sets onboardedAt once", async () => {
-    const { call } = setup();
-    let res = await call("POST", "/api/me/onboarding", { defaultMode: "hunt", preferences: { role: "both", step: 2 } });
+  it("saves preferences and step (the mode is U2's /api/me/mode); done sets onboardedAt once", async () => {
+    const { call, store } = setup();
+    let res = await call("POST", "/api/me/onboarding", { defaultMode: "maintain", preferences: { role: "both", step: 2 } });
     expect(await res.json()).toMatchObject({ defaultMode: "hunt", preferences: { role: "both", step: 2 }, onboardedAt: null });
+    expect((await store.get("awa-dev")).defaultMode).toBeNull();
     res = await call("POST", "/api/me/onboarding", { preferences: { stack: ["Go", "go", " Rust "], currency: "sats", language: "en", step: 3 } });
     expect((await res.json()).preferences).toMatchObject({ role: "both", stack: ["Go", "Rust"], currency: "sats", language: "en", step: 3 });
     res = await call("POST", "/api/me/onboarding", { done: true });
@@ -72,7 +74,6 @@ describe("U1 onboarding routes", () => {
   });
 
   it.each([
-    [{ defaultMode: "both" }, "invalid_default_mode"],
     [{ preferences: { currency: "usd" } }, "invalid_currency"],
     [{ preferences: { step: 4 } }, "invalid_step"],
     [{ preferences: { repo: "../etc" } }, "invalid_repo"],

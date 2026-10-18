@@ -133,27 +133,54 @@ export function actorLabel(actor: string): string {
   return actor === "bitbounty" || actor === "bitnob" ? actor : `@${actor}`;
 }
 
+export type MilestoneKey = "funded" | "claimed" | "pr" | "verified" | "paid";
+
 export interface Step {
+  key: MilestoneKey;
   label: string;
   done: boolean;
   at: string | null;
+  /** Who / what, e.g. "@awa-ndiaye" or "PR #34 by @awa-ndiaye". */
+  detail: string | null;
 }
 
-/** The mini progress row from the GitHub status comment: Funded → Claimed → PR → Merged → Paid. */
+/** Events that put a bounty back to "funded": claims and PRs before them no longer count. */
+const RESETS: EventType[] = ["maintainer.reject", "claim.released", "claim.expired"];
+const VERIFIED_OR_LATER: BountyDetail["status"][] = ["verified", "paying", "paid"];
+
+/** U5 milestone tracker: Funded → Claimed → PR → Verified → Paid, each with when and who. */
 export function progressSteps(b: BountyDetail): Step[] {
-  const last = (types: EventType[]) =>
-    [...b.timeline].reverse().find((e) => types.includes(e.type))?.occurredAt ?? null;
-  const steps: Array<[string, EventType[]]> = [
-    ["Funded", ["funding.paid"]],
-    ["Claimed", ["claim.created"]],
-    ["PR checked", ["verify.done"]],
-    ["Merged", ["pr.merged", "maintainer.pay"]],
-    ["Paid", ["payout.succeeded"]],
+  const tl = b.timeline;
+  const lastReset = tl.reduce((n, e, i) => (RESETS.includes(e.type) ? i : n), -1);
+  const current = tl.slice(lastReset + 1);
+  const lastOf = (events: typeof tl, type: EventType) => [...events].reverse().find((e) => e.type === type);
+  const funded = lastOf(tl, "funding.paid");
+  const claimed = lastOf(current, "claim.created");
+  const pr = lastOf(current, "pr.linked");
+  const verified = current.find((e) => VERIFIED_OR_LATER.includes(e.to));
+  const paid = lastOf(current, "payout.succeeded");
+  const sub = b.submission;
+  const claimer = b.claims.find((c) => c.status === "active" || c.status === "done")?.userLogin ?? claimed?.actor;
+  const at = (e: { occurredAt: string } | undefined) => e?.occurredAt ?? null;
+  return [
+    { key: "funded", label: "Funded", done: !!funded, at: at(funded), detail: funded ? `@${b.funderLogin}` : null },
+    { key: "claimed", label: "Claimed", done: !!claimed, at: at(claimed), detail: claimed && claimer ? `@${claimer}` : null },
+    {
+      key: "pr",
+      label: "PR",
+      done: !!pr,
+      at: at(pr),
+      detail: pr && sub ? `PR #${sub.prNumber} by @${sub.authorLogin}` : null,
+    },
+    { key: "verified", label: "Verified", done: !!verified, at: at(verified), detail: verified ? "criteria met, merged" : null },
+    {
+      key: "paid",
+      label: "Paid",
+      done: !!paid,
+      at: at(paid),
+      detail: paid && b.payout ? `@${b.payout.userLogin} over Lightning` : null,
+    },
   ];
-  return steps.map(([label, types]) => {
-    const at = last(types);
-    return { label, done: at !== null, at };
-  });
 }
 
 /** Criteria met / total from Claude's report, or null when there's no report yet. */

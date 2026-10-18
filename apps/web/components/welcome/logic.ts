@@ -25,14 +25,8 @@ export function modeForRole(role: OnboardingRole, intent: UserMode | null): User
 export const showsHunter = (role: OnboardingRole | null) => role !== "maintain";
 export const showsMaintainer = (role: OnboardingRole | null) => role === "maintain" || role === "both";
 
-/**
- * Where the user lands once onboarded.
- * TODO(U2): `/app` (U2) isn't on main yet; switch both to "/app" once it lands (it redirects to
- * /app/hunt or /app/maintain from defaultMode).
- */
-export function workspaceHref(mode: UserMode | null): string {
-  return mode === "maintain" ? "/dashboard" : "/me";
-}
+/** Where the user lands once onboarded: U2's /app sends them to /app/hunt or /app/maintain (saved mode). */
+export const APP_HREF = "/app";
 
 /** Common stacks offered next to the user's GitHub languages. */
 export const STACK_SUGGESTIONS = [

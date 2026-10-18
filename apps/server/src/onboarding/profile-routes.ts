@@ -1,4 +1,4 @@
-import { maskLightningAddress } from "@bitbounty/core";
+import { maskLightningAddress, type UserMode } from "@bitbounty/core";
 import { Hono, type Context } from "hono";
 import { LnurlError, type LnurlChecker } from "../payouts/lnurl.js";
 import { normalizeLightningAddress, parseProfilePatch, type Profile, type ProfileStore } from "./profile.js";
@@ -13,6 +13,8 @@ export interface ProfileRoutesDeps {
   getLogin: (c: Context) => string | null;
   /** Top languages of the user's public GitHub repos (cached; [] on failure). */
   languagesOf?: (login: string) => Promise<string[]>;
+  /** U2's saved workspace (users.default_mode, POST /api/me/mode). Defaults to the store's value. */
+  modeOf?: (login: string) => Promise<UserMode | null>;
   /** Repos where the GitHub App is installed for this user (installations + bounties they funded). */
   reposOf?: (login: string) => Promise<string[]>;
 }
@@ -20,7 +22,7 @@ export interface ProfileRoutesDeps {
 /**
  * U1 (/welcome onboarding):
  * GET  /api/me/onboarding                    → OnboardingState (answers so far + GitHub languages + installed repos)
- * POST /api/me/onboarding {defaultMode?, preferences?, done?} → OnboardingState (done sets onboardedAt once)
+ * POST /api/me/onboarding {preferences?, done?} → OnboardingState (done sets onboardedAt once; the mode is U2's POST /api/me/mode)
  * POST /api/me/lightning-address {lightningAddress} → {lightningAddress: masked}
  *      400 invalid_lightning_address · 422 lightning_address_unreachable (+ retryable)
  */
@@ -28,13 +30,14 @@ export function profileRoutes(deps: ProfileRoutesDeps) {
   const app = new Hono();
 
   const view = async (login: string, p: Profile) => {
-    const [githubLanguages, installedRepos] = await Promise.all([
+    const [defaultMode, githubLanguages, installedRepos] = await Promise.all([
+      deps.modeOf ? deps.modeOf(login) : Promise.resolve(p.defaultMode),
       deps.languagesOf?.(login).catch(() => []) ?? Promise.resolve([]),
       deps.reposOf?.(login).catch(() => []) ?? Promise.resolve([]),
     ]);
     return {
       login,
-      defaultMode: p.defaultMode,
+      defaultMode,
       onboardedAt: p.onboardedAt,
       preferences: p.preferences,
       lightningAddress: p.lightningAddress ? maskLightningAddress(p.lightningAddress) : null,

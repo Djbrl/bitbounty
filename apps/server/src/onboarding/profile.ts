@@ -36,8 +36,8 @@ export interface Profile {
 
 export const DEFAULT_PREFERENCES: Preferences = { role: null, stack: [], currency: "xof", language: "fr", repo: null, step: 1 };
 
+/** `defaultMode` isn't here: U2's POST /api/me/mode saves it (users.default_mode). */
 export interface ProfilePatch {
-  defaultMode?: UserMode;
   preferences?: Partial<Preferences>;
   /** Sets onboardedAt (once; later saves keep the first date). */
   done?: boolean;
@@ -77,15 +77,11 @@ export function normalizePreferences(raw: unknown, base: Preferences = DEFAULT_P
 
 export type PatchResult = { ok: true; patch: ProfilePatch } | { ok: false; error: string };
 
-/** Validates a POST /api/me/onboarding body. Unknown keys are ignored; bad values are refused. */
+/** Validates a POST /api/me/onboarding body. Unknown keys (incl. defaultMode, see U2) are ignored; bad values are refused. */
 export function parseProfilePatch(body: unknown): PatchResult {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "invalid_body" };
   const b = body as Record<string, unknown>;
   const patch: ProfilePatch = {};
-  if (b.defaultMode !== undefined) {
-    if (!USER_MODES.includes(b.defaultMode as UserMode)) return { ok: false, error: "invalid_default_mode" };
-    patch.defaultMode = b.defaultMode as UserMode;
-  }
   if (b.preferences !== undefined) {
     const p = b.preferences;
     if (!p || typeof p !== "object" || Array.isArray(p)) return { ok: false, error: "invalid_preferences" };
@@ -133,7 +129,6 @@ export class InMemoryProfileStore implements ProfileStore {
     const cur = await this.get(login);
     const next: Profile = {
       ...cur,
-      defaultMode: patch.defaultMode ?? cur.defaultMode,
       preferences: patch.preferences ? normalizePreferences(patch.preferences, cur.preferences) : cur.preferences,
       onboardedAt: patch.done ? (cur.onboardedAt ?? this.now().toISOString()) : cur.onboardedAt,
     };

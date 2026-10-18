@@ -29,6 +29,6 @@ export {
   type ProfilePatch,
   type ProfileStore,
 } from "./profile.js";
-export { DrizzleProfileStore, installedReposOf } from "./drizzle-profile.js";
+export { DrizzleProfileStore } from "./drizzle-profile.js";
 export { githubLanguages, topLanguages } from "./github-languages.js";
 export { GITHUB_APP_INSTALL_URL, profileRoutes, type ProfileRoutesDeps } from "./profile-routes.js";

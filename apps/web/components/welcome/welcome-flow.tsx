@@ -20,7 +20,7 @@ import {
   stackOptions,
   STEP_COUNT,
   toggle,
-  workspaceHref,
+  APP_HREF,
   type Step,
 } from "./logic";
 
@@ -82,12 +82,19 @@ export function WelcomeFlow({ initial, intent, step: initialStep, api = welcomeA
   }
 
   async function finish() {
-    const done = await save({ done: true });
-    if (done) window.location.assign(workspaceHref(done.defaultMode));
+    if (await save({ done: true })) window.location.assign(APP_HREF);
   }
 
-  const stepOne = () => next(role ? { defaultMode: modeForRole(role, intent), preferences: { role } } : {}, 2);
-  const stepTwo = () => next({ preferences: { stack, currency, language, repo } }, 3);
+  async function stepOne() {
+    // The workspace goes through U2's mode storage (cookie + users.default_mode); the rest through /api/me/onboarding.
+    if (role) await api.saveMode(modeForRole(role, intent));
+    await next(role ? { preferences: { role } } : {}, 2);
+  }
+
+  async function stepTwo() {
+    await api.saveLang(language);
+    await next({ preferences: { stack, currency, language, repo } }, 3);
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start" lang="fr">

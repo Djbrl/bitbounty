@@ -1,7 +1,7 @@
 import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
-import { ActivityLog, readApiRoutes } from "./api/index.js";
+import { ActivityLog, DrizzleModeStore, InMemoryModeStore, modeRoutes, readApiRoutes } from "./api/index.js";
 import { DrizzleFundingReader, mergeFundings } from "./api/drizzle-read.js";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
 import { bitnobProxyRoutes } from "./dev/bitnob-proxy.js";
@@ -53,7 +53,6 @@ import {
   DrizzleProfileStore,
   githubLanguages,
   InMemoryProfileStore,
-  installedReposOf,
   profileRoutes,
   type ProfileStore,
 } from "./onboarding/index.js";
@@ -281,6 +280,17 @@ export function startPayouts(): void {
   void payoutService.resume().catch((err) => console.error(`[payouts] resume failed: ${err instanceof Error ? err.message : err}`));
   payoutService.startPolling();
 }
+// U2: the user's workspace (Maintainer / Hunter) for the web app shell, users.default_mode (L1).
+/** Shared with U1's /welcome (it reads the mode back from here). */
+const modeStore = database ? new DrizzleModeStore(database.db) : new InMemoryModeStore();
+app.route(
+  "/",
+  modeRoutes({
+    store: modeStore,
+    repo: bountyRepo,
+    internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
+  }),
+);
 // I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
 // Timelines and the live feed come from the internal events (ActivityLog, in memory).
 export const activityLog = new ActivityLog(bountyRepo).attach(eventBus);
@@ -308,8 +318,9 @@ app.route(
     checker: new HttpLnurlResolver({ network: lightningNetwork }),
     getLogin: (c) => requestUser(c, internalToken),
     languagesOf: githubLanguages(),
+    modeOf: (login) => modeStore.getMode(login),
     reposOf: async (login) => {
-      const installed = database ? await installedReposOf(database.db, login) : [];
+      const installed = await modeStore.installedRepos(login);
       const funded = (await bountyRepo.list(500)).filter((b) => loginOf(b.funderId)?.toLowerCase() === login.toLowerCase()).map((b) => b.repoFullName);
       const seen = new Map<string, string>();
       for (const r of [...installed, ...funded]) if (!seen.has(r.toLowerCase())) seen.set(r.toLowerCase(), r);

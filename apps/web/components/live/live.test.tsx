@@ -147,6 +147,8 @@ describe("live render", () => {
 
   it("serves the page from fixtures with ?speed", async () => {
     const el = await LivePage({ searchParams: Promise.resolve({ speed: "4" }) });
-    expect(renderToStaticMarkup(el)).toContain("BitBounty · live");
+    const html = renderToStaticMarkup(el);
+    expect(html).toContain("· live");
+    expect(html).toContain(`data-theme="dark"`);
   });
 });

@@ -1,17 +1,23 @@
 import Link from "next/link";
-import { formatXof } from "../ui/amount";
+import { formatSats, formatXof } from "../ui/amount";
 import { buttonClass } from "../ui/button";
 import { Card } from "../ui/card";
 import { Pill } from "../ui/pill";
 import type { Receipt } from "./data";
 import { receiptRows, xofToEur } from "./shape";
+import { PrintButton } from "./print-button";
 import { ShareButton } from "./share-button";
 
 /** Shareable receipt (/r/[id]), Kraken "sent" layout from the build kit: avatar, big amount, key/value list, status, reference. */
 export function ReceiptView({ r }: { r: Receipt }) {
   const repo = r.repoFullName.split("/")[1] ?? r.repoFullName;
   return (
-    <Card padding="lg" emphasis className="mx-auto grid w-full max-w-md gap-5" data-receipt={r.id}>
+    <Card
+      padding="lg"
+      emphasis
+      className="mx-auto grid w-full max-w-md gap-5 print:max-w-none print:border-0 print:shadow-none"
+      data-receipt={r.id}
+    >
       <div className="grid justify-items-center gap-1.5 pt-2 text-center">
         <span aria-hidden className="grid size-[52px] place-items-center rounded-full bg-money text-xl font-bold text-on-solid">
           ✓
@@ -22,7 +28,10 @@ export function ReceiptView({ r }: { r: Receipt }) {
         <b className="font-display text-[2.4rem] font-extrabold leading-none tabular-nums text-money">
           +{formatXof(r.amountXof).slice(0, -2)} FCFA
         </b>
-        <span className="text-xs text-muted">{xofToEur(r.amountXof)}</span>
+        <span className="font-mono text-xs text-muted">
+          {r.paidWith?.amountSats != null ? `${formatSats(r.paidWith.amountSats)} · ` : ""}
+          {xofToEur(r.amountXof)}
+        </span>
         <Pill tone="money-solid" dot className="mt-1">
           Payé
         </Pill>
@@ -41,13 +50,26 @@ export function ReceiptView({ r }: { r: Receipt }) {
           <dt className="text-muted">Réf. Bitnob</dt>
           <dd className="font-mono text-[12px] break-all">{r.bitnobReference}</dd>
         </div>
-        <div className="grid gap-1 border-t border-rule py-2.5 text-sm">
+        {r.paidWith?.paymentHash && (
+          <div className="grid gap-1 border-t border-rule py-2.5 text-sm">
+            <dt className="text-muted">Payment hash (Lightning)</dt>
+            <dd className="font-mono text-[11px] break-all">{r.paidWith.paymentHash}</dd>
+          </div>
+        )}
+        <div className="grid gap-1.5 border-t border-rule pt-2.5 text-sm">
           <dt className="text-muted">Signature</dt>
-          <dd className="font-mono text-[11px] break-all text-muted">{r.signature}</dd>
+          <dd
+            data-signature
+            className="rounded-lg border border-dashed border-rule bg-paper px-3 py-2 font-mono text-[11.5px] leading-relaxed break-all text-ink"
+          >
+            {r.signature}
+          </dd>
+          <dd className="text-[11.5px] text-muted">Empreinte SHA-256 du reçu : la moindre modification la change.</dd>
         </div>
       </dl>
 
-      <div className="grid gap-2">
+      <div className="grid gap-2 print:hidden">
+        <PrintButton />
         <ShareButton title={`Reçu BitBounty · ${repo} #${r.issueNumber}`} />
         <div className="grid grid-cols-2 gap-2">
           <a href={r.prUrl} target="_blank" rel="noreferrer" className={buttonClass({ variant: "ghost", size: "sm" })}>
