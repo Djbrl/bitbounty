@@ -279,6 +279,27 @@ async function rowsOf<T>(db: Database, query: ReturnType<typeof sql>): Promise<T
   return res.rows;
 }
 
+/**
+ * Only the maintainer is a real person. The other seeded people are fake: if a real user already
+ * has one of their logins (case-insensitive), seeding would give that user fake claims and payouts
+ * and replace their payout account. Stop before writing anything instead.
+ */
+async function assertFakeLoginsFree(db: Database) {
+  const fake = (Object.keys(PEOPLE) as Person[]).filter((p) => p !== "maintainer");
+  const logins = fake.map((p) => PEOPLE[p].login.toLowerCase());
+  const ids = fake.map((p) => seedId(3, PEOPLE[p].n));
+  const taken = await rowsOf<{ login: string }>(
+    db,
+    sql`select login from users where lower(login) in (${sql.join(logins.map((l) => sql`${l}`), sql`, `)})
+        and id::text not in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)}) order by login`,
+  );
+  if (taken.length > 0) {
+    throw new Error(
+      `Refusing to seed: real user(s) ${taken.map((r) => r.login).join(", ")} use a seeded login; the seed would overwrite their payout account. Nothing was written.`,
+    );
+  }
+}
+
 /** Reuses a user the server already knows by login (case-insensitive), or inserts the seeded one. */
 async function ensureUser(db: Database, login: string, id: string, githubId: number, createdAt: Date) {
   const [found] = await rowsOf<{ id: string }>(db, sql`select id from users where lower(login) = lower(${login}) limit 1`);
@@ -293,6 +314,7 @@ async function insertSeed(db: Database, opts: SeedOptions) {
   const T0 = end - 48 * 60 * 60_000;
   const at = (minutes: number) => new Date(T0 + minutes * 60_000);
 
+  await assertFakeLoginsFree(db);
   await removeSeedRows(db);
 
   // People. Seeded GitHub ids are far above real ones so they never collide.

@@ -238,6 +238,25 @@ function defineSuite(connect: () => Promise<Target>) {
       await resetDatabase(db);
       await seed(db);
     });
+
+    it("refuses to touch a real user who has a seeded developer's login, and writes nothing", async () => {
+      await resetDatabase(db);
+      const [awa] = await db.insert(users).values({ githubId: 777, login: "Awa-Diop" }).returning();
+      const account = { userId: awa!.id, country: "SN", provider: "wave" as const, phoneE164: "+221771234567", accountName: "Real Awa", status: "verified" as const };
+      await db.insert(payoutAccounts).values(account);
+
+      await expect(seed(db)).rejects.toThrow(/Awa-Diop/);
+      expect(await db.select({ id: users.id }).from(users)).toEqual([{ id: awa!.id }]);
+      expect(await db.select().from(payoutAccounts)).toEqual([expect.objectContaining(account)]);
+      expect(await db.select().from(bounties)).toHaveLength(0);
+      expect(await db.select().from(repos)).toHaveLength(0);
+
+      // A reseed over a database that already holds the seeded awa-diop still works.
+      await db.delete(payoutAccounts);
+      await db.delete(users);
+      await seed(db);
+      await expect(seed(db)).resolves.toMatchObject({ bounties: 9 });
+    });
   });
 
   describe("constraints", () => {
