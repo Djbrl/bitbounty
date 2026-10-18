@@ -7,7 +7,7 @@ export function ExternalList({ rows }: { rows: ExternalBounty[] }) {
   return (
     <div className="grid gap-2.5">
       <div className="grid gap-0.5">
-        <h2 className="font-display text-lg font-extrabold">Paid in dollars elsewhere</h2>
+        <h2 className="text-lg font-extrabold">Paid in dollars elsewhere</h2>
         <p className="text-[13px] text-muted">
           Bounties on other platforms, paid to a card or a US bank. Listed for comparison, not paid by BitBounty.
         </p>

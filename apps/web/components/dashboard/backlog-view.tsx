@@ -1,6 +1,6 @@
 // Presentational parts of "Price my backlog" (no state, no router): rendered by PriceMyBacklog, tested directly.
 import type { BacklogSuggestion } from "../../../../fixtures/types";
-import { Button, formatXof, Pill, Table, TBody, Td, Th, THead, Tr, type Tone } from "../ui";
+import { Button, EmptyState, formatXof, Pill, Table, TBody, Td, Th, THead, Tr, type Tone } from "../ui";
 import { fundLabel, type SelectionSummary } from "./shape";
 
 const CONFIDENCE: Record<BacklogSuggestion["confidence"], { tone: Tone; label: string }> = {
@@ -20,10 +20,9 @@ export interface BacklogTableProps {
 export function BacklogTable({ backlog, selected, onToggle, onToggleAll, disabled = false }: BacklogTableProps) {
   if (!backlog.length) {
     return (
-      <div className="rounded-[var(--radius-card)] border border-dashed border-rule bg-sheet p-6 text-center text-sm text-muted">
-        No suggestions yet. Claude found no issue clear and testable enough to price. Try <b>Re-scan</b> after
-        tidying a few issues.
-      </div>
+      <EmptyState title="No suggestions yet">
+        Claude found no issue clear and testable enough to price. Try <b>Re-scan</b> after tidying a few issues.
+      </EmptyState>
     );
   }
   const ids = new Set(selected);

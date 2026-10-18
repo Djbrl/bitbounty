@@ -1,6 +1,6 @@
 // Maintainer dashboard (server component): totals, Price my backlog, active bounties, repos.
 import Link from "next/link";
-import { Card, formatXof, Page, Section, StatCard, StatusBadge, Table, TBody, Td, Th, THead, Tr } from "../ui";
+import { Button, Card, EmptyState, formatXof, Page, Section, StatCard, StatusPill, Table, TBody, Td, Th, THead, Tr } from "../ui";
 import { PriceMyBacklog } from "./price-my-backlog";
 import { activeBounties, initialsOf, type DashboardData } from "./shape";
 
@@ -52,14 +52,9 @@ export function DashboardView({ data }: { data: DashboardData }) {
           </>
         }
         actions={
-          <button
-            type="button"
-            disabled
-            title="Coming soon"
-            className="rounded-[7px] border border-rule bg-sheet px-3 py-1.5 text-[13px] font-semibold disabled:cursor-not-allowed"
-          >
+          <Button variant="secondary" size="sm" disabled title="Coming soon">
             Re-scan
-          </button>
+          </Button>
         }
       >
         <PriceMyBacklog backlog={backlog} />
@@ -105,7 +100,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                     </Link>
                   </Td>
                   <Td>
-                    <StatusBadge status={b.status} size="sm" />
+                    <StatusPill status={b.status} size="sm" />
                   </Td>
                   <Td className="whitespace-nowrap text-muted">
                     {b.claimedBy ? `@${b.claimedBy}` : "—"}
@@ -119,7 +114,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
             </TBody>
           </Table>
         ) : (
-          <Card className="text-center text-sm text-muted">No active bounty. Fund one from your backlog above.</Card>
+          <EmptyState title="No active bounty">Fund one from your backlog above.</EmptyState>
         )}
       </Section>
 

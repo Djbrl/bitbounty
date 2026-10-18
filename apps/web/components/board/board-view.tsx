@@ -23,7 +23,7 @@ export function BoardView({ board, payouts, issues }: BoardViewProps) {
     <Page nav={{ items: BOARD_NAV, active: "/explore" }}>
       <section className="grid gap-5">
         <div className="grid gap-2">
-          <h1 className="max-w-[22ch] font-display text-[clamp(1.9rem,5vw,3rem)] font-extrabold leading-[1.05] tracking-tight">
+          <h1 className="max-w-[22ch] text-[clamp(1.9rem,5vw,3rem)] font-extrabold leading-[1.05] tracking-tight">
             Fix an issue. Get paid on your phone.
           </h1>
           <p className="max-w-[60ch] text-muted">

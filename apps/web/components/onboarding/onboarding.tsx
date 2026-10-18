@@ -307,7 +307,7 @@ function StepLabel({ step }: { step: keyof typeof STEP_NUMBER }) {
 }
 
 function Heading({ children }: { children: ReactNode }) {
-  return <h1 className="font-display text-[1.35rem] font-extrabold leading-[1.12]">{children}</h1>;
+  return <h1 className="text-[1.35rem] font-extrabold leading-[1.12]">{children}</h1>;
 }
 
 function Lead({ children }: { children: ReactNode }) {

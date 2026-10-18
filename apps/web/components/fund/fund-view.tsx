@@ -67,7 +67,7 @@ export function FundView({ bounty }: FundViewProps) {
   return (
     <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <div className="grid min-w-0 gap-4">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">
+        <h1 className="text-2xl font-extrabold tracking-tight">
           {state.phase === "funded" ? "Bounty funded" : "Fund this bounty"}
         </h1>
         {state.phase === "funded" ? (
