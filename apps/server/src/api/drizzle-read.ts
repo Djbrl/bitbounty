@@ -2,6 +2,7 @@ import type { Payout } from "@bitbounty/core";
 import { fundings, payouts, users, type Database } from "@bitbounty/db";
 import { desc, eq } from "drizzle-orm";
 import type { FundingRecord } from "../funding/store.js";
+import { toPayout as rowToPayout } from "../payouts/drizzle-store.js";
 
 /**
  * Read-only views of the `fundings` and `payouts` tables for the read API (I1). The funding
@@ -61,19 +62,7 @@ export class DrizzlePayoutReader {
 }
 
 function toPayout({ p, login }: { p: typeof payouts.$inferSelect; login: string | null }): Payout {
-  return {
-    id: p.id,
-    bountyId: p.bountyId,
-    userId: login ? `github:${login}` : p.userId,
-    amountXof: p.amountXof,
-    quoteId: p.quoteId,
-    bitnobPayoutId: p.bitnobPayoutId,
-    reference: p.reference,
-    status: p.status,
-    attempts: p.attempts,
-    lastError: p.lastError,
-    paidAt: p.paidAt?.toISOString() ?? null,
-  };
+  return rowToPayout(p, login);
 }
 
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);

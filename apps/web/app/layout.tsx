@@ -10,7 +10,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variab
 
 export const metadata: Metadata = {
   title: "BitBounty",
-  description: "Paid GitHub issues, paid out on mobile money through Bitnob.",
+  description: "Paid GitHub issues, paid out in sats over Lightning through Bitnob.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

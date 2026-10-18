@@ -49,6 +49,8 @@ function shape(where, value, spec) {
 const CRITERIA = (v) => is.arr(v) && v.length > 0 && v.every((c) => is.obj(c) && is.str(c.text) && Object.keys(c).length === 1);
 const SRC_FOR_RAIL = { lightning: 'BTC', usdt: 'USDT', ngn: 'NGN' };
 const MASKED = (v) => /^\+221 \d{2} ••• •• \d{2}$/.test(v);
+/** A masked Lightning Address: two characters, `***`, then the domain (`aw***@blink.sv`). */
+const LN_MASKED = (v) => typeof v === 'string' && /^[a-z0-9]{2}\*\*\*@[a-z0-9.-]+\.[a-z]{2,}$/.test(v);
 const BOUNTY = {
   // core Bounty (#44)
   id: is.str, repoFullName: (v) => /^[\w.-]+\/[\w.-]+$/.test(v), issueNumber: is.int, issueTitle: is.str,
@@ -80,7 +82,9 @@ const SUBMISSION = {
 const PAYOUT = {
   id: is.str, bountyId: is.str, userId: is.str, amountXof: is.money, quoteId: nullable(is.str), bitnobPayoutId: nullable(is.str),
   reference: is.str, status: oneOf(T.PAYOUT_STATUSES), attempts: is.int, lastError: nullable(is.str), paidAt: nullable(is.date),
-  userLogin: is.str, provider: oneOf(T.PROVIDERS), phoneMasked: MASKED, createdAt: is.date,
+  rail: oneOf(['lightning']), lightningAddress: LN_MASKED, amountSats: (v) => is.int(v) && v > 0, xofPerBtc: (v) => is.int(v) && v > 0,
+  paymentHash: (v) => /^[0-9a-f]{64}$/.test(v),
+  userLogin: is.str, createdAt: is.date,
 };
 const EVENT = { occurredAt: is.date, type: oneOf(T.EVENT_TYPES), to: oneOf(T.BOUNTY_STATUSES), actor: is.str, text: is.str };
 const USER = { id: is.str, githubId: is.int, login: is.str, avatarUrl: nullable(is.str), createdAt: is.anyDate, name: is.str, city: is.str };
@@ -252,6 +256,10 @@ if (receipts) {
     const b = bounties.find((x) => x.id === r.bountyId);
     if (b && (r.amountXof !== b.amountXof || r.bitnobReference !== b.payout?.bitnobPayoutId)) fail(`receipts.json ${id}`, 'does not match its bounty');
     if (!is.date(r.paidAt) || !is.date(r.mergedAt)) fail(`receipts.json ${id}`, 'bad dates');
+    if (b && (r.lightningAddress !== b.payout?.lightningAddress || r.paidWith?.amountSats !== b.payout?.amountSats)) {
+      fail(`receipts.json ${id}`, 'Lightning Address or sats do not match the payout');
+    }
+    if ('provider' in r || 'phoneMasked' in r) fail(`receipts.json ${id}`, 'payouts are Lightning now: no provider / phone');
   }
 }
 

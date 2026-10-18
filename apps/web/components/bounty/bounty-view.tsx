@@ -17,8 +17,9 @@ import {
   formatSource,
   mergeToPaidMinutes,
   PAYOUT_STATUS_META,
+  formatSatsAmount,
+  payoutDestination,
   progressSteps,
-  PROVIDER_LABEL,
   RAIL_LABEL,
   VERDICT_META,
   wasRejected,
@@ -284,7 +285,7 @@ export function PayoutCard({ b, receiptId }: { b: BountyDetail; receiptId: strin
             ? b.status === "refunded"
               ? "Closed without a payout. The money went back to the funder."
               : "Cancelled before funding. Nothing to pay."
-            : `${formatXof(b.amountXof)} goes to the developer's Wave, Orange Money or Free Money within minutes of the merge.`}
+            : `${formatXof(b.amountXof)} goes to the developer's Lightning Address, paid in sats, within minutes of the merge.`}
         </p>
       </Card>
     );
@@ -306,8 +307,15 @@ export function PayoutCard({ b, receiptId }: { b: BountyDetail; receiptId: strin
       <div className="mt-3">
         <KV k="To">@{p.userLogin}</KV>
         <KV k="On">
-          {PROVIDER_LABEL[p.provider]} <span className="font-mono text-[13px]">{p.phoneMasked}</span>
+          {p.lightningAddress ? (
+            <>
+              Lightning <span className="font-mono text-[13px]">{p.lightningAddress}</span>
+            </>
+          ) : (
+            payoutDestination(p)
+          )}
         </KV>
+        {p.amountSats != null && <KV k="Sats">{formatSatsAmount(p.amountSats)}</KV>}
         {p.paidAt && <KV k="Paid">{formatDateTime(p.paidAt)}</KV>}
         {mins !== null && (
           <KV k="Merge → paid">

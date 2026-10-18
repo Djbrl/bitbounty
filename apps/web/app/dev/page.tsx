@@ -80,7 +80,7 @@ export default function DevPage() {
         <Card padding="lg" className="grid gap-3">
           <h1 className="text-[clamp(2rem,5vw,3.2rem)] font-extrabold tracking-tight">Put a price on your backlog.</h1>
           <h2 className="text-2xl font-extrabold">Pay only when it merges.</h2>
-          <h3 className="text-lg font-bold">Payé sur Wave, quelques minutes après le merge.</h3>
+          <h3 className="text-lg font-bold">Payé en sats via Lightning, quelques minutes après le merge.</h3>
           <p className="max-w-[68ch]">
             Body text in Instrument Sans. Claude reads your open issues, writes acceptance criteria and suggests a price in FCFA.
           </p>
@@ -185,7 +185,7 @@ export default function DevPage() {
               </div>
               <div className="grid content-start justify-items-end gap-1">
                 <Amount xof={r.xof} />
-                <span className="text-xs text-muted">sur Wave</span>
+                <span className="text-xs text-muted">via Lightning</span>
               </div>
             </Card>
           ))}
@@ -227,19 +227,19 @@ export default function DevPage() {
           <PhoneFrame>
             <span className="font-mono text-[11px] tracking-wider text-muted">ÉTAPE 2 SUR 3</span>
             <h3 className="text-[1.35rem] font-extrabold">Où veux-tu être payé ?</h3>
-            <p className="text-[13px] leading-snug text-muted">On t&apos;envoie un petit montant test pour vérifier le compte.</p>
+            <p className="text-[13px] leading-snug text-muted">Ton adresse Lightning reçoit les primes en sats.</p>
             <div className="grid gap-px rounded-[10px] border border-rule bg-sheet px-3 py-2">
-              <label className="text-[11px] text-muted">Numéro Wave</label>
-              <div className="text-[15px] font-medium">+221 77 123 45 67</div>
+              <label className="text-[11px] text-muted">Adresse Lightning</label>
+              <div className="text-[15px] font-medium">awa@blink.sv</div>
             </div>
             <Button block size="lg" className="mt-auto">
-              Envoyer le test
+              Enregistrer
             </Button>
           </PhoneFrame>
           <PhoneFrame lock time="14:32">
             <div className="mt-6 text-center font-display text-[3.4rem] font-bold leading-none">14:32</div>
             <div className="mb-3 text-center text-[13px] opacity-85">samedi 18 octobre</div>
-            <PhoneNotification title="Wave · Paiement reçu" body="Tu as reçu 10 000 F de BitBounty pour bitnob-js #12." />
+            <PhoneNotification icon="⚡" title="Blink · Paiement reçu" body="Tu as reçu 16 180 sats (10 000 F) de BitBounty pour bitnob-js #12." />
           </PhoneFrame>
         </div>
       </Section>

@@ -1,7 +1,9 @@
-import type { Bounty, BountyStatus, Payout, Submission } from "@bitbounty/core";
+import { maskLightningAddress, type Bounty, type BountyStatus, type Payout, type Submission } from "@bitbounty/core";
 import type { ClaimRecord } from "../bounties/repo.js";
 import type { FundingRecord } from "../funding/store.js";
 import type { ActivityEntry } from "./activity.js";
+import { COPY } from "../github/status-comment/copy.js";
+import { publicPayoutReason } from "../settlement/status-extras.js";
 import { groupThousands } from "./format.js";
 
 /**
@@ -31,13 +33,11 @@ export type BountyDetail = BountyView & {
   })[];
   claims: (ClaimRecordView & { userLogin: string; extended: boolean; createdAt: string })[];
   submission: (Submission & { prUrl: string; ci: "pending" | "success" | "failure"; createdAt: string }) | null;
-  payout: (Payout & { userLogin: string; provider: "wave" | "orange" | "free"; phoneMasked: string; createdAt: string }) | null;
+  /** B6: paid in sats over Lightning; `lightningAddress` is masked (`aw***@blink.sv`). */
+  payout: (Payout & { userLogin: string; createdAt: string }) | null;
   timeline: TimelineEvent[];
 };
 type ClaimRecordView = Omit<ClaimRecord, "login" | "extensions">;
-
-/** Shown wherever the real number isn't known to this module (the payout account lives with B3). */
-export const MASKED_PHONE = "+221 •• ••• •• ••";
 
 export const loginOf = (id: string): string | null => (id.startsWith("github:") ? id.slice(7) : null);
 
@@ -105,8 +105,32 @@ export function submissionView(
   return { ...s, verdict, prUrl: `https://github.com/${b.repoFullName}/pull/${s.prNumber}`, ci, createdAt };
 }
 
+/**
+ * Public payout view. Lists fields explicitly: the Lightning Address is masked, and the BOLT11
+ * and preimage of a Lightning payout (B6) are never sent to the pages.
+ */
 export function payoutView(p: Payout, createdAt: string): NonNullable<BountyDetail["payout"]> {
-  return { ...p, userLogin: loginOf(p.userId) ?? p.userId, provider: "wave", phoneMasked: MASKED_PHONE, createdAt };
+  return {
+    id: p.id,
+    bountyId: p.bountyId,
+    userId: p.userId,
+    amountXof: p.amountXof,
+    quoteId: p.quoteId,
+    bitnobPayoutId: p.bitnobPayoutId,
+    reference: p.reference,
+    status: p.status,
+    attempts: p.attempts,
+    // L1: never the raw error (hosts, env names, account details): I3's short public reason.
+    lastError: p.lastError ? COPY.en.payoutReasons[publicPayoutReason(p.lastError)] : null,
+    paidAt: p.paidAt,
+    ...(p.rail ? { rail: p.rail } : {}),
+    ...(p.lightningAddress ? { lightningAddress: maskLightningAddress(p.lightningAddress) } : {}),
+    ...(p.amountSats != null ? { amountSats: p.amountSats } : {}),
+    ...(p.xofPerBtc != null ? { xofPerBtc: p.xofPerBtc } : {}),
+    ...(p.paymentHash ? { paymentHash: p.paymentHash } : {}),
+    userLogin: loginOf(p.userId) ?? p.userId,
+    createdAt,
+  };
 }
 
 export function median(xs: number[]): number {

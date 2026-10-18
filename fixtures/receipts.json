@@ -9,8 +9,7 @@
     "prUrl": "https://github.com/teranga-labs/bitnob-js/pull/34",
     "recipientLogin": "awa-ndiaye",
     "amountXof": 10000,
-    "provider": "wave",
-    "phoneMasked": "+221 77 ••• •• 42",
+    "lightningAddress": "aw***@blink.sv",
     "fundedWith": {
       "rail": "lightning",
       "sourceAmount": 17474,
@@ -21,6 +20,12 @@
     "paidAt": "2026-10-17T18:26:00Z",
     "minutesMergeToPay": 6,
     "bitnobReference": "PAYOUT_8C34EAC4BC",
+    "paidWith": {
+      "rail": "lightning",
+      "amountSats": 16180,
+      "xofPerBtc": 61804697,
+      "paymentHash": "c73298d9362b748793e6f50d6d72a2db5cb04569c19df4d58f7a28a4d9cb36e1"
+    },
     "signature": "ed25519:4ff1036d411ff651e36a950888a1fda980de21dc9eaf8126240267866ece32d8"
   },
   "r-113": {
@@ -33,8 +38,7 @@
     "prUrl": "https://github.com/naija-rails/ngn-kit/pull/44",
     "recipientLogin": "fatou-sall",
     "amountXof": 10000,
-    "provider": "wave",
-    "phoneMasked": "+221 76 ••• •• 07",
+    "lightningAddress": "fa***@blink.sv",
     "fundedWith": {
       "rail": "ngn",
       "sourceAmount": 2900000,
@@ -45,6 +49,12 @@
     "paidAt": "2026-10-18T01:35:00Z",
     "minutesMergeToPay": 5,
     "bitnobReference": "PAYOUT_FE7C092219",
+    "paidWith": {
+      "rail": "lightning",
+      "amountSats": 16180,
+      "xofPerBtc": 61804697,
+      "paymentHash": "e9da5c6c8172b7e08c0102b4a74edf13a891ab00f5f937170e4bb1800c3f9fdb"
+    },
     "signature": "ed25519:227589ac4d0a7998ed48cb49b38fba7848d9f3b1c354b919a68c24774e5ddf8e"
   }
 }

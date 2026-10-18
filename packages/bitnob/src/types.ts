@@ -71,6 +71,48 @@ export interface LightningInvoice {
   [key: string]: unknown;
 }
 
+/**
+ * `POST /api/lightning/pay`. The v2 spec lists all four fields as required. Bitnob documents the
+ * call as **idempotent on `reference`**: the same reference never creates a second payment.
+ */
+export interface PayLightningInput {
+  /** BOLT11 payment request. */
+  request: string;
+  reference: string;
+  /** Routing fee cap, sats. */
+  max_fee: number;
+  customer_id?: string;
+}
+
+/**
+ * A Lightning payment as Bitnob answers it. The spec doesn't document the body (the sandbox
+ * answers 403 FEATURE_NOT_ENABLED for `send_lightning` on our account), so every field is
+ * optional and read defensively; invoices come back with the same shape (`status`, `preimage`).
+ */
+export interface LightningPayment {
+  id?: string;
+  status?: string;
+  reference?: string;
+  payment_hash?: string;
+  preimage?: string;
+  amount_sat?: number | string;
+  fee_sat?: number | string;
+  [key: string]: unknown;
+}
+
+/** `POST /api/lightning/decode` (seen in the sandbox, 2026-10-18). */
+export interface DecodedLightningInvoice {
+  payment_hash?: string;
+  destination?: string;
+  amount_sat?: string | number;
+  amount_msat?: string | number;
+  description?: string;
+  /** Unix seconds, as a string. */
+  expires_at?: string | number;
+  is_expired?: boolean;
+  [key: string]: unknown;
+}
+
 export interface PayoutQuoteInput {
   from_asset: "BTC" | "USDT" | "USDC";
   to_currency: string;

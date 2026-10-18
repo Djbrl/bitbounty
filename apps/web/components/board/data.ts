@@ -7,7 +7,7 @@ import bounties from "../../../../fixtures/bounties.json";
 import type { Board, BountyDetail } from "../../../../fixtures/types";
 import { apiBaseUrl, apiGet, load } from "../../lib/api";
 import { handleMock, type Fixtures } from "../../lib/mock-api";
-import { issueIndex, PROVIDER_LABEL, type PayoutRow } from "./shape";
+import { issueIndex, payoutVia, type PayoutRow } from "./shape";
 
 const fx = { board, bounties } as unknown as Fixtures;
 
@@ -38,7 +38,7 @@ export async function getRecentPayouts(limit = 6): Promise<PayoutRow[]> {
     .map((b) => ({
       bountyId: b.id,
       login: b.payout!.userLogin,
-      provider: PROVIDER_LABEL[b.payout!.provider] ?? b.payout!.provider,
+      via: payoutVia(b.payout!.amountSats),
       repoFullName: b.repoFullName,
       issueNumber: b.issueNumber,
       amountXof: b.payout!.amountXof,
