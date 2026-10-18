@@ -5,7 +5,7 @@ import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { Button, Card, Dot, Pill, buttonClass, cx, formatXof } from "../ui";
 import { FundApiError, createFunding, pollFunding } from "./api";
 import { CopyButton } from "./copy-button";
-import type { FundBounty, FundingRail, FundingSession } from "./data";
+import type { BountyStatus, FundBounty, FundingRail, FundingSession } from "./data";
 import { RAIL_META, formatCountdown, groupAccountNumber, msLeft, sourceAmount, sourceAmountRaw } from "./format";
 import { QrCode } from "./qr-code";
 import { errorMessage, fundReducer, initialFundState, needsSession } from "./state";
@@ -63,18 +63,20 @@ export function FundView({ bounty }: FundViewProps) {
   }, [state.phase, hasSession, bounty.id]);
 
   const fundedSession = session ?? Object.values(state.sessions)[0] ?? null;
+  const outcome = fundOutcome(bounty.status);
+  const closed = outcome === "cancelled" || outcome === "refunded";
 
   return (
     <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <div className="grid min-w-0 gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-extrabold tracking-tight">
-            {state.phase === "funded" ? "Bounty funded" : "Fund this bounty"}
+            {state.phase !== "funded" ? "Fund this bounty" : (CLOSED_COPY[outcome]?.title ?? "Bounty funded")}
           </h1>
-          <PayState state={payState(state.phase, state.error, session, now)} />
+          <PayState state={closed ? "closed" : payState(state.phase, state.error, session, now)} />
         </div>
         {state.phase === "funded" ? (
-          <FundedPanel bounty={bounty} />
+          <FundedPanel bounty={bounty} outcome={outcome} />
         ) : (
           <>
             <RailTabs rail={state.rail} onSelect={(rail) => dispatch({ type: "select", rail })} />
@@ -106,7 +108,7 @@ export function FundView({ bounty }: FundViewProps) {
   );
 }
 
-export type PayStateKey = "preparing" | "waiting" | "expired" | "error" | "paid";
+export type PayStateKey = "preparing" | "waiting" | "expired" | "error" | "paid" | "closed";
 
 /** U5: the one state the payer needs to read at a glance. */
 export function payState(phase: string, error: string | null, session: FundingSession | null, now: number | null): PayStateKey {
@@ -122,7 +124,35 @@ const PAY_STATE = {
   expired: { tone: "pending", label: "Expired · refreshing", pulse: false },
   error: { tone: "danger", label: "Not available", pulse: false },
   paid: { tone: "money-solid", label: "Paid", pulse: false },
+  closed: { tone: "neutral", label: "Clôturée", pulse: false },
 } as const;
+
+/**
+ * CR6: what the panel after funding may truthfully say. `unfunded` only reaches it when the
+ * payment just landed in this session, so it reads as `open`.
+ */
+export type FundOutcome = "open" | "in_progress" | "paid" | "cancelled" | "refunded";
+
+export function fundOutcome(status: BountyStatus): FundOutcome {
+  if (status === "paid" || status === "cancelled" || status === "refunded") return status;
+  return status === "unfunded" || status === "funded" ? "open" : "in_progress";
+}
+
+/** Terminal states: short French copy, no "held by Bitnob" and no /claim. */
+const CLOSED_COPY: Partial<Record<FundOutcome, { title: string; text: (b: FundBounty) => string }>> = {
+  paid: {
+    title: "Prime payée",
+    text: (b) => `Cette prime est terminée : ${formatXof(b.amountXof)} ont été versés au développeur. Il n'y a plus rien à financer.`,
+  },
+  cancelled: {
+    title: "Prime annulée",
+    text: () => "Cette prime a été annulée avant d'être financée. Il n'y a rien à payer.",
+  },
+  refunded: {
+    title: "Prime remboursée",
+    text: (b) => `Cette prime a été annulée et ${formatXof(b.amountXof)} ont été remboursés au financeur. Elle ne peut plus être réclamée.`,
+  },
+};
 
 function PayState({ state }: { state: PayStateKey }) {
   const m = PAY_STATE[state];
@@ -252,16 +282,43 @@ function RailPanel({ session, now }: { session: FundingSession; now: number }) {
   );
 }
 
-function FundedPanel({ bounty }: { bounty: FundBounty }) {
+function FundedPanel({ bounty, outcome }: { bounty: FundBounty; outcome: FundOutcome }) {
+  const issue = `${bounty.repoFullName} #${bounty.issueNumber}`;
+  const closed = CLOSED_COPY[outcome];
+  if (closed) {
+    return (
+      <Card padding="lg" className="grid justify-items-start gap-3" role="status" data-fund-outcome={outcome}>
+        <b className="font-display text-[1.7rem] font-extrabold leading-tight">{closed.title}</b>
+        <p className="text-sm text-muted">
+          {issue} · {closed.text(bounty)}
+        </p>
+        <Link href={`/b/${bounty.id}`} className={buttonClass({ size: "sm" })}>
+          Voir la prime
+        </Link>
+      </Card>
+    );
+  }
   return (
-    <Card padding="lg" className="grid justify-items-start gap-3 border-money" role="status" aria-live="polite">
+    <Card
+      padding="lg"
+      className="grid justify-items-start gap-3 border-money"
+      role="status"
+      aria-live="polite"
+      data-fund-outcome={outcome}
+    >
       <span className="grid size-12 place-items-center rounded-full bg-money text-2xl text-on-solid" aria-hidden>
         ✓
       </span>
       <b className="font-display text-[1.7rem] font-extrabold leading-tight text-money">Funded</b>
       <p className="text-sm text-muted">
-        {formatXof(bounty.amountXof)} is now held by Bitnob for {bounty.repoFullName} #{bounty.issueNumber}. The bot updates the
-        status comment on the issue; anyone can now <span className="font-mono text-ink">/claim</span> it.
+        {formatXof(bounty.amountXof)} is held by Bitnob for {issue}.{" "}
+        {outcome === "open" ? (
+          <>
+            The bot updates the status comment on the issue; anyone can now <span className="font-mono text-ink">/claim</span> it.
+          </>
+        ) : (
+          "Someone is already working on it: follow the progress on the bounty page."
+        )}
       </p>
       <div className="flex flex-wrap gap-2">
         <Link href={`/b/${bounty.id}`} className={buttonClass({ size: "sm" })}>

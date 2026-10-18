@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import funding from "../../../../fixtures/funding.json";
-import type { FundingSession } from "./data";
+import type { BountyStatus, FundingSession } from "./data";
 import { getFundBounty } from "./data";
 import { formatCountdown, formatNaira, formatUsdt, groupAccountNumber, msLeft, sourceAmount, summaryLines } from "./format";
-import { FundView, payState } from "./fund-view";
+import { FundView, fundOutcome, payState, type FundOutcome } from "./fund-view";
 import { encodeQr, qrPath } from "./qr";
 import { QrCode } from "./qr-code";
 import { errorMessage, fundReducer, initialFundState, needsSession } from "./state";
@@ -166,6 +166,62 @@ describe("fund page", () => {
     expect(html).toContain("Funded");
     expect(html).not.toContain('role="tab"');
     expect(html).toContain('data-pay-state="paid"');
+  });
+
+  describe("only claims what is true for each status (CR6)", () => {
+    const render = (status: BountyStatus) =>
+      sp(renderToStaticMarkup(<FundView bounty={{ ...getFundBounty("b-102")!, status }} />));
+    const CLAIM = "anyone can now";
+
+    it("maps every status to an outcome", () => {
+      const expected: Record<BountyStatus, FundOutcome> = {
+        unfunded: "open",
+        funded: "open",
+        claimed: "in_progress",
+        submitted: "in_progress",
+        verified: "in_progress",
+        paying: "in_progress",
+        on_hold: "in_progress",
+        payout_failed: "in_progress",
+        paid: "paid",
+        cancelled: "cancelled",
+        refunded: "refunded",
+      };
+      for (const [status, outcome] of Object.entries(expected)) expect(fundOutcome(status as BountyStatus)).toBe(outcome);
+    });
+
+    it("funded: held by Bitnob and open to /claim", () => {
+      const html = render("funded");
+      expect(html).toContain("held by Bitnob");
+      expect(html).toContain(CLAIM);
+      expect(html).toContain("Bounty funded");
+    });
+
+    it.each(["claimed", "submitted", "verified", "paying", "on_hold", "payout_failed"] as const)(
+      "%s: held by Bitnob, no /claim",
+      (status) => {
+        const html = render(status);
+        expect(html).toContain("held by Bitnob");
+        expect(html).toContain("already working on it");
+        expect(html).not.toContain(CLAIM);
+      },
+    );
+
+    it.each([
+      ["paid", "Prime payée", 'data-pay-state="paid"'],
+      ["cancelled", "Prime annulée", 'data-pay-state="closed"'],
+      ["refunded", "Prime remboursée", 'data-pay-state="closed"'],
+    ] as const)("%s: short French message and a link to the bounty", (status, title, pill) => {
+      const html = render(status);
+      expect(html).toContain(title);
+      expect(html).toContain(pill);
+      expect(html).toContain('href="/b/b-102"');
+      expect(html).toContain("Voir la prime");
+      expect(html).not.toContain("is held by Bitnob");
+      expect(html).not.toContain("/claim");
+      expect(html).not.toContain("Bounty funded");
+      expect(html).not.toContain('role="tab"');
+    });
   });
 
   it("shows one clear state: preparing, waiting, expired, error, paid (U5)", () => {
