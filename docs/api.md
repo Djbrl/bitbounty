@@ -38,5 +38,5 @@ Where the data comes from:
 - `/me` onboarding (payout account, SMS, test payout) needs B3's routes wired into the server; the page shows the account as not linked.
 - "Price my backlog" suggestions (A3) aren't fed into `/api/dashboard` yet (`backlog: []` hides the funding bar).
 - Performance: lists make 2 small queries per bounty (claimant, PR) and are capped at 500 bounties; fine for the demo, batch queries later.
-- Provider and phone on payouts and receipts are shown as Wave / masked until the payout account is readable here.
+- Payouts and receipts show the developer's Lightning Address masked (`aw***@blink.sv`) and the sats sent (B6); legacy mobile money rows show no address.
 - With the loading skeleton streaming first, a not-found page answers HTTP 200 (Next.js behaviour); it still shows the 404 content.

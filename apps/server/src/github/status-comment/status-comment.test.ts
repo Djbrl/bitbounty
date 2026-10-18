@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   amountLabel,
   escapeInline,
+  formatSats,
+  formatXof,
   isStatusComment,
   labelFor,
   LIMITS,
@@ -58,7 +60,8 @@ const extras: StatusCommentExtras = {
   objectionEndsAt: "2026-10-20T19:00:00Z",
   payout: {
     receiptId: "rc_9Q1",
-    provider: "wave",
+    sats: 16180,
+    lightningAddress: "awa.sow@blink.sv",
     reference: "pay-bb_7Hc2",
     lastError: "Invalid account number",
     attempts: 3,
@@ -130,7 +133,7 @@ describe("links and per-status content", () => {
 
   it("funded shows the sats, unfunded doesn't", () => {
     expect(renderStatusComment(bounty("funded"), extras, "en")).toContain("27 140 sats");
-    expect(renderStatusComment(bounty("unfunded"), extras, "en")).not.toContain("sats");
+    expect(renderStatusComment(bounty("unfunded"), extras, "en")).not.toContain("27 140 sats");
   });
 
   it("claimed shows the claimant and expiry", () => {
@@ -152,7 +155,17 @@ describe("links and per-status content", () => {
     const md = renderStatusComment(bounty("paid"), extras, "en");
     expect(md).toContain("(https://bitbounty.app/r/rc_9Q1)");
     expect(md).toContain("`pay-bb_7Hc2`");
-    expect(md).toContain("on Wave");
+    expect(md).toContain(`**${formatXof(10000)}** (${formatSats(16180)}) paid to @awa-sow over Lightning (\`aw***@blink.sv\`)`);
+    expect(md).not.toContain("awa.sow@blink.sv");
+    expect(md).not.toMatch(/Wave|Orange Money|Free Money|Mobile Money/);
+  });
+
+  it("paying without B6 details still says Lightning, and a hostile address can't break out of its code span", () => {
+    const md = renderStatusComment(bounty("paying"), { ...extras, payout: { lightningAddress: "a`b](x)@evil.sv" } }, "fr");
+    expect(md).toContain("via Lightning");
+    expect(md).not.toContain("](x)");
+    const bare = renderStatusComment(bounty("paying"), { baseUrl: "https://bitbounty.app" }, "en");
+    expect(bare).toContain("to — over Lightning…");
   });
 
   it("ids are encoded so they can't close the markdown link", () => {

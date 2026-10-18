@@ -16,14 +16,14 @@ import { signPayload } from "../github/signature.js";
 import { labelFor } from "../github/status-comment/index.js";
 import { githubWebhookRoutes } from "../github/webhook.js";
 import { FakeGithubWriter, registerCommentWiring, syncIssue } from "../github/wiring/index.js";
-import { InMemoryPayoutStore, PayoutService, type PayoutRails } from "../payouts/index.js";
+import { InMemoryPayoutStore, PayoutService, type LightningRails } from "../payouts/index.js";
 import { Settlement, statusExtras } from "../settlement/index.js";
 import { FakeBitnob } from "./fake-bitnob.js";
 
 /**
  * I3: the two failures the demo shows, played with the real modules (like I2's happy path):
  *  - **payout retry**: Bitnob reports the first payout `withdrawal.expired` → the bounty goes
- *    `payout_failed` (status comment says why and that we retry) → B2 retries with a new quote →
+ *    `payout_failed` (status comment says why and that we retry) → B6 retries with a new invoice →
  *    `paying` → Bitnob success → `paid`;
  *  - **claim expiry**: a developer claims and never opens a PR → the claim timer (G5) fires →
  *    `claim.expired`, back to `funded`, the issue is unassigned and the bot posts a note → someone
@@ -79,7 +79,7 @@ const CRITERIA = ["amounts are whole FCFA", "a test covers 12 345"];
 export interface WorldOptions {
   /** Claim length (G5). Short so the expiry happens during the run. */
   claimTtlMs?: number;
-  /** Wait before B2 retries a failed payout. Long enough to see `payout_failed`. */
+  /** Wait before B6 retries a failed payout. Long enough to see `payout_failed`. */
   retryDelayMs?: number;
   log?: (line: string) => void;
 }
@@ -158,11 +158,12 @@ export class FailureWorld {
     };
     const settlement = new Settlement({ repo: this.repo, bus: this.bus, startPayout: (req) => this.payouts.start(req), sync, objectionMs: 0, log: quiet }).register();
     this.payouts = new PayoutService({
-      rails: this.bitnob as unknown as PayoutRails,
+      rails: this.bitnob as LightningRails,
+      resolver: this.bitnob.lnurl,
+      rates: this.bitnob.rates,
       store: this.payoutStore,
       emit: settlement.applyPayoutEvent,
-      getBeneficiary: async () => ({ provider: "wave", phoneE164: "+221771234567", accountName: "Awa Diop", country: "SN" }),
-      callbackUrl: `${this.baseUrl}/webhooks/bitnob`,
+      getPayee: async () => ({ lightningAddress: "awa@blink.sv" }),
       retryDelaysMs: [opts.retryDelayMs ?? 300],
       log: quiet,
     });
@@ -241,18 +242,19 @@ export class FailureWorld {
     await this.lightning.check(f.id);
   }
 
-  /** Payouts Bitnob is processing (finalized). `paying` can show before B2 finalizes, so wait for this. */
+  /** Lightning payments Bitnob is sending (B6). `paying` can show before the pay call, so wait for this. */
   processingPayouts(): number {
-    return [...this.bitnob.payouts.values()].filter((p) => p.status === "processing").length;
+    return [...this.bitnob.lnPayments.values()].filter((p) => p.status === "pending").length;
   }
 
-  /** Bitnob's webhook for every payout currently `processing` at the fake. */
+  /** A Bitnob webhook for every Lightning payment still pending at the fake (applied like a poll result). */
   async bitnobPayouts(outcome: "success" | "expired") {
-    for (const p of this.bitnob.payouts.values()) {
-      if (p.status !== "processing") continue;
-      p.status = outcome;
-      const event = outcome === "success" ? "payouts.withdrawal.success" : "payouts.withdrawal.expired";
-      const body = JSON.stringify({ event, event_id: `i3-${p.id}-${outcome}`, data: { id: p.id, quote_id: p.quote_id, reference: p.reference, status: outcome } });
+    for (const [reference, p] of this.bitnob.lnPayments) {
+      if (p.status !== "pending") continue;
+      if (outcome === "success") this.bitnob.settleLightning(reference, "paid");
+      else p.status = "expired";
+      const event = outcome === "success" ? "lightning.payment.success" : "lightning.payment.expired";
+      const body = JSON.stringify({ event, event_id: `i3-${p.id}-${outcome}`, data: { id: p.id, reference, status: outcome } });
       const res = await this.app.request("/webhooks/bitnob", { method: "POST", body, headers: { "x-bitnob-signature": signBitnobPayload(BN_SECRET, body) } });
       if (res.status !== 200) throw new Error(`Bitnob webhook answered ${res.status}`);
     }
@@ -342,7 +344,7 @@ async function scenario(
   };
 }
 
-/** A payout Bitnob reports expired, retried with a new quote, then paid. */
+/** A payout Bitnob reports expired, retried with a new invoice, then paid. */
 export function payoutRetry(world: FailureWorld): Promise<ScenarioReport> {
   return scenario(world, "payout-retry", 7, async ({ repo, expect, bounty, waitFor }) => {
     await world.comment(repo, 7, MAINTAINER, "/bounty 12000");
@@ -364,7 +366,7 @@ export function payoutRetry(world: FailureWorld): Promise<ScenarioReport> {
       (c) => c.includes("Payout failed") && c.includes("didn't go through") && c.includes("retry automatically") && c.includes("expired"),
     );
     await waitFor("the retry", async () => (await world.payoutStore.getByBounty(b.id))?.attempts === 2 && (await bounty()).status === "paying" && world.processingPayouts() === 1);
-    await expect("B2 retries with a new quote (attempt 2)", "paying", (c) => c.includes("Paying"));
+    await expect("B6 retries with a new invoice (attempt 2)", "paying", (c) => c.includes("Paying"));
 
     await world.bitnobPayouts("success");
     await waitFor("the payout", async () => (await bounty()).status === "paid");

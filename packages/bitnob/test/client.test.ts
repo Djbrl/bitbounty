@@ -157,6 +157,37 @@ describe("payout calls", () => {
     await expect(client(b.fetch).finalizePayout("QT2_1", { retries: 0 })).rejects.toMatchObject({ status: 503 });
     expect(b.calls).toHaveLength(1);
   });
+
+  it("B6: payLightningInvoice posts the BOLT11 + reference once with { retries: 0 }, and reads the payment", async () => {
+    const { fetch, calls } = fakeFetch(ok({ id: "lnp-1", status: "pending", reference: "pay-b1-1" }), ok({ invoice: { id: "lnp-1", status: "paid", preimage: "ab" } }), ok({ amount_msat: "408000", payment_hash: "h" }));
+    const c = client(fetch);
+    const body = { request: "lntb4080n1…", reference: "pay-b1-1", max_fee: 10 };
+    expect(await c.payLightningInvoice(body, { retries: 0 })).toMatchObject({ id: "lnp-1", status: "pending" });
+    expect(calls[0]!.url).toBe("https://api.bitnob.com/api/lightning/pay");
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual(body);
+    expect(await c.getLightningPayment("lnp-1")).toMatchObject({ status: "paid", preimage: "ab" });
+    expect(calls[1]!.url).toBe("https://api.bitnob.com/api/lightning/invoices/lnp-1");
+    expect(await c.decodeLightningInvoice("lntb4080n1…")).toMatchObject({ amount_msat: "408000" });
+
+    // Lookup by reference / payment hash: filtered here, whatever the list's shape.
+    const f = fakeFetch(
+      ok({ invoices: [{ id: "x", reference: "other" }, { id: "lnp-1", reference: "pay-b1-1", status: "pending" }] }),
+      ok([{ id: "lnp-2", payment_hash: "ff".repeat(32) }]),
+      ok({ invoices: [{ id: "x", reference: "other" }] }),
+    );
+    const fc = client(f.fetch);
+    expect(await fc.findLightningPayment({ reference: "pay-b1-1" })).toMatchObject({ id: "lnp-1" });
+    expect(f.calls[0]!.url).toBe("https://api.bitnob.com/api/lightning/invoices?reference=pay-b1-1");
+    expect(f.calls[0]!.init.method).toBe("GET");
+    expect(await fc.findLightningPayment({ paymentHash: "ff".repeat(32) })).toMatchObject({ id: "lnp-2" });
+    expect(await fc.findLightningPayment({ reference: "pay-b1-1" })).toBeNull();
+    expect(await fc.findLightningPayment({})).toBeNull();
+
+    const timeout = Object.assign(new Error("aborted"), { name: "TimeoutError" });
+    const t = fakeFetch(timeout, ok({ id: "lnp-1" }));
+    await expect(client(t.fetch).payLightningInvoice(body, { retries: 0 })).rejects.toMatchObject({ code: "TIMEOUT" });
+    expect(t.calls).toHaveLength(1);
+  });
 });
 
 describe("errors (reviewer checklist)", () => {

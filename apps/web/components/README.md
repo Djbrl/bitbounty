@@ -43,7 +43,7 @@ Raw values on `:root` (`--bb-*`), flipped for dark mode (OS setting, or force wi
 | `Amount` / `formatXof()` / `formatSats()` | `xof`, `size?: "sm"\|"md"\|"lg"\|"xl"`, `money?` | FCFA amounts, `62 500 F` (no `Intl`, so no hydration drift) |
 | `Table`, `THead`, `TBody`, `Tr`, `Th`, `Td` | `Tr selected?`, `Td numeric?`, `Td mono?` | Bordered table, scrolls inside its border on phones |
 | `PhoneFrame` | `time?`, `lock?`, `fluid?` | Phone mockup. `fluid` = real developer page: full width on phones, bezel from `sm:` |
-| `PhoneNotification` | `title`, `body`, `icon?` | Wave payout push notification |
+| `PhoneNotification` | `title`, `body`, `icon?` | Wallet payout push notification (e.g. Lightning sats received) |
 | `BrowserFrame` | `url` | Browser chrome mockup |
 | `Avatar` | `initials`, `size?`, `color?` | Initials avatar, stable colour |
 | `cx()` | class parts | Tiny class joiner |

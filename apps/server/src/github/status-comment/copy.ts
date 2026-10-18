@@ -1,4 +1,4 @@
-import type { BountyStatus, FundingRail, PayoutProvider, Verdict } from "@bitbounty/core";
+import type { BountyStatus, FundingRail, Verdict } from "@bitbounty/core";
 import type { Lang } from "./format.js";
 import type { PayoutFailureReason } from "./render.js";
 
@@ -21,8 +21,9 @@ export interface Copy {
   verdictNote: string;
   riskFlags: (flags: string) => string;
   validated: (until: string | null) => string;
-  paying: (amount: string, who: string, provider: string) => string;
-  paid: (amount: string, who: string, provider: string) => string;
+  /** B6: `sats` like "16 180 sats", `address` the masked Lightning Address in a code span; both optional. */
+  paying: (amount: string, sats: string | null, who: string, address: string | null) => string;
+  paid: (amount: string, sats: string | null, who: string, address: string | null) => string;
   reference: (ref: string) => string;
   receipt: string;
   holdReason: (reason: string) => string;
@@ -55,11 +56,8 @@ export interface Copy {
   };
   bountyPage: string;
   footer: string;
-  provider: Record<PayoutProvider, string>;
   rail: Record<FundingRail, string>;
 }
-
-const PROVIDER = { wave: "Wave", orange: "Orange Money", free: "Free Money" } as const;
 
 const en: Copy = {
   pill: {
@@ -94,8 +92,10 @@ const en: Copy = {
   riskFlags: (flags) => `Flags: ${flags}`,
   validated: (until) =>
     until ? `Merged and validated. Objection window until **${until}**.` : "Merged and validated.",
-  paying: (amount, who, provider) => `Sending **${amount}** to ${who} on ${provider}…`,
-  paid: (amount, who, provider) => `**${amount}** paid to ${who} on ${provider}`,
+  paying: (amount, sats, who, address) =>
+    `Sending **${amount}**${sats ? ` (${sats})` : ""} to ${who} over Lightning${address ? ` (${address})` : ""}…`,
+  paid: (amount, sats, who, address) =>
+    `**${amount}**${sats ? ` (${sats})` : ""} paid to ${who} over Lightning${address ? ` (${address})` : ""}`,
   reference: (ref) => `Ref \`${ref}\``,
   receipt: "Receipt →",
   holdReason: (reason) => `Reason: ${reason}`,
@@ -109,6 +109,8 @@ const en: Copy = {
     no_account: "the developer hasn't set a payout account yet",
     setup: "a payout setup problem on BitBounty's side",
     other: "the payment didn't complete",
+    wallet_unreachable: "the developer's Lightning wallet didn't answer",
+    wallet_refused: "the developer's Lightning Address can't receive this payment",
   },
   refunded: (amount) => `**${amount}** went back to the funder.`,
   cancelled: "This bounty was cancelled before it was funded.",
@@ -118,7 +120,7 @@ const en: Copy = {
       "fund it with the link above (list the acceptance criteria under **Done when** in the issue). Developers can `/claim` once the money is held.",
     unfunded: "fund it with the link above. Developers can `/claim` once the money is held.",
     funded: (meUrl) =>
-      `comment \`/claim\` to take it. You need a payout account at ${meUrl}. Paid to Wave, Orange Money or Free Money within minutes of the merge.`,
+      `comment \`/claim\` to take it. You need a Lightning Address on your payout account at ${meUrl}. Paid in sats over Lightning within minutes of the merge.`,
     claimed: (who, issue) =>
       `${who}, open a PR with \`Fixes ${issue}\` before the deadline. Need more time? \`/extend\` (once). Giving up? \`/unclaim\`.`,
     submittedPending: (pr) =>
@@ -132,14 +134,13 @@ const en: Copy = {
     payoutFailed: "nothing to do. We retry automatically.",
     payoutFailedFinal: (who) =>
       `no more automatic retries. The money stays reserved for ${who}; maintainer, contact BitBounty to sort out the payout.`,
-    payoutAccount: (who, meUrl) => `${who}, set your payout account at ${meUrl}. We retry automatically.`,
+    payoutAccount: (who, meUrl) => `${who}, check the Lightning Address on your payout account at ${meUrl}. We retry automatically.`,
     payoutAccountFinal: (who, meUrl) =>
-      `${who}, set your payout account at ${meUrl}. No more automatic retries: the money stays reserved for you, ask the maintainer to contact BitBounty once it's set.`,
+      `${who}, check the Lightning Address on your payout account at ${meUrl}. No more automatic retries: the money stays reserved for you, ask the maintainer to contact BitBounty once it's set.`,
     closed: "nothing. This bounty is closed.",
   },
   bountyPage: "Bounty page",
-  footer: "BitBounty · paid in FCFA to Wave, Orange Money or Free Money",
-  provider: PROVIDER,
+  footer: "BitBounty · bounties in FCFA, paid in sats over Lightning",
   rail: { lightning: "Lightning", usdt: "USDT", ngn: "bank transfer (NGN)" },
 };
 
@@ -178,8 +179,10 @@ const fr: Copy = {
     until
       ? `Mergée et validée. Délai d'objection jusqu'à **${until}**.`
       : "Mergée et validée.",
-  paying: (amount, who, provider) => `Envoi de **${amount}** à ${who} sur ${provider}…`,
-  paid: (amount, who, provider) => `**${amount}** payés à ${who} sur ${provider}`,
+  paying: (amount, sats, who, address) =>
+    `Envoi de **${amount}**${sats ? ` (${sats})` : ""} à ${who} via Lightning${address ? ` (${address})` : ""}…`,
+  paid: (amount, sats, who, address) =>
+    `**${amount}**${sats ? ` (${sats})` : ""} payés à ${who} via Lightning${address ? ` (${address})` : ""}`,
   reference: (ref) => `Réf. \`${ref}\``,
   receipt: "Reçu →",
   holdReason: (reason) => `Motif : ${reason}`,
@@ -194,6 +197,8 @@ const fr: Copy = {
     no_account: "le développeur n'a pas encore de compte de paiement",
     setup: "un problème de configuration des paiements chez BitBounty",
     other: "le paiement n'a pas abouti",
+    wallet_unreachable: "le portefeuille Lightning du développeur n'a pas répondu",
+    wallet_refused: "l'adresse Lightning du développeur ne peut pas recevoir ce paiement",
   },
   refunded: (amount) => `**${amount}** rendus au financeur.`,
   cancelled: "Cette prime a été annulée avant d'être financée.",
@@ -203,7 +208,7 @@ const fr: Copy = {
       "financez-la avec le lien ci-dessus (listez les critères d'acceptation sous **Done when** dans l'issue). Les devs pourront faire `/claim` dès que l'argent est bloqué.",
     unfunded: "financez-la avec le lien ci-dessus. Les devs pourront faire `/claim` dès que l'argent est bloqué.",
     funded: (meUrl) =>
-      `commentez \`/claim\` pour la prendre. Il faut un compte de paiement sur ${meUrl}. Payé sur Wave, Orange Money ou Free Money quelques minutes après le merge.`,
+      `commentez \`/claim\` pour la prendre. Il faut une adresse Lightning sur votre compte de paiement (${meUrl}). Payé en sats via Lightning quelques minutes après le merge.`,
     claimed: (who, issue) =>
       `${who}, ouvrez une PR avec \`Fixes ${issue}\` avant l'échéance. Besoin de plus de temps ? \`/extend\` (une fois). Vous abandonnez ? \`/unclaim\`.`,
     submittedPending: (pr) =>
@@ -219,14 +224,13 @@ const fr: Copy = {
     payoutFailed: "rien à faire. Nous réessayons automatiquement.",
     payoutFailedFinal: (who) =>
       `plus de nouvel essai automatique. L'argent reste réservé à ${who} ; mainteneur, contactez BitBounty pour régler le paiement.`,
-    payoutAccount: (who, meUrl) => `${who}, configurez votre compte de paiement sur ${meUrl}. Nous réessayons automatiquement.`,
+    payoutAccount: (who, meUrl) => `${who}, vérifiez l'adresse Lightning de votre compte de paiement sur ${meUrl}. Nous réessayons automatiquement.`,
     payoutAccountFinal: (who, meUrl) =>
-      `${who}, configurez votre compte de paiement sur ${meUrl}. Plus de nouvel essai automatique : l'argent vous reste réservé, demandez au mainteneur de contacter BitBounty une fois fait.`,
+      `${who}, vérifiez l'adresse Lightning de votre compte de paiement sur ${meUrl}. Plus de nouvel essai automatique : l'argent vous reste réservé, demandez au mainteneur de contacter BitBounty une fois fait.`,
     closed: "rien. Cette prime est close.",
   },
   bountyPage: "Page de la prime",
-  footer: "BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money",
-  provider: PROVIDER,
+  footer: "BitBounty · primes en FCFA, payées en sats via Lightning",
   rail: { lightning: "Lightning", usdt: "USDT", ngn: "virement bancaire (NGN)" },
 };
 

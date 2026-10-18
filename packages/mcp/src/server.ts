@@ -16,7 +16,7 @@ export function createBitbountyServer(api: BitbountyApi): McpServer {
     {
       title: "Post a paid bounty on a GitHub issue",
       description:
-        "Put a bounty (in FCFA, what the developer receives) on an existing GitHub issue so a human developer in West Africa does the task and is paid on mobile money when the fix is merged. " +
+        "Put a bounty (in FCFA, what the developer receives) on an existing GitHub issue so a human developer in West Africa does the task and is paid the equivalent in sats over Lightning (to their Lightning Address) when the fix is merged. " +
         "Use it for work that needs a human (local language, real device, real-world check). The bounty starts unfunded: give the returned fund_url to your human owner to pay it. " +
         "Fails if the repo isn't allowed for this agent, the amount is above the per-task max, or the monthly budget would be exceeded (check get_budget first).",
       inputSchema: {

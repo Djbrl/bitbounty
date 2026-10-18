@@ -4,7 +4,7 @@ import { getBoard, getIssueIndex, getRecentPayouts } from "../components/board/d
 
 export const metadata: Metadata = {
   title: "BitBounty · Paid issues",
-  description: "Funded GitHub issues, paid to mobile money in FCFA minutes after merge.",
+  description: "Funded GitHub issues in FCFA, paid in sats over Lightning minutes after merge.",
 };
 
 // Rendered per request: the data comes from the server (I1), never baked in at build time.
