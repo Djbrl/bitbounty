@@ -94,6 +94,18 @@ describe("proxy", () => {
     vi.unstubAllEnvs();
   });
 
+  it.each([[[".."]], [["bounties", "..", "x"]], [["."]], [[""]], [["bounties", ""]], [["%2e%2e"]], [["%2E"]], [["%252e%252e"]], [["%zz"]]])(
+    "rejects dot, empty and undecodable segments %j with 400 bad_path, without calling fetch",
+    async (path) => {
+      const fetchImpl = vi.fn();
+      const req = new Request("http://web/api/x");
+      const res = await proxy(req, "http://api.test", path, new URL(req.url), null, fetchImpl as unknown as typeof fetch);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "bad_path" });
+      expect(fetchImpl).not.toHaveBeenCalled();
+    },
+  );
+
   it("passes the server's status through, and answers 503 when the server is down", async () => {
     const req = new Request("http://web/api/me");
     const notFound = await proxy(req, "http://api.test", ["me"], new URL(req.url), null, fetchReturning(401, { error: "unauthorized" }));
