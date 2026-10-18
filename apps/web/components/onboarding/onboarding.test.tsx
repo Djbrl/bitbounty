@@ -6,6 +6,7 @@ import { handleMock, type Fixtures } from "../../lib/mock-api";
 import { payoutAccountApi } from "./api";
 import { loadMe } from "./load-me";
 import { addressError, checkAddressInput, formatDateFr, parseMeState, savedAddress } from "./logic";
+import { clearBitbountyStorage, DemoReset } from "./demo-reset";
 import { Onboarding } from "./onboarding";
 
 describe("checkAddressInput (same LUD-16 rule as the server)", () => {
@@ -94,5 +95,32 @@ describe("<Onboarding /> and /me", () => {
     const page = async (state?: string) => renderToStaticMarkup(await MePage({ searchParams: Promise.resolve({ state }) }));
     expect(await page("new")).toContain("Ajoute ta Lightning Address");
     expect(await page("bogus")).toContain("aw***@blink.sv");
+  });
+});
+
+describe("<DemoReset /> (Zone démo)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("renders a danger button in French and English, and /me includes it", async () => {
+    expect(renderToStaticMarkup(<DemoReset />)).toContain("Réinitialiser la démo");
+    expect(renderToStaticMarkup(<DemoReset lang="en" />)).toContain("Reset demo");
+    expect(renderToStaticMarkup(await MePage({ searchParams: Promise.resolve({}) }))).toContain("Zone démo");
+  });
+
+  it("clears only bitbounty.* localStorage keys", () => {
+    const data = new Map([["bitbounty.tour.hunt.done", "1"], ["bitbounty.x", "y"], ["other", "z"]]);
+    const storage = {
+      get length() { return data.size; },
+      key: (i: number) => [...data.keys()][i] ?? null,
+      removeItem: (k: string) => void data.delete(k),
+    } as unknown as Storage;
+    clearBitbountyStorage(storage);
+    expect([...data.keys()]).toEqual(["other"]);
+    expect(() => clearBitbountyStorage({ get length(): number { throw new Error("blocked"); } } as unknown as Storage)).not.toThrow();
+  });
+
+  it("POST /api/me/reset-demo answers {ok:true} in the mock", () => {
+    const res = handleMock({ me } as unknown as Fixtures, "POST", ["me", "reset-demo"], new URLSearchParams(), {});
+    expect(res).toMatchObject({ status: 200, json: { ok: true } });
   });
 });

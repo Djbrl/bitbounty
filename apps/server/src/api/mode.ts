@@ -27,6 +27,9 @@ export class InMemoryModeStore implements UserModeStore {
   async setMode(login: string, mode: UserMode) {
     this.modes.set(login.toLowerCase(), mode);
   }
+  async clearMode(login: string) {
+    this.modes.delete(login.toLowerCase());
+  }
   async installedRepos(login: string) {
     const key = Object.keys(this.installs).find((k) => k.toLowerCase() === login.toLowerCase());
     return key ? [...this.installs[key]!] : [];

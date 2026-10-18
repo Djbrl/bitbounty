@@ -17,6 +17,8 @@ export interface ProfileRoutesDeps {
   modeOf?: (login: string) => Promise<UserMode | null>;
   /** Repos where the GitHub App is installed for this user (installations + bounties they funded). */
   reposOf?: (login: string) => Promise<string[]>;
+  /** Extra cleanup after POST /api/me/reset-demo (e.g. the in-memory mode store when there's no DB). */
+  onReset?: (login: string) => Promise<void>;
 }
 
 /**
@@ -25,6 +27,7 @@ export interface ProfileRoutesDeps {
  * POST /api/me/onboarding {preferences?, done?} → OnboardingState (done sets onboardedAt once; the mode is U2's POST /api/me/mode)
  * POST /api/me/lightning-address {lightningAddress} → {lightningAddress: masked}
  *      400 invalid_lightning_address · 422 lightning_address_unreachable (+ retryable)
+ * POST /api/me/reset-demo                    → {ok: true}: wipes this user's payout account, mode, onboardedAt, preferences
  */
 export function profileRoutes(deps: ProfileRoutesDeps) {
   const app = new Hono();
@@ -76,6 +79,14 @@ export function profileRoutes(deps: ProfileRoutesDeps) {
     }
     await deps.store.setLightningAddress(login, address);
     return c.json({ lightningAddress: maskLightningAddress(address) });
+  });
+
+  app.post("/api/me/reset-demo", async (c) => {
+    const login = deps.getLogin(c);
+    if (!login) return c.json({ error: "unauthorized" }, 401);
+    await deps.store.resetDemo(login);
+    await deps.onReset?.(login);
+    return c.json({ ok: true });
   });
 
   return app;

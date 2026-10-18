@@ -193,6 +193,12 @@ export function handleMock(
     return ok({ lightningAddress: masked });
   }
 
+  // Demo reset: forget the mock's onboarding answers, mode and Lightning Address.
+  if (root === 'me' && id === 'reset-demo' && method === 'POST') {
+    resetMockOnboarding();
+    return ok({ ok: true });
+  }
+
   // U2: the app shell's workspace (the web also remembers it in the bb_mode cookie).
   if (root === 'me' && id === 'mode') {
     // U1: /welcome saves the mode here too; the mock remembers it with the onboarding answers.

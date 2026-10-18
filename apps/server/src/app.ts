@@ -340,6 +340,8 @@ app.route(
     getLogin: (c) => requestUser(c, internalToken),
     languagesOf: githubLanguages(),
     modeOf: (login) => modeStore.getMode(login),
+    // With a DB the store's transaction already clears users.default_mode.
+    onReset: modeStore instanceof InMemoryModeStore ? (login) => modeStore.clearMode(login) : undefined,
     reposOf: async (login) => {
       const installed = await modeStore.installedRepos(login);
       const funded = (await bountyRepo.list(500)).filter((b) => loginOf(b.funderId)?.toLowerCase() === login.toLowerCase()).map((b) => b.repoFullName);

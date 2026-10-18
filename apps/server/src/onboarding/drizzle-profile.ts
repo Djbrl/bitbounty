@@ -44,4 +44,14 @@ export class DrizzleProfileStore implements ProfileStore {
       .values({ userId, lightningAddress: address, country: "SN" })
       .onConflictDoUpdate({ target: payoutAccounts.userId, set: { lightningAddress: address } });
   }
+
+  /** Only this user's rows: claims, payouts, bounties, ledger and events stay (shared demo history). */
+  async resetDemo(login: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const [row] = await tx.select({ id: users.id }).from(users).where(sql`lower(${users.login}) = lower(${login})`).limit(1);
+      if (!row) return;
+      await tx.delete(payoutAccounts).where(eq(payoutAccounts.userId, row.id));
+      await tx.update(users).set({ defaultMode: null, onboardedAt: null, preferences: {} }).where(eq(users.id, row.id));
+    });
+  }
 }
