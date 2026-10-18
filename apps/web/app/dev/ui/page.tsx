@@ -212,8 +212,8 @@ function Showcase() {
           <Avatar initials="A" size="sm" />
           <Avatar initials="MS" />
           <Avatar initials="AN" size="lg" tier="bronze" label="@awa, Bronze tier" />
-          <Avatar initials="KD" size="lg" tier="silver" />
-          <Avatar initials="FS" size="xl" tier="gold" />
+          <Avatar initials="KD" size="lg" tier="silver" label="@khady, Silver tier" />
+          <Avatar initials="FS" size="xl" tier="gold" label="@fatou, Gold tier" />
         </div>
       </Block>
 

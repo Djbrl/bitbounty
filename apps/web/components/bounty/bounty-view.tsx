@@ -86,7 +86,10 @@ export function BountyHeader({ b }: { b: BountyDetail }) {
           ))}
         </div>
       )}
-      <ProgressSteps steps={steps.map((s) => ({ ...s, at: s.at && formatDateTime(s.at) }))} />
+      <ProgressSteps
+        steps={steps.map((s) => ({ ...s, at: s.at && formatDateTime(s.at) }))}
+        current={steps.findIndex((s) => !s.done)}
+      />
       <p className="text-sm text-muted">{STATUS_META[b.status].hint}</p>
     </Card>
   );

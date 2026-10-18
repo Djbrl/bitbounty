@@ -3,8 +3,8 @@ import { cx } from "./tone";
 
 export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   /**
-   * Toggle state. When set (true or false) or when `onClick` is passed, the chip is a <button aria-pressed>;
-   * otherwise it is a plain <span> label.
+   * Toggle state. When set (true or false) the chip is a <button aria-pressed>. With only `onClick` it is a plain
+   * button (no pressed state); with neither, a <span> label (button attributes are then ignored).
    */
   selected?: boolean;
   /** Leading icon or emoji. */
@@ -34,7 +34,7 @@ export function Chip({ selected, icon, size = "md", className, children, type = 
   return (
     <button
       type={type}
-      aria-pressed={!!selected}
+      aria-pressed={selected}
       className={cx(classes, "transition disabled:cursor-not-allowed disabled:opacity-50", !selected && "hover:bg-rule")}
       {...rest}
     >

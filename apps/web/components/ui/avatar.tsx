@@ -1,7 +1,7 @@
 import { cx } from "./tone";
 
-/** Initials backgrounds: the landing's avatar orange plus the palette's strong tones (white text on all). */
-const AVATAR_COLORS = ["#c2662d", "#167a45", "#2a62d6", "#8250df", "#13291f", "#b04a2f"];
+/** Initials backgrounds: the landing's avatar orange (a shade darker for AA) and the palette's strong tones; white text passes on all. */
+const AVATAR_COLORS = ["#b35b25", "#167a45", "#2a62d6", "#7444d4", "#0e5a32", "#b13a26"];
 
 /** Hunter tier (U3: from paid bounties). Drawn as a coloured ring around the avatar. */
 export type Tier = "bronze" | "silver" | "gold";

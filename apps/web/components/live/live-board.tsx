@@ -82,7 +82,7 @@ export function LiveBoard({ initial, speed = 1, stream = true }: LiveBoardProps)
   const routeStatus = initial.route ? state.cards.find((c) => c.bountyId === initial.route?.bountyId)?.status : undefined;
 
   return (
-    <div className="relative flex min-h-dvh flex-col gap-[clamp(14px,1.6vw,28px)] overflow-x-clip bg-forest px-4 py-5 text-white sm:px-[clamp(16px,2.2vw,44px)] sm:py-[clamp(18px,2vw,36px)]">
+    <div data-theme="dark" className="relative flex min-h-dvh flex-col gap-[clamp(14px,1.6vw,28px)] overflow-x-clip bg-forest px-4 py-5 text-white sm:px-[clamp(16px,2.2vw,44px)] sm:py-[clamp(18px,2vw,36px)]">
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <h1 className="m-0 text-[clamp(1.7rem,2.6vw,3.2rem)] font-extrabold tracking-tight">BitBounty · live</h1>
         <ConnectionPill conn={conn} />

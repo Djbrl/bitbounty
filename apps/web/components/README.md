@@ -9,7 +9,8 @@ Components are server components unless noted; wrap them in your own client comp
 Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@theme inline`. Use the utilities (`bg-paper`, `text-ink`, `border-rule`…) and dark mode comes for free.
 
 - **Dark mode** follows the OS, or force it with `data-theme="dark|light"` on `<html>` **or on any element** (a subtree can be themed; `/dev/ui` does this). Give a themed subtree `bg-paper text-ink`.
-- **Dark palette** = the landing's dark band: ink background, ink-2 cards, line-dark hairlines, mint secondary text.
+- **Dark palette** = the landing's dark band: ink page, deep-green (`#13291F`, landing ink-2) cards, line-dark hairlines, mint secondary text.
+- Hex values only appear in `globals.css` and in fixed mockup colours (PhoneFrame bezel/notification, Avatar initials backgrounds).
 
 | Utility | Landing name | Light / dark | Use |
 |---|---|---|---|
@@ -24,14 +25,15 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | `chip` | chip | `#EEF0EA` / `#1F3A2D` | chips, neutral pills |
 | `mint` | mint | `#9DC4AE` | text on dark surfaces (constant) |
 | `money`, `money-soft`, `money-strong` | green | `#167A45` / `#3CC77E` | money held or landed, primary buttons (`money-strong` = hover) |
-| `money-bright` | green-bright | `#3CC77E` | checks passed, "paying" (constant) |
+| `money-bright` | green-bright | `#3CC77E` | bright green on dark surfaces, /live (constant) |
+| `bright` | green-bright | `#3CC77E` / `#A7E8C4` | the Verified pill fill (paler in dark so it never matches Paid) |
 | `amber`, `on-amber` | amber | `#F2A007` on `#2B1A00` | awaiting funds (solid tag, constant) |
 | `pending`, `pending-soft` | (amber, text-safe) | `#855800` / `#F2B440` | on hold, warnings |
 | `claim`, `claim-soft` | (app only) | blue | a developer is on it |
 | `danger`, `danger-soft` | (app only) | red | payout failed, errors |
-| `agent`, `agent-soft` | purple | `#8250DF` / `#B392F0` | funded by an AI agent |
-| `tier-bronze/silver/gold` | | | Avatar tier rings (U3) |
-| `forest`, `on-forest` | ink | `#0B1F17` / `#F4F5F1` (constant) | always-dark surfaces: /live, toasts |
+| `agent`, `agent-soft`, `agent-strong` | purple | `#8250DF` / `#B392F0` | funded by an AI agent (`agent-strong` = AA text on `agent-soft`) |
+| `tier-bronze/silver/gold` | | darker in light for 3:1 | Avatar tier rings (U3) |
+| `forest`, `on-forest` | ink | `#0B1F17` / `#F4F5F1` (constant) | always-dark surfaces: /live (also forces `data-theme="dark"`), toasts (in dark mode they sit on a same-colour page, outlined by `line-dark`) |
 | `on-solid` | | white / ink | text on a solid `money`/`danger`/`claim` fill |
 | `rounded-[var(--radius-card)]` / `--radius-card-lg` | | 16 px / 22 px | card radius (lg = landing `.card`) |
 
@@ -44,20 +46,20 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | `Button` / `buttonClass()` | `variant?: "primary" \| "secondary" \| "ghost" \| "dark" \| "danger"`, `size?: "sm" \| "md" \| "lg"`, `block?` + button attrs | Pill buttons. primary = landing green, secondary = hairline, ghost = green text link, dark = ink pill ("Installer"). `buttonClass({...})` styles a `<Link>`/`<a>` |
 | `Card` | `emphasis?`, `padding?: "none" \| "sm" \| "md" \| "lg"`, `as?` + attrs | White sheet, hairline border; `lg` gets the 22 px radius |
 | `StatCard` | `label`, `value`, `sub?`, `money?`, `emphasis?` | Big Bricolage number + label |
-| `Chip` | `selected?`, `onClick?`, `icon?`, `size?: "sm" \| "md"` + button attrs | Landing chip. With `selected` (true/false) or `onClick` it is a `<button aria-pressed>` toggle (filters, stack picker); otherwise a `<span>` label |
-| `StatusPill` | `status: BountyStatus`, `lang?: "en" \| "fr"`, `size?` | One distinct colour per bounty status (table below) |
+| `Chip` | `selected?`, `onClick?`, `icon?`, `size?: "sm" \| "md"` + button attrs | Landing chip. With `selected` (true/false) it is a `<button aria-pressed>` toggle (filters, stack picker); with only `onClick` a plain button; otherwise a `<span>` label (button attrs ignored) |
+| `StatusPill` | `status: BountyStatus`, `lang?: "en" \| "fr"`, `size?` | One distinct colour per bounty status (table below). `StatusBadge` is a deprecated alias |
 | `STATUS_META` / `statusMeta()` | `Record<BountyStatus, {tone, label, labelFr, hint}>` | Same mapping for custom renderings (lanes, dots) |
 | `Pill` | `tone?: Tone`, `dot?`, `size?` + span attrs | Free-form tag in any tone |
 | `Dot` | `tone?`, `pulse?` | Coloured dot ("live") |
 | `Tag` | children | Small square tag (labels on rows) |
-| `Amount` / `formatXof()` / `formatSats()` / `formatNgn()` | `xof`, `sats?`, `ngn?`, `currency?: "xof" \| "ngn" \| "sats"`, `size?: "sm" \| "md" \| "lg" \| "xl"`, `money?` | FCFA big (Bricolage) + sats small (mono) when `sats` is passed. `currency` puts the user's preferred currency big and FCFA small; falls back to FCFA when that value isn't passed. No conversion inside: pass the amounts you have. Without `sats`/`ngn` it renders exactly one span, as before |
+| `Amount` / `formatXof()` / `formatSats()` / `formatNgn()` | `xof`, `sats?`, `ngn?`, `currency?: "xof" \| "ngn" \| "sats"`, `size?: "sm" \| "md" \| "lg" \| "xl"`, `money?` | FCFA big (Bricolage) + sats small (mono) when `sats` is passed. `currency` puts the user's preferred currency big and FCFA small; falls back to FCFA when that value isn't passed. No conversion inside: pass the amounts you have. Without `sats`/`ngn` it renders exactly one span, as before; with a second line, `className` goes on the wrapper |
 | `Avatar` | `initials`, `src?`, `size?: "sm" \| "md" \| "lg" \| "xl"`, `color?`, `tier?: "bronze" \| "silver" \| "gold"`, `label?` | Photo or initials; `tier` draws a ring with a transparent gap. Decorative unless `label` is given |
 | `ProgressSteps` | `steps: {label, done?, at?}[]`, `current?: number`, `label?` | Numbered steps joined by a rail, ✓ when done, green ring on `current`. Onboarding 1·2·3, bounty lifecycle |
 | `EmptyState` | `title`, children (body), `action?`, `icon?`, `align?: "start" \| "center"` | Dashed "nothing here yet" box |
 | `Skeleton` | `className` (size/shape) | Pulsing placeholder, hidden from screen readers, static with reduced motion |
 | `LoadingState`, `ErrorState` | `label?` / `title?`, `message`, `action?` | Route-level loading and error screens (I1) |
 | `Toast` | `tone?: "info" \| "success" \| "error"`, `title`, children, `action?`, `onClose?` | Dark notification card (landing `.notif`), `role="alert"` for errors |
-| `ToastProvider` / `useToast()` | `toast({ tone, title, children, action, duration? })` | Client. Provider is mounted in `app/layout.tsx`; call `useToast()` from any client component. `duration` ms, default 5000, 0 = sticky; 3 visible max |
+| `ToastProvider` / `useToast()` | `toast({ tone, title, children, action, duration? })` | Client. Provider is mounted in `app/layout.tsx` (polite live region); call `useToast()` from any client component. `duration` ms, default 5000, 0 = sticky; 3 visible max |
 | `Page` | `nav?: AppNavProps`, `width?: "narrow" \| "default" \| "wide"` | Page container, 16 px gutter on phones, optional top nav |
 | `AppNav` | `items?`, `active?`, `initials?`, `right?` | Top bar (mark + links + avatar) |
 | `Mark` | `label?` | Landing logo ("b" stroke + green dot) + wordmark |
@@ -77,7 +79,7 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | funded | money | soft green | Funded | Financé |
 | claimed | claim | soft blue | Claimed | Réservé |
 | submitted | claim-solid | solid blue | PR submitted | PR soumise |
-| verified | bright | bright green (landing ticks) | Verified | Vérifié |
+| verified | bright | bright green (landing ticks), pale green in dark | Verified | Vérifié |
 | paying | ink | ink pill | Paying out | Paiement en cours |
 | paid | money-solid | solid green | Paid | Payé |
 | on_hold | pending | soft amber | On hold | En pause |
@@ -85,7 +87,7 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | refunded | neutral | grey chip | Refunded | Remboursé |
 | cancelled | outline | hairline only | Cancelled | Annulé |
 
-`STATUS_META` is typed `Record<BountyStatus, …>`: a new status in `@bitbounty/core` fails the typecheck until it gets a pill; a test checks that no two statuses share a tone. Tests: `components/ui/ui.test.tsx`, `components/ui/design-system.test.tsx`.
+`STATUS_META` is typed `Record<BountyStatus, …>`: a new status in `@bitbounty/core` fails the typecheck until it gets a pill; tests check that no two statuses share a tone and that Verified and Paid stay apart in dark mode. Tests: `components/ui/ui.test.tsx`, `components/ui/design-system.test.tsx`.
 
 ## Note on `@bitbounty/core`
 
