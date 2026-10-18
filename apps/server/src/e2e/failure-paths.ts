@@ -241,6 +241,11 @@ export class FailureWorld {
     await this.lightning.check(f.id);
   }
 
+  /** Payouts Bitnob is processing (finalized). `paying` can show before B2 finalizes, so wait for this. */
+  processingPayouts(): number {
+    return [...this.bitnob.payouts.values()].filter((p) => p.status === "processing").length;
+  }
+
   /** Bitnob's webhook for every payout currently `processing` at the fake. */
   async bitnobPayouts(outcome: "success" | "expired") {
     for (const p of this.bitnob.payouts.values()) {
@@ -349,7 +354,7 @@ export function payoutRetry(world: FailureWorld): Promise<ScenarioReport> {
     await world.pullRequest(repo, 7, 21, "opened", false);
     await expect("PR opened, check passes", "submitted", (c) => c.includes("#21"));
     await world.pullRequest(repo, 7, 21, "closed", true);
-    await waitFor("the first payout attempt", async () => (await bounty()).status === "paying");
+    await waitFor("the first payout attempt", async () => (await bounty()).status === "paying" && world.processingPayouts() === 1);
     await expect("merged → payout attempt 1", "paying", (c) => c.includes("Paying"));
 
     await world.bitnobPayouts("expired");
@@ -358,7 +363,7 @@ export function payoutRetry(world: FailureWorld): Promise<ScenarioReport> {
       "payout_failed",
       (c) => c.includes("Payout failed") && c.includes("didn't go through") && c.includes("retry automatically") && c.includes("expired"),
     );
-    await waitFor("the retry", async () => (await world.payoutStore.getByBounty(b.id))?.attempts === 2 && (await bounty()).status === "paying");
+    await waitFor("the retry", async () => (await world.payoutStore.getByBounty(b.id))?.attempts === 2 && (await bounty()).status === "paying" && world.processingPayouts() === 1);
     await expect("B2 retries with a new quote (attempt 2)", "paying", (c) => c.includes("Paying"));
 
     await world.bitnobPayouts("success");

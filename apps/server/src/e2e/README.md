@@ -45,7 +45,7 @@ Also: A2's `RepoBountyLookup` falls back to the issue's "Done when" criteria whe
 
 | Scenario | What happens | GitHub | Web (`/b/:id`, `/live`) |
 | --- | --- | --- | --- |
-| **payout retry** | merge → payout attempt 1 → Bitnob webhook `payouts.withdrawal.expired` → `payout_failed` → B2 retries with a new quote (attempt 2) → Bitnob success → `paid` | status comment `⚠️ Payout failed` with "The money stays reserved for them", `Last error (attempt 1): Bitnob reported expired`, "We retry automatically"; then `💸 Paid` with the receipt link; label `bounty: paid` | timeline `… payout.started → payout.failed → payout.started → payout.succeeded`, payout `succeeded` in 2 attempts, claim `done` |
+| **payout retry** | merge → payout attempt 1 → Bitnob webhook `payouts.withdrawal.expired` → `payout_failed` → B2 retries with a new quote (attempt 2) → Bitnob success → `paid` | status comment `⚠️ Payout failed` with "The money stays reserved for them", `Last error (attempt 1): Bitnob reported the payment expired`, "Next: nothing to do. We retry automatically"; then `💸 Paid` with the receipt link; label `bounty: paid` | timeline `… payout.started → payout.failed → payout.started → payout.succeeded`, payout `succeeded` in 2 attempts, claim `done` |
 | **claim expiry** | `/claim` and no PR before the deadline → G5 timer → `claim.expired` → back to `funded` → another developer `/claim`s | developer assigned then **unassigned**, note `⏰ @awa-dev's claim expired without a PR…`, status comment back to `Funded`, then `Claimed` by the next developer | timeline `… claim.created → claim.expired → claim.created`, new active claim |
 
 ```bash
@@ -58,7 +58,9 @@ BITBOUNTY_API_URL=http://localhost:8787 pnpm --filter @bitbounty/web dev   # the
 Fixes that came with it, so the failures read cleanly:
 - the status comment is re-rendered with the claim, the PR and the payout's attempt / last error / receipt (`statusExtras`, used by `app.ts` and the scenarios). Before, `payout_failed` showed no reason;
 - the comment no longer says "Nobody can claim until the maintainer confirms criteria / `/criteria ok`": `/criteria` doesn't exist yet and claims are open once funded. It now says the criteria are the issue's **Done when** list (what A2's verifier reads) and, once funded, "comment `/claim` to take it" (EN and FR);
-- after the last payout attempt, the comment stops promising "We retry automatically";
+- after the last payout attempt, the comment stops promising "We retry automatically" (and promises no manual retry either: there is none yet);
+- the issue is public, so the payout failure is a short reason (`Bitnob didn't answer`, `Bitnob reported the payment expired`, `Bitnob refused the payment`, `the developer hasn't set a payout account yet`, `a payout setup problem on BitBounty's side`, else `the payment didn't complete`), never the raw `lastError` (hosts, env var names). The raw text stays in the server log and the payout row. "Set your payout account at /me" only shows when that is the cause;
+- a stopped claim scheduler (`InMemoryClaimScheduler.stop()`) arms no new timer until `start()`, so with `--serve` the second claim stays on screen instead of expiring 20 s later;
 - the bounty page shows "From the issue · Done when list on GitHub" instead of "Claude draft · waiting for /criteria ok" when no criteria are stored;
 - the bounty page shows the claim as `done` once merged, and the verifier's verdict even when only the bounty carries it.
 
