@@ -242,7 +242,7 @@ function defineSuite(connect: () => Promise<Target>) {
     it("refuses to touch a real user who has a seeded developer's login, and writes nothing", async () => {
       await resetDatabase(db);
       const [awa] = await db.insert(users).values({ githubId: 777, login: "Awa-Diop" }).returning();
-      const account = { userId: awa!.id, country: "SN", provider: "wave", phoneE164: "+221771234567", accountName: "Real Awa", status: "verified" as const };
+      const account = { userId: awa!.id, country: "SN", provider: "wave" as const, phoneE164: "+221771234567", accountName: "Real Awa", status: "verified" as const };
       await db.insert(payoutAccounts).values(account);
 
       await expect(seed(db)).rejects.toThrow(/Awa-Diop/);
