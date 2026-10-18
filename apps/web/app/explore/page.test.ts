@@ -5,7 +5,7 @@ import { GET } from "../api/health/route";
 
 describe("web", () => {
   it("renders the public board on the home page", async () => {
-    const html = renderToStaticMarkup(await Home());
+    const html = renderToStaticMarkup(await Home({ searchParams: Promise.resolve({ q: "" }) }));
     expect(html).toContain("Issues payées");
     expect(html).toContain("Live payouts");
   });

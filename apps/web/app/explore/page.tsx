@@ -14,13 +14,13 @@ export const dynamic = "force-dynamic";
 
 type Params = { q?: string | string[] };
 
-export default async function Home({ searchParams }: { searchParams?: Promise<Params> } = {}) {
+export default async function Home({ searchParams }: { searchParams: Promise<Params> }) {
   const [board, payouts, issues, langCookie, params] = await Promise.all([
     getBoard(),
     getRecentPayouts(),
     getIssueIndex(),
     readCookie(LANG_COOKIE),
-    searchParams ?? Promise.resolve<Params>({}),
+    searchParams,
   ]);
   const q = (Array.isArray(params.q) ? params.q[0] : params.q) ?? "";
   return <BoardView board={board} payouts={payouts} issues={issues} lang={parseLang(langCookie)} q={q.slice(0, 100)} now={Date.now()} />;
