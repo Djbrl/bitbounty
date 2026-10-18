@@ -22,6 +22,8 @@ BITBOUNTY_AGENTS=[{"id":"…","name":"demo-agent","ownerLogin":"Djbrl","keyHash"
 pnpm --filter @bitbounty/mcp build
 claude mcp add bitbounty -e BITBOUNTY_API_URL=http://localhost:8787 -e BITBOUNTY_AGENT_KEY=bb_... -- node /path/to/bitbounty/packages/mcp/dist/index.js
 ```
+`BITBOUNTY_API_URL` must be `https://` (e.g. the public tunnel URL). Plain `http://` is only accepted for `localhost`, `127.0.0.1` or `[::1]`, because the agent key is sent as a bearer token; any other URL stops the MCP server at startup with a clear message.
+
 Tools: `post_bounty`, `get_bounty`, `cancel_bounty`, `get_budget`. On a refusal the tool returns an error with a hint (over budget, repo not allowed…), so the agent can adapt.
 
 ## 3. Or call the API directly
