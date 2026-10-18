@@ -39,6 +39,19 @@ function setup(opts: { checker?: { check: (a: string) => Promise<unknown> } } = 
 }
 
 describe("U1 onboarding routes", () => {
+  it("POST /api/me/reset-demo wipes only the signed-in user's profile; 401 when signed out", async () => {
+    const { call, store } = setup();
+    expect((await call("POST", "/api/me/reset-demo", undefined, null)).status).toBe(401);
+    await store.update("awa-dev", { preferences: { role: "hunt", step: 3 }, done: true });
+    await store.setLightningAddress("awa-dev", "awa@blink.sv");
+    await store.update("moussa", { preferences: { role: "maintain" }, done: true });
+    const res = await call("POST", "/api/me/reset-demo");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(await store.get("awa-dev")).toMatchObject({ defaultMode: null, onboardedAt: null, lightningAddress: null, preferences: { role: null, step: 1 } });
+    expect((await store.get("moussa")).onboardedAt).not.toBeNull();
+  });
+
   it("401 without the signed-in user", async () => {
     const { call } = setup();
     expect((await call("GET", "/api/me/onboarding", undefined, null)).status).toBe(401);

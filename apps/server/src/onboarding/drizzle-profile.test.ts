@@ -43,4 +43,14 @@ describe.skipIf(!url)("DrizzleProfileStore (DATABASE_URL)", () => {
     await store.setLightningAddress("awa-new", "awa2@blink.sv");
     expect((await store.get("AWA-NEW")).lightningAddress).toBe("awa2@blink.sv");
   });
+
+  it("resetDemo clears this user's payout account, mode, onboardedAt and preferences only", async () => {
+    await store.update("reset-me", { preferences: { role: "hunt", step: 3 }, done: true });
+    await store.setLightningAddress("reset-me", "reset@blink.sv");
+    await store.update("keep-me", { done: true });
+    await store.resetDemo("Reset-Me");
+    expect(await store.get("reset-me")).toMatchObject({ defaultMode: null, onboardedAt: null, lightningAddress: null, preferences: { role: null, step: 1 } });
+    expect((await store.get("keep-me")).onboardedAt).not.toBeNull();
+    await store.resetDemo("never-seen"); // no-op
+  });
 });

@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { LANG_COOKIE, parseLang } from "../../components/app-shell/mode";
+import { readCookie } from "../../components/hunt/data";
+import { DemoReset } from "../../components/onboarding/demo-reset";
 import { Page } from "../../components/ui";
 import { fetchMe } from "../../components/onboarding/load-me";
 import { parseMeState } from "../../components/onboarding/logic";
@@ -17,7 +20,7 @@ type Props = { searchParams?: Promise<Record<string, string | string[] | undefin
 /** /me: the developer saves their Lightning Address once (French). `?state=new` (no address) or `?state=verified` for demos. */
 export default async function MePage({ searchParams }: Props) {
   const state = parseMeState((await searchParams)?.state);
-  const me = await fetchMe(state);
+  const [me, langCookie] = await Promise.all([fetchMe(state), readCookie(LANG_COOKIE)]);
   const initials = me.user.name
     .split(/\s+/)
     .map((w) => w[0] ?? "")
@@ -29,6 +32,7 @@ export default async function MePage({ searchParams }: Props) {
     >
       {/* key: a new ?state= remounts the flow at the right step */}
       <Onboarding key={state ?? "default"} me={me} />
+      <DemoReset lang={parseLang(langCookie)} />
     </Page>
   );
 }

@@ -47,6 +47,8 @@ export interface ProfileStore {
   get(login: string): Promise<Profile>;
   update(login: string, patch: ProfilePatch): Promise<Profile>;
   setLightningAddress(login: string, address: string): Promise<void>;
+  /** Demo reset: drops the user's payout account and clears default_mode, onboarded_at, preferences (one transaction). */
+  resetDemo(login: string): Promise<void>;
 }
 
 const REPO_RE = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
@@ -139,5 +141,9 @@ export class InMemoryProfileStore implements ProfileStore {
   async setLightningAddress(login: string, address: string): Promise<void> {
     const cur = await this.get(login);
     this.rows.set(login.toLowerCase(), { ...cur, lightningAddress: address });
+  }
+
+  async resetDemo(login: string): Promise<void> {
+    this.rows.delete(login.toLowerCase());
   }
 }
