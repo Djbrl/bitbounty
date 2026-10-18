@@ -114,7 +114,7 @@ through `BountyRepo` (in-memory until F3). Comments use the App installation whe
 1. Comments by bots, or without a command line, are dropped before any API call.
 2. The author's real repo permission is read (`GET /repos/{o}/{r}/collaborators/{u}/permission`)
    and passed to `parseCommand` (G1), so an org member with write access counts as a maintainer.
-3. `/bounty` → `createBounty`; `/claim /unclaim /pay /hold /reject /cancel` → `transition()` (F2).
+3. `/bounty` → `createBounty`; `/claim /unclaim /pay /hold /reject /cancel` → `transition()` (F2); `/funded` (sandbox keys only) → Bitnob simulate-payment on the funding invoice, then the normal `funding.paid` path.
    The bounty is saved with a compare-and-set on its status (`BountyRepo.update`, in
    `apps/server/src/bounties/repo.ts`, shared with G4) and the event goes on `eventBus`.
 4. The status comment (G2) is edited in place: by `statusCommentId`, else found by its marker in a

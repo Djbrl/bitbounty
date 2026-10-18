@@ -15,6 +15,17 @@ import { formatXof, type Lang } from "../status-comment/index.js";
 import { syncIssue } from "./sync.js";
 import type { GithubWriter, GithubWriterFactory } from "./writer.js";
 import type { ClaimTimers } from "../claims/service.js";
+import { FundingError, type FundingTarget } from "../../funding/lightning.js";
+import type { FundingRecord } from "../../funding/store.js";
+
+/** The slice of B1 `LightningFunding` that `/funded` (sandbox demo) uses. */
+export interface SandboxFunding {
+  /** True only for Bitnob sandbox keys (and BITNOB_SANDBOX_PAY not 0). */
+  canSimulate(): Promise<boolean>;
+  /** The same invoice the "Fund this bounty" link creates (POST /api/bounties/:id/funding). */
+  invoice(target: FundingTarget): Promise<FundingRecord>;
+  simulatePayment(bountyId: string): Promise<FundingRecord>;
+}
 
 export interface WiringDeps {
   repo: BountyRepo;
@@ -34,6 +45,11 @@ export interface WiringDeps {
    * Lightning Address saved at onboarding)? `/pay @user` is refused when it says no, or when it's absent.
    */
   hasPayoutAccount?: (login: string) => Promise<boolean>;
+  /**
+   * `/funded` (live demo): Lightning funding, read lazily (it's built after the wiring in app.ts).
+   * Absent or null → `/funded` replies that it's unavailable.
+   */
+  funding?: () => SandboxFunding | null | undefined;
   now?: () => Date;
   newId?: () => string;
   log?: Pick<Console, "info" | "warn" | "error">;
@@ -249,6 +265,8 @@ async function run(ctx: Ctx, command: Command, role: Role): Promise<CommentOutco
         transition(bounty, { ...base, type: "maintainer.reject", actorLogin: login, reason: command.reason }),
         command.name,
       );
+    case "funded":
+      return simulateFunding(ctx, bounty);
     case "cancel":
       return apply(
         ctx,
@@ -261,6 +279,61 @@ async function run(ctx: Ctx, command: Command, role: Role): Promise<CommentOutco
         }),
         command.name,
       );
+  }
+}
+
+const FUNDED_COPY = {
+  en: {
+    already: "This bounty is already funded, nothing to do.",
+    notFundable: (status: string) => `This bounty is ${status}, it can't be funded.`,
+    unavailable: "`/funded` only works with Bitnob sandbox keys (demo mode). Nothing was paid.",
+    done: "Sandbox payment simulated: the bounty is funded. Developers can `/claim` it.",
+    pending: "Sandbox payment sent; Bitnob hasn't confirmed it yet. The status comment updates once it does.",
+    failed: (msg: string) => `The sandbox payment couldn't be simulated: ${msg}`,
+  },
+  fr: {
+    already: "Cette prime est déjà financée, rien à faire.",
+    notFundable: (status: string) => `Cette prime est ${status}, elle ne peut pas être financée.`,
+    unavailable: "`/funded` ne marche qu'avec des clés Bitnob sandbox (mode démo). Rien n'a été payé.",
+    done: "Paiement sandbox simulé : la prime est financée. Les devs peuvent faire `/claim`.",
+    pending: "Paiement sandbox envoyé ; Bitnob ne l'a pas encore confirmé. Le commentaire de statut se mettra à jour.",
+    failed: (msg: string) => `Le paiement sandbox n'a pas pu être simulé : ${msg}`,
+  },
+} as const;
+
+/**
+ * `/funded` (live demo): sandbox keys only. Creates the funding invoice if there's none (same flow
+ * as the fund link), settles it with Bitnob's simulate-payment, then the normal `funding.paid` path
+ * moves the bounty to `funded` and settlement re-renders the status comment.
+ */
+async function simulateFunding(ctx: Ctx, bounty: Bounty): Promise<CommentOutcome> {
+  const copy = FUNDED_COPY[ctx.lang] ?? FUNDED_COPY.en;
+  if (bounty.status === "cancelled" || bounty.status === "refunded") return reply(ctx, copy.notFundable(bounty.status));
+  if (bounty.status !== "unfunded") return reply(ctx, copy.already);
+  const funding = ctx.deps.funding?.();
+  if (!funding || !(await funding.canSimulate())) return reply(ctx, copy.unavailable);
+  try {
+    let f: FundingRecord;
+    try {
+      f = await funding.simulatePayment(bounty.id);
+    } catch (err) {
+      if (!(err instanceof FundingError && err.code === "NO_PENDING_INVOICE")) throw err;
+      await funding.invoice({ bountyId: bounty.id, funderId: bounty.funderId });
+      f = await funding.simulatePayment(bounty.id);
+    }
+    const after = (await ctx.deps.repo.findById(bounty.id)) ?? bounty;
+    if (after.status === "unfunded") return reply(ctx, f.status === "paid" ? copy.done : copy.pending);
+    // Settlement also re-renders on funding.paid; syncing here too makes the demo instant (edited in place).
+    await syncStatus(ctx, after);
+    return reply(ctx, copy.done);
+  } catch (err) {
+    if (err instanceof FundingError) {
+      if (err.code === "ALREADY_FUNDED") return reply(ctx, copy.already);
+      if (err.code === "SANDBOX_ONLY") return reply(ctx, copy.unavailable);
+      return reply(ctx, copy.failed(err.message));
+    }
+    ctx.deps.log?.error(`[wiring] /funded on ${bounty.id} failed: ${err instanceof Error ? err.message : err}`);
+    return reply(ctx, copy.failed("Bitnob error, try again in a moment."));
   }
 }
 
@@ -320,6 +393,11 @@ async function apply(
 
 async function publishAndSync(ctx: Ctx, bounty: Bounty, event: InternalEvent): Promise<CommentOutcome> {
   await ctx.deps.bus.publish(event);
+  const commentId = await syncStatus(ctx, bounty);
+  return { kind: "applied", bounty: { ...bounty, statusCommentId: commentId }, event };
+}
+
+async function syncStatus(ctx: Ctx, bounty: Bounty) {
   const claim = await ctx.deps.repo.activeClaim(bounty.id);
   const commentId = await syncIssue(bounty, {
     writer: ctx.writer,
@@ -329,5 +407,5 @@ async function publishAndSync(ctx: Ctx, bounty: Bounty, event: InternalEvent): P
     botLogin: ctx.deps.botLogin,
     extras: claim ? { claim: { login: claim.login, expiresAt: claim.expiresAt } } : {},
   });
-  return { kind: "applied", bounty: { ...bounty, statusCommentId: commentId }, event };
+  return commentId;
 }

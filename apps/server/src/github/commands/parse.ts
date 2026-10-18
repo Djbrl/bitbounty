@@ -25,7 +25,9 @@ export type Command =
   | { name: "pay"; user: string | null; now: boolean }
   | { name: "hold"; note: string | null }
   | { name: "reject"; reason: string }
-  | { name: "cancel"; note: string | null };
+  | { name: "cancel"; note: string | null }
+  /** Sandbox demo: simulates the funding payment (Bitnob simulate-payment). Maintainers only. */
+  | { name: "funded" };
 
 export type CommandErrorCode =
   | "forbidden"
@@ -126,6 +128,7 @@ const USAGE: Record<CommandName, string> = {
   hold: "`/hold`",
   reject: "`/reject <reason>`",
   cancel: "`/cancel`",
+  funded: "`/funded` (sandbox only: simulates the funding payment)",
 };
 
 function forbiddenMessage(name: CommandName): string {
@@ -207,6 +210,9 @@ export function parseCommand(body: string, context: CommandContext): ParseResult
     case "hold":
     case "cancel":
       command = { name, note };
+      break;
+    case "funded":
+      command = { name };
       break;
   }
 
