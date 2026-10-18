@@ -29,10 +29,11 @@ services:
       db: { condition: service_healthy }
 
   # GitHub App webhooks: the smee URL is stable, so the app settings never change.
+  # The channel is WEBHOOK_PROXY_URL from .env, never in git (smee channels have no auth).
   smee:
     image: node:22-alpine
     restart: unless-stopped
-    command: ["npx", "-y", "smee-client@2.0.4", "--url", "https://smee.io/gk8M8VuUD4ZMaO7A", "--target", "http://server:8787/webhooks/github"]
+    command: ["npx", "-y", "smee-client@2.0.4", "--url", "${WEBHOOK_PROXY_URL:?set WEBHOOK_PROXY_URL in .env}", "--target", "http://server:8787/webhooks/github"]
     depends_on: [server]
 
   # Public HTTPS URL for the web app and Bitnob webhooks (Cloudflare quick tunnel, no account).
