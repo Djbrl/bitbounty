@@ -76,10 +76,20 @@ describe("U2 AppShell", () => {
     const withRepo = render();
     expect(withRepo).toContain('value="maintain"');
     expect(withRepo).toContain('aria-pressed="true"');
-    expect(withRepo).not.toContain(INSTALL_URL);
+    const installLinks = (html: string) => html.split(`href="${INSTALL_URL}"`).length - 1;
+    expect(installLinks(withRepo)).toBe(1); // the header CTA only
     const without = render({ canMaintain: false });
     expect(without).not.toContain('value="maintain"');
-    expect(without).toContain(INSTALL_URL);
+    expect(installLinks(without)).toBe(2); // header CTA + the sidebar hint
     expect(without).toContain("Installer sur GitHub");
+  });
+
+  it("puts Installer sur GitHub (new tab) and the account menu in the header, nothing else", () => {
+    const html = render();
+    const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+    expect(header).toMatch(new RegExp(`<a href="${INSTALL_URL}" target="_blank" rel="noopener noreferrer"[^>]*bg-money[^>]*>Installer sur GitHub</a>`));
+    expect(header).toContain('aria-label="Menu du compte"');
+    expect(header).not.toContain("Se connecter");
+    expect(header.match(/<a /g)).toHaveLength(2); // the mark (phone) + the install CTA
   });
 });
