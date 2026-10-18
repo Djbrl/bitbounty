@@ -79,6 +79,18 @@ function contract(name: string, h: Harness) {
       expect(await repo.update({ ...b, status: "cancelled" }, "unfunded")).toBeUndefined();
     });
 
+    it("persists payeeLogin across updates and reopens (CR15)", async () => {
+      const repo = h.repo();
+      const b = bounty();
+      await repo.create(b);
+      const updated = await repo.update({ ...b, status: "paying", payeeLogin: "other" }, "unfunded");
+      expect(updated?.payeeLogin).toBe("other");
+      expect((await repo.findById(b.id))?.payeeLogin).toBe("other");
+
+      const reopened = h.reopen();
+      expect((await reopened.findById(b.id))?.payeeLogin).toBe("other");
+    });
+
     it("sets and clears the status comment id", async () => {
       const repo = h.repo();
       const b = bounty();

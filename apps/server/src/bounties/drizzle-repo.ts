@@ -168,6 +168,7 @@ export class DrizzleBountyRepo implements BountyRepo {
   async update(b: Bounty, expectedStatus: BountyStatus) {
     if (!isUuid(b.id)) return undefined;
     // The issue a bounty belongs to never changes: repo and issue number are not written.
+    // Persists all mutable state (status, verdict, statusCommentId, and payeeLogin from maintainer.pay).
     const { issueNumber: _issue, ...values } = await this.bountyValues(b);
     const updated = await this.db
       .update(bounties)
