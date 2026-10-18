@@ -101,11 +101,13 @@ Status at Sat 17 Oct, 22:15, with rule 11 applied to every merged PR (per-PR aud
 
 | Member | Earned | Lost to the pool (done-when not met at push) | Halved (bad break) | Reviews | Points |
 | --- | --- | --- | --- | --- | --- |
-| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (29) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 7 (+3.5) | **35** |
+| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (29) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 11 (+5, capped by rule 6) | **36.5** |
 | Rabatou | F2 (3), B4 (3) | F5 (2), B5 (2), B1 (3), B2 (5), B3 (1) | – | – | **6** |
 | Kml221-bot | – (A3, A4, I1 open) | F1 (3), F3 (2) | – | – | **0** |
 | cheikhteej | – | – | – | – | **0** |
 | **Shared pool** | | **25 pts → +6.25 each** | | | |
+
+Update (Sun 18 Oct): Djbrl's 4 rule 11 reviews at 23:23 (#90, #76, #75, #85, logged in #77) add +2, capped at 5 by rule 6 → +1.5, Djbrl 35 → **36.5**.
 
 Pending: D7 landing (Djbrl, 5), A3/A4/I1 (Kml221-bot), I2 (Rabatou), B2/B3 done-when (blocked: Wave/OM not usable), unclaimed A5, I3, I4, D1–D6.
 To settle (rule 9): whether the finisher of a pooled task (F1, F3, B1, B5 were completed by Djbrl in #51, #72/#74, #80, #78) earns any of its points, or they stay in the pool.
