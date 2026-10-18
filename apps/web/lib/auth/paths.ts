@@ -2,7 +2,7 @@
 // Pure functions (no next-auth import) so they are unit-tested on their own.
 
 /** Path prefixes that require sign-in. Everything else stays public. Keep in sync with `config.matcher` in middleware.ts. */
-export const PROTECTED_PREFIXES = ["/dashboard", "/me"] as const;
+export const PROTECTED_PREFIXES = ["/dashboard", "/me", "/welcome"] as const;
 
 export const SIGN_IN_PATH = "/signin";
 

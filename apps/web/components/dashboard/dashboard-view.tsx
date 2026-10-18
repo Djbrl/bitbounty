@@ -6,7 +6,7 @@ import { activeBounties, initialsOf, type DashboardData } from "./shape";
 
 export const DASHBOARD_NAV = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/", label: "Bounties" },
+  { href: "/explore", label: "Bounties" },
   { href: "/live", label: "Live" },
 ];
 

@@ -62,6 +62,8 @@ export const payoutAccountStatus = pgEnum("payout_account_status", ["pending", "
 export const ledgerKind = pgEnum("ledger_kind", ["fund", "fee", "reserve", "payout", "refund", "fx"]);
 export const eventSource = pgEnum("event_source", ["github", "bitnob", "system"]);
 export const eventStatus = pgEnum("event_status", ["received", "processed", "failed"]);
+/** L1: mirrors USER_MODES in core. */
+export const userMode = pgEnum("user_mode", ["maintain", "hunt"]);
 
 // --- people ---
 
@@ -70,6 +72,8 @@ export const users = pgTable("users", {
   githubId: bigint("github_id", { mode: "number" }).notNull().unique(),
   login: text("login").notNull().unique(),
   avatarUrl: text("avatar_url"),
+  defaultMode: userMode("default_mode"),
+  onboardedAt: ts("onboarded_at"),
   createdAt: createdAt(),
 });
 

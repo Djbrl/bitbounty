@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Home from "./page";
-import { GET } from "./api/health/route";
+import { GET } from "../api/health/route";
 
 describe("web", () => {
   it("renders the public board on the home page", async () => {

@@ -27,6 +27,9 @@ export type FunderKind = "human" | "agent";
 export type FundingRail = "lightning" | "usdt" | "ngn";
 export type Verdict = "pass" | "fail" | "unsure";
 export type PayoutProvider = "wave" | "orange" | "free";
+/** L1: the role is a mode, not an account type. It only picks the default view (/app redirects there). */
+export const USER_MODES = ["maintain", "hunt"] as const;
+export type UserMode = (typeof USER_MODES)[number];
 
 export interface Criterion {
   text: string;
@@ -146,6 +149,10 @@ export interface User {
   login: string;
   avatarUrl: string | null;
   createdAt: string;
+  /** L1: default view after sign-in; null until onboarding (U1) sets it. */
+  defaultMode?: UserMode | null;
+  /** L1: when onboarding was finished; null means /welcome still applies. */
+  onboardedAt?: string | null;
 }
 
 export interface PayoutAccount {

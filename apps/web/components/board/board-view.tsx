@@ -6,7 +6,7 @@ import { LivePayouts } from "./live-payouts";
 import { openBounties, type Board, type PayoutRow } from "./shape";
 
 export const BOARD_NAV = [
-  { href: "/", label: "Board" },
+  { href: "/explore", label: "Board" },
   { href: "/live", label: "Live" },
   { href: "/dashboard", label: "For maintainers" },
 ];
@@ -20,7 +20,7 @@ export interface BoardViewProps {
 /** Public board (build kit screen 7): hero stats, funded issues with filters, live payouts column. */
 export function BoardView({ board, payouts, issues }: BoardViewProps) {
   return (
-    <Page nav={{ items: BOARD_NAV, active: "/" }}>
+    <Page nav={{ items: BOARD_NAV, active: "/explore" }}>
       <section className="grid gap-5">
         <div className="grid gap-2">
           <h1 className="max-w-[22ch] text-[clamp(1.9rem,5vw,3rem)] font-extrabold leading-[1.05] tracking-tight">

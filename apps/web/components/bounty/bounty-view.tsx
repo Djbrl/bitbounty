@@ -28,7 +28,7 @@ import {
 
 export const BOUNTY_NAV = {
   items: [
-    { href: "/", label: "Board" },
+    { href: "/explore", label: "Board" },
     { href: "/live", label: "Live" },
     { href: "/dashboard", label: "Dashboard" },
     { href: "/me", label: "My payouts" },
