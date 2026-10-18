@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { cx, formatSats, formatXof, statusMeta, TONE_DOT, type BountyStatus } from "../ui";
+import { cx, formatSats, formatXof, Mark, statusMeta, TONE_DOT, type BountyStatus } from "../ui";
 import {
   applyTransition,
   countInFlight,
@@ -82,13 +82,16 @@ export function LiveBoard({ initial, speed = 1, stream = true }: LiveBoardProps)
   const routeStatus = initial.route ? state.cards.find((c) => c.bountyId === initial.route?.bountyId)?.status : undefined;
 
   return (
-    <div className="relative flex min-h-dvh flex-col gap-[clamp(14px,1.6vw,28px)] overflow-x-clip bg-forest px-4 py-5 text-white sm:px-[clamp(16px,2.2vw,44px)] sm:py-[clamp(18px,2vw,36px)]">
+    <div data-theme="dark" className="relative flex min-h-dvh flex-col gap-[clamp(14px,1.6vw,28px)] overflow-x-clip bg-forest px-4 py-5 text-ink sm:px-[clamp(16px,2.2vw,44px)] sm:py-[clamp(18px,2vw,36px)]">
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <h1 className="m-0 text-[clamp(1.7rem,2.6vw,3.2rem)] font-extrabold tracking-tight">BitBounty · live</h1>
+        <h1 className="m-0 flex items-center gap-3 text-[clamp(1.7rem,2.6vw,3.2rem)] font-extrabold tracking-tight">
+          <Mark label="BitBounty" className="text-[length:inherit] [&_svg]:size-[1em]" />
+          <span className="text-muted">· live</span>
+        </h1>
         <ConnectionPill conn={conn} />
       </header>
 
-      <p aria-live="polite" className="m-0 min-h-[1.6em] truncate font-mono text-[clamp(0.85rem,1vw,1.25rem)] text-white/70">
+      <p aria-live="polite" className="m-0 min-h-[1.6em] truncate font-mono text-[clamp(0.85rem,1vw,1.25rem)] text-muted">
         {last ? last.text : "Waiting for the next webhook…"}
       </p>
 
@@ -103,7 +106,7 @@ export function LiveBoard({ initial, speed = 1, stream = true }: LiveBoardProps)
 
       <footer className="grid gap-[clamp(10px,0.9vw,18px)] lg:grid-cols-[1.2fr_1fr]">
         {initial.route ? <RoutePanel route={initial.route} stage={routeStage(routeStatus)} /> : <div />}
-        <div className="grid grid-cols-3 gap-3 rounded-[var(--radius-card)] border border-white/10 bg-white/[0.04] p-[clamp(12px,1vw,20px)]">
+        <div className="grid grid-cols-3 gap-3 rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(12px,1vw,20px)]">
           <BigCount value={String(countPaid(state.cards))} label="paid" />
           <BigCount value={formatXof(paidXof)} label="paid out in FCFA" bumpKey={paidXof} />
           <BigCount value={String(countInFlight(state))} label="in flight" />
@@ -127,7 +130,7 @@ function ConnectionPill({ conn }: { conn: LiveConnection }) {
     >
       <i aria-hidden className={cx("inline-block size-2.5 shrink-0 animate-pulse rounded-full", live ? "bg-money-bright" : "bg-pending")} />
       {live ? "Live" : conn === "connecting" ? "Connecting…" : "Reconnecting…"}
-      <span className="text-white/50 normal-case tracking-normal">· Code &amp; Chain Dakar</span>
+      <span className="text-muted/80 normal-case tracking-normal">· Code &amp; Chain Dakar</span>
     </span>
   );
 }
@@ -149,12 +152,12 @@ function Lane({
   return (
     <div
       data-lane={status}
-      className="flex min-h-[clamp(120px,22vh,320px)] flex-col gap-[clamp(8px,0.6vw,12px)] rounded-[var(--radius-card)] border border-white/10 bg-white/[0.04] p-[clamp(10px,0.8vw,16px)]"
+      className="flex min-h-[clamp(120px,22vh,320px)] flex-col gap-[clamp(8px,0.6vw,12px)] rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(10px,0.8vw,16px)]"
     >
-      <h2 className="m-0 flex items-center gap-2 font-mono text-[clamp(0.8rem,0.85vw,1.1rem)] font-medium uppercase tracking-[0.08em] text-white/65">
+      <h2 className="m-0 flex items-center gap-2 font-mono text-[clamp(0.8rem,0.85vw,1.1rem)] font-medium uppercase tracking-[0.08em] text-muted">
         <i aria-hidden className={cx("inline-block size-2.5 shrink-0 rounded-full", dot)} />
         {meta.label}
-        <span className="ml-auto tabular-nums text-white/45">{cards.length}</span>
+        <span className="ml-auto tabular-nums text-muted/80">{cards.length}</span>
       </h2>
       {cards.map((card) => (
         <LiveCardView key={card.bountyId} card={card} hot={card.bountyId === hotId} ref={flip(card.bountyId)} />
@@ -170,19 +173,19 @@ function LiveCardView({ card, hot, ref }: { card: LiveCard; hot: boolean; ref: C
       ref={ref}
       data-card={card.bountyId}
       className={cx(
-        "relative grid gap-1 rounded-[10px] border bg-white/[0.07] px-[clamp(10px,0.8vw,16px)] py-[clamp(8px,0.6vw,12px)] will-change-transform",
-        hot ? cx("z-10 border-money-bright", styles.hot) : "border-white/12",
+        "relative grid gap-1 rounded-[10px] border bg-ink-2 px-[clamp(10px,0.8vw,16px)] py-[clamp(8px,0.6vw,12px)] will-change-transform",
+        hot ? cx("z-10 border-money-bright", styles.hot) : "border-rule",
         paid && "bg-money-bright/[0.12]",
       )}
     >
-      <span className="truncate font-mono text-[clamp(0.72rem,0.75vw,0.95rem)] text-white/55">{shortRepo(card.repoFullName)}</span>
+      <span className="truncate font-mono text-[clamp(0.72rem,0.75vw,0.95rem)] text-muted">{shortRepo(card.repoFullName)}</span>
       <b className="line-clamp-2 text-[clamp(0.95rem,1.05vw,1.4rem)] font-semibold leading-snug">{card.issueTitle}</b>
       <span className="flex flex-wrap items-baseline gap-x-2 text-[clamp(0.85rem,0.9vw,1.2rem)]">
-        <span className={cx("font-display font-extrabold tabular-nums", paid ? "text-money-bright" : "text-white")}>
+        <span className={cx("font-display font-extrabold tabular-nums", paid ? "text-money-bright" : "text-ink")}>
           {paid ? "+" : ""}
           {formatXof(card.amountXof)}
         </span>
-        <span className="truncate text-white/60">
+        <span className="truncate text-muted">
           {card.who ? `${paid ? "→ " : ""}@${card.who}${card.city ? ` · ${card.city}` : ""}` : "open to claims"}
         </span>
       </span>
@@ -197,8 +200,8 @@ function RoutePanel({ route, stage }: { route: LiveRoute; stage: 0 | 1 | 2 }) {
     { big: formatXof(route.xof), small: `${route.sats ? formatSats(route.sats) : "Lightning"} · Dakar` },
   ];
   return (
-    <div className="grid gap-3 rounded-[var(--radius-card)] border border-white/10 bg-white/[0.04] p-[clamp(12px,1vw,20px)]">
-      <span className="font-mono text-[clamp(0.75rem,0.8vw,1rem)] font-medium uppercase tracking-[0.08em] text-white/65">Lagos → Dakar</span>
+    <div className="grid gap-3 rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(12px,1vw,20px)]">
+      <span className="font-mono text-[clamp(0.75rem,0.8vw,1rem)] font-medium uppercase tracking-[0.08em] text-muted">Lagos → Dakar</span>
       <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-2">
         {nodes.map((n, i) => (
           <RouteNode key={n.small} big={n.big} small={n.small} on={i <= stage} seg={i < nodes.length - 1} segOn={i < stage} />
@@ -214,7 +217,7 @@ function RouteNode({ big, small, on, seg, segOn }: { big: string; small: string;
       <div
         className={cx(
           "rounded-lg border px-[clamp(6px,0.6vw,12px)] py-1.5 text-center text-[clamp(0.7rem,0.8vw,1rem)] transition-colors duration-500",
-          on ? "border-money-bright/60 bg-money-bright/[0.12]" : "border-white/12 bg-white/[0.05] text-white/55",
+          on ? "border-money-bright/60 bg-money-bright/[0.12]" : "border-rule bg-sheet text-muted",
         )}
       >
         <b className="block font-display text-[clamp(0.9rem,1.05vw,1.35rem)] tabular-nums">{big}</b>
@@ -243,7 +246,7 @@ function BigCount({ value, label, bumpKey }: { value: string; label: string; bum
       >
         {value}
       </b>
-      <span className="text-[clamp(0.75rem,0.85vw,1.1rem)] text-white/65">{label}</span>
+      <span className="text-[clamp(0.75rem,0.85vw,1.1rem)] text-muted">{label}</span>
     </div>
   );
 }
@@ -267,7 +270,7 @@ function PayoutToast({ toast }: { toast: Toast }) {
         {card.who ? `@${card.who}` : shortRepo(card.repoFullName)}
         {card.city ? ` · ${card.city}` : ""}
       </span>
-      <span className="text-[clamp(0.85rem,0.9vw,1.15rem)] text-white/70">{toast.text}</span>
+      <span className="text-[clamp(0.85rem,0.9vw,1.15rem)] text-muted">{toast.text}</span>
     </div>
   );
 }

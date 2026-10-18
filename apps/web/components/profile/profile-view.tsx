@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Amount, Avatar, Card, EmptyState, Eyebrow, Pill, StatCard, Tag, cx, formatXof } from "../ui";
+import { Amount, Avatar, Card, Chip, EmptyState, Eyebrow, Pill, StatCard, cx, formatSats, formatXof } from "../ui";
 import { formatDay, formatMinutes, payoutLabel, type ProfileView as Data, type WorkItem } from "./data";
 
 /** Proof-of-work profile (build kit screen 8): identity card on the left, numbers + receipts on the right. */
@@ -8,10 +8,15 @@ export function ProfileView({ data }: { data: Data }) {
   const { user, stats } = data;
   return (
     <div className="grid items-start gap-6 md:grid-cols-[260px_minmax(0,1fr)]">
-      <IdentityCard data={data} />
+      <HunterCard data={data} />
       <div className="grid min-w-0 gap-6">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="Earned" value={formatXof(stats.totalXof)} money sub="paid in FCFA" />
+          <StatCard
+            label="Earned"
+            value={formatXof(stats.totalXof)}
+            money
+            sub={data.totalSats != null ? `${formatSats(data.totalSats)} over Lightning` : "paid in sats over Lightning"}
+          />
           <StatCard label="Bounties merged" value={stats.paidCount} sub={`${stats.acceptedPct}% accepted on first review`} />
           <StatCard label="Repos" value={stats.repos} sub="with paid work" />
           <StatCard label="Median merge → paid" value={formatMinutes(stats.medianMinutesMergeToPay)} />
@@ -23,7 +28,7 @@ export function ProfileView({ data }: { data: Data }) {
         </section>
 
         <section className="grid gap-2">
-          <Eyebrow>Receipts</Eyebrow>
+          <Eyebrow>Paid bounties</Eyebrow>
           {data.work.length ? (
             <ul className="grid gap-2">
               {data.work.map((w) => (
@@ -41,28 +46,68 @@ export function ProfileView({ data }: { data: Data }) {
   );
 }
 
-function IdentityCard({ data }: { data: Data }) {
-  const { user, stats } = data;
+const TIER_LABEL = { bronze: "Bronze", silver: "Silver", gold: "Gold" } as const;
+const TIER_TEXT = { bronze: "text-tier-bronze", silver: "text-tier-silver", gold: "text-tier-gold" } as const;
+
+/** U5 hunter card (same look as the U3 home card): avatar with tier ring, total earned in FCFA + sats, stack chips. */
+function HunterCard({ data }: { data: Data }) {
+  const { user, stats, tier } = data;
   const rows: [string, ReactNode][] = [
     ["Bounties paid", <b key="p">{stats.paidCount}</b>],
     ["Accepted on first review", <b key="a">{stats.acceptedPct}%</b>],
     ["Repos", stats.repos],
-    ["Earned", <b key="e">{formatXof(stats.totalXof)}</b>],
+    ["Member since", formatDay(user.createdAt)],
   ];
   return (
-    <Card as="section" padding="lg" className="grid justify-items-start gap-3" aria-label="Developer">
-      <div className="flex items-center gap-3 md:grid md:gap-3">
-        <Avatar initials={data.initials} size="lg" />
-        <div className="grid min-w-0">
-          <h1 className="text-[1.3rem] font-extrabold leading-tight">{user.name}</h1>
+    <Card
+      as="section"
+      padding="lg"
+      data-theme="dark"
+      data-hunter-card
+      className="grid justify-items-start gap-4 bg-paper text-ink"
+      aria-label="Hunter card"
+    >
+      <div className="flex w-full items-center gap-4 md:grid md:justify-items-start">
+        <Avatar
+          initials={data.initials}
+          src={user.avatarUrl}
+          size="xl"
+          tier={tier ?? undefined}
+          label={`@${user.login}${tier ? `, ${TIER_LABEL[tier]} tier` : ""}`}
+        />
+        <div className="grid min-w-0 gap-1">
+          <h1 className="text-[1.4rem] font-extrabold leading-tight">{user.name}</h1>
           <span className="break-all text-[13px] text-muted">
             <a href={`https://github.com/${user.login}`} className="hover:text-ink hover:underline">
               @{user.login}
-            </a>{" "}
-            · {user.city}
+            </a>
+            {user.city ? ` · ${user.city}` : ""}
           </span>
+          {tier ? (
+            <span className={cx("font-mono text-xs font-semibold uppercase tracking-wider", TIER_TEXT[tier])} data-tier={tier}>
+              ● {TIER_LABEL[tier]} hunter
+            </span>
+          ) : (
+            <span className="font-mono text-xs uppercase tracking-wider text-muted">New hunter</span>
+          )}
         </div>
       </div>
+      <div className="grid gap-1">
+        <Eyebrow>Total earned</Eyebrow>
+        <Amount xof={stats.totalXof} sats={data.totalSats ?? undefined} size="xl" money />
+      </div>
+      {data.languages.length > 0 && (
+        <div className="grid gap-1.5">
+          <Eyebrow>Stack</Eyebrow>
+          <div className="flex flex-wrap gap-1.5">
+            {data.languages.map((l) => (
+              <Chip key={l} size="sm">
+                {l}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
       <dl className="grid w-full border-t border-rule text-[13px]">
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-2.5 border-b border-rule py-[9px]">
@@ -79,16 +124,6 @@ function IdentityCard({ data }: { data: Data }) {
         <span className="flex w-full items-center gap-2 rounded-[10px] bg-chip px-3 py-2.5 text-[13px] font-semibold text-muted">
           No payout received yet
         </span>
-      )}
-      {data.languages.length > 0 && (
-        <div className="grid gap-1.5">
-          <Eyebrow>Languages</Eyebrow>
-          <div className="flex flex-wrap gap-1.5">
-            {data.languages.map((l) => (
-              <Tag key={l}>{l}</Tag>
-            ))}
-          </div>
-        </div>
       )}
       {data.repos.length > 0 && (
         <div className="grid min-w-0 gap-1.5">
@@ -141,7 +176,7 @@ function Receipt({ w }: { w: WorkItem }) {
       <Link href={w.receiptHref} className="min-w-0 font-bold hover:underline">
         {w.issueTitle} · {repo} #{w.prNumber}
       </Link>
-      <Amount xof={w.amountXof} size="sm" money />
+      <Amount xof={w.amountXof} sats={w.sats ?? undefined} size="sm" money />
       <small className="min-w-0 break-words font-mono text-[11px] text-muted">
         <a href={w.repoUrl} className="hover:text-ink hover:underline">
           {w.repoFullName}

@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
 
 import ProfilePage, { dynamic } from "../../app/u/[login]/page";
 import { formatXof } from "../ui";
-import { FIXTURE_LOGINS, formatDay, formatMinutes, heatmap, initialsOf, loadProfile } from "./data";
+import { FIXTURE_LOGINS, formatDay, formatMinutes, heatmap, hunterTier, initialsOf, loadProfile } from "./data";
 import { ProfileView } from "./profile-view";
 
 const NOW = new Date("2026-10-17T20:00:00Z");
@@ -69,6 +69,15 @@ describe("profile render", () => {
     expect(html).toContain(formatXof(10000));
     expect(html).toContain("Rust");
     expect(html).toContain("1 paid bounty in the last 26 weeks");
+    // U5 hunter card: tier ring, GitHub avatar, total earned in FCFA + sats.
+    expect(html).toContain('data-tier="bronze"');
+    expect(html).toContain("avatars.githubusercontent.com");
+    expect(html).toContain("16 180 sats");
+  });
+
+  it("derives the hunter tier from paid bounties", () => {
+    expect([0, 1, 4, 5, 14, 15].map(hunterTier)).toEqual([null, "bronze", "bronze", "silver", "silver", "gold"]);
+    expect(loadProfile("seynabou-gueye", NOW)!.totalSats).toBeNull();
   });
 
   it("renders the empty state for a developer with no payouts", () => {
