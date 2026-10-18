@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { InMemoryBountyRepo } from "../src/bounties/repo.js";
 import { FakeBitnob } from "../src/e2e/fake-bitnob.js";
 import { InMemoryEventBus } from "../src/github/pr/index.js";
-import { InMemoryPayoutStore, PayoutService, type PayoutRails } from "../src/payouts/index.js";
+import { InMemoryPayoutStore, PayoutService, type LightningRails } from "../src/payouts/index.js";
 import type { PayoutRequest } from "../src/payouts/service.js";
-import { beneficiaryFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement } from "../src/settlement/index.js";
+import { payeeFromAccounts, PayoutNotAllowedError, readObjectionWindowMs, readPayoutAccounts, Settlement } from "../src/settlement/index.js";
 
 const AT = "2026-10-17T22:00:00.000Z";
 
@@ -117,14 +117,25 @@ describe("settlement", () => {
 });
 
 describe("PAYOUT_ACCOUNTS", () => {
-  it("reads accounts by GitHub login, country SN by default", async () => {
+  it("reads a Lightning Address per GitHub login (string or object), lower-cased", async () => {
     const accounts = readPayoutAccounts({
-      PAYOUT_ACCOUNTS: '{"Awa-Dev":{"provider":"wave","phone":"+221771234567","name":"Awa Diop"},"kofi":{"provider":"orange","phone":"+233201234567","name":"Kofi","country":"gh"}}',
+      PAYOUT_ACCOUNTS: '{"Awa-Dev":"Awa@Blink.sv","kofi":{"lightningAddress":"kofi@walletofsatoshi.com","provider":"orange","phone":"+233201234567","name":"Kofi","country":"gh"}}',
     });
-    const get = beneficiaryFromAccounts(accounts);
-    expect(await get("github:awa-dev")).toEqual({ provider: "wave", phoneE164: "+221771234567", accountName: "Awa Diop", country: "SN" });
-    expect((await get("github:kofi")).country).toBe("GH");
+    const get = payeeFromAccounts(accounts);
+    expect(await get("github:awa-dev")).toEqual({ lightningAddress: "awa@blink.sv" });
+    expect(await get("github:kofi")).toEqual({ lightningAddress: "kofi@walletofsatoshi.com" });
+    expect(accounts.get("kofi")!.mobile).toEqual({ provider: "orange", phoneE164: "+233201234567", accountName: "Kofi", country: "GH" });
     await expect(get("github:nobody")).rejects.toThrow("no payout account for @nobody");
+  });
+
+  it("a legacy mobile money entry still parses, but can't be paid: config error, not retried", async () => {
+    const get = payeeFromAccounts(readPayoutAccounts({ PAYOUT_ACCOUNTS: '{"moussa":{"provider":"wave","phone":"+221771234567","name":"Moussa"}}' }));
+    await expect(get("github:moussa")).rejects.toThrow("has no Lightning Address");
+  });
+
+  it("a local test address only with allowLocal", () => {
+    expect(() => readPayoutAccounts({ PAYOUT_ACCOUNTS: '{"dev":"dev@127.0.0.1:8787"}' })).toThrow("lightningAddress");
+    expect(readPayoutAccounts({ PAYOUT_ACCOUNTS: '{"dev":"dev@127.0.0.1:8787"}' }, { allowLocal: true }).get("dev")!.lightningAddress).toBe("dev@127.0.0.1:8787");
   });
 
   it("empty → no accounts", () => {
@@ -137,6 +148,9 @@ describe("PAYOUT_ACCOUNTS", () => {
     ["a bad provider", '{"a":{"provider":"mpesa","phone":"+221771234567","name":"A"}}'],
     ["a phone without +", '{"a":{"provider":"wave","phone":"221771234567","name":"A"}}'],
     ["no name", '{"a":{"provider":"wave","phone":"+221771234567"}}'],
+    ["a bad Lightning Address", '{"a":"awa"}'],
+    ["a Lightning Address without a domain", '{"a":{"lightningAddress":"awa@"}}'],
+    ["an empty entry", '{"a":{}}'],
   ])("refuses %s at boot", (_n, value) => {
     expect(() => readPayoutAccounts({ PAYOUT_ACCOUNTS: value })).toThrow("PAYOUT_ACCOUNTS");
   });
@@ -145,7 +159,6 @@ describe("PAYOUT_ACCOUNTS", () => {
 // ---- Review fixes on #85: the objection window, boot validation, missing accounts, restarts ----
 
 const WINDOW_MS = 1440 * 60_000;
-const BENEFICIARY = { provider: "wave" as const, phoneE164: "+221771234567", accountName: "Awa Diop", country: "SN" };
 const quiet = { info: () => {}, warn: () => {}, error: () => {} };
 /** Lets the fire-and-forget payout chain (timer → start → payout.started) run to the end. */
 const flush = async () => {
@@ -173,7 +186,7 @@ function windowSetup(opts: { status?: Bounty["status"]; repo?: InMemoryBountyRep
   const r = repo;
   const bus = new InMemoryEventBus();
   const fake = new FakeBitnob();
-  const finalize = vi.spyOn(fake, "finalizePayout");
+  const finalize = vi.spyOn(fake, "payLightningInvoice");
   const timers: Array<{ fn: () => void; ms: number }> = [];
   const store = new InMemoryPayoutStore();
   const holder: { payouts?: PayoutService } = {};
@@ -187,11 +200,12 @@ function windowSetup(opts: { status?: Bounty["status"]; repo?: InMemoryBountyRep
     log: quiet,
   }).register();
   holder.payouts = new PayoutService({
-    rails: fake as unknown as PayoutRails,
+    rails: fake as LightningRails,
+    resolver: fake.lnurl,
+    rates: fake.rates,
     store,
     emit: settlement.applyPayoutEvent,
-    getBeneficiary: async () => BENEFICIARY,
-    callbackUrl: "https://bitbounty.test/webhooks/bitnob",
+    getPayee: async () => ({ lightningAddress: "awa@blink.sv" }),
     schedule: () => {},
     log: quiet,
   });
@@ -244,7 +258,7 @@ describe("objection window (review #85, finding 1)", () => {
     expect(await s.status()).toBe("funded");
   });
 
-  it("merge → /hold → /pay → exactly one finalize, after the new window", async () => {
+  it("merge → /hold → /pay → exactly one payment, after the new window", async () => {
     const s = windowSetup();
     await s.bus.publish(ev("pr.merged", { prNumber: 2, ciGreen: true }));
     await s.move(ev("maintainer.hold", { actorLogin: "fatou" }));
@@ -260,7 +274,7 @@ describe("objection window (review #85, finding 1)", () => {
     expect(await s.status()).toBe("paying");
   });
 
-  it("a redelivered merge during the window → one payout, one finalize", async () => {
+  it("a redelivered merge during the window → one payout, one payment", async () => {
     const s = windowSetup();
     await s.bus.publish(ev("pr.merged", { prNumber: 2, ciGreen: true }));
     await s.bus.publish(ev("pr.merged", { prNumber: 2, ciGreen: true }));
@@ -269,7 +283,7 @@ describe("objection window (review #85, finding 1)", () => {
     expect(s.finalize).toHaveBeenCalledTimes(1);
   });
 
-  it("a redelivered merge with no window (demo) → one finalize", async () => {
+  it("a redelivered merge with no window (demo) → one payment", async () => {
     const s = windowSetup({ objectionMs: 0 });
     await s.bus.publish(ev("pr.merged", { prNumber: 2, ciGreen: true }));
     await flush();
@@ -343,15 +357,16 @@ describe("OBJECTION_WINDOW_MINUTES (review #85, finding 2)", () => {
 describe("missing PAYOUT_ACCOUNTS entry (review #85, finding 3)", () => {
   it("fails the payout on the first attempt, not retryable, with the reason", async () => {
     const fake = new FakeBitnob();
-    const quote = vi.spyOn(fake, "createPayoutQuote");
+    const quote = vi.spyOn(fake.lnurl, "invoiceFor");
     const retries: unknown[] = [];
     const events: InternalEvent[] = [];
     const payouts = new PayoutService({
-      rails: fake as unknown as PayoutRails,
+      rails: fake as LightningRails,
+    resolver: fake.lnurl,
+    rates: fake.rates,
       store: new InMemoryPayoutStore(),
       emit: (e) => void events.push(e),
-      getBeneficiary: beneficiaryFromAccounts(readPayoutAccounts({})),
-      callbackUrl: "https://bitbounty.test/webhooks/bitnob",
+      getPayee: payeeFromAccounts(readPayoutAccounts({})),
       retryDelaysMs: [0],
       schedule: (fn) => void retries.push(fn),
       log: quiet,
@@ -362,5 +377,48 @@ describe("missing PAYOUT_ACCOUNTS entry (review #85, finding 3)", () => {
     expect(retries).toHaveLength(0);
     expect(quote).not.toHaveBeenCalled();
     expect(events.map((e) => e.type)).toEqual(["payout.started", "payout.failed"]);
+  });
+});
+
+describe("B6: the payout goes out only after the bounty is saved as `paying`", () => {
+  it.each([
+    ["the compare-and-set keeps failing", "cas"],
+    ["the database throws", "throw"],
+  ] as const)("%s → no LNURL call, no Bitnob call, bounty stays verified, the payout waits", async (_n, mode) => {
+    const s = windowSetup({ objectionMs: 0 });
+    const update = s.repo.update.bind(s.repo);
+    const broken = vi.spyOn(s.repo, "update").mockImplementation(async (b, from) => {
+      if (b.status === "paying") {
+        if (mode === "throw") throw new Error("connection terminated");
+        return undefined;
+      }
+      return update(b, from);
+    });
+    const lnurl = vi.spyOn(s.fake.lnurl, "invoiceFor");
+    await s.bus.publish(ev("pr.merged", { prNumber: 2, ciGreen: true }));
+    await flush();
+    expect(broken).toHaveBeenCalled();
+    expect(lnurl).not.toHaveBeenCalled();
+    expect(s.finalize).not.toHaveBeenCalled();
+    expect(await s.status()).toBe("verified");
+    expect(await s.store.getByBounty("b1")).toMatchObject({ status: "pending", attempts: 0, lastError: expect.stringContaining("wasn't moved to paying") });
+
+    // The database is back: the next /pay (or a restart's resume) pays, once.
+    broken.mockRestore();
+    await s.bus.publish(ev("maintainer.pay", { actorLogin: "fatou" }));
+    await flush();
+    expect(await s.status()).toBe("paying");
+    expect(s.finalize).toHaveBeenCalledTimes(1);
+  });
+
+  it("applyPayoutEvent: payout.started on a bounty that can't take it throws; on one already paying it is accepted silently", async () => {
+    const onHold = setup("on_hold");
+    await expect(onHold.settlement.applyPayoutEvent(ev("payout.started", { payoutId: "p1", attempt: 1 }))).rejects.toThrow(PayoutNotAllowedError);
+    expect(onHold.bus.published).toHaveLength(0);
+    const paying = setup("paying");
+    await expect(paying.settlement.applyPayoutEvent(ev("payout.started", { payoutId: "p1", attempt: 1 }))).resolves.toBeUndefined();
+    expect(paying.bus.published).toHaveLength(0);
+    const gone = setup("verified");
+    await expect(gone.settlement.applyPayoutEvent({ ...ev("payout.started", { payoutId: "p1", attempt: 1 }), bountyId: "nope" })).rejects.toThrow(PayoutNotAllowedError);
   });
 });

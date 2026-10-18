@@ -208,7 +208,15 @@ export class PayoutService {
 
   /** Asks Bitnob about every payout still `processing` (Lightning has no documented webhook). */
   async poll(): Promise<void> {
-    for (const row of await this.store.listByStatus("processing")) {
+    let rows: Payout[];
+    try {
+      rows = await this.store.listByStatus("processing");
+    } catch (err) {
+      // Never let a database hiccup reject the polling timer (an unhandled rejection kills the server).
+      this.log.error(`[payouts] poll: payouts not readable: ${safe(err)}`);
+      return;
+    }
+    for (const row of rows) {
       if (this.inFlight.has(row.id)) continue;
       await this.drive(row, false).catch((err) => this.log.error(`[payouts] poll failed for ${row.reference}: ${safe(err)}`));
     }

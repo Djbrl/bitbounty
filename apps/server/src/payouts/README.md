@@ -1,48 +1,89 @@
-# Payouts (B2)
+# Payouts (B6: Lightning)
 
-`PayoutService` pays a bounty to the developer's Wave / Orange Money / Free Money through Bitnob:
-**quote → initialize → finalize**, up to 3 attempts, and never twice.
+`PayoutService` pays a bounty **in sats over Lightning** to the developer's Lightning Address
+(e.g. `awa@blink.sv`). It replaced B2's Wave / Orange Money rail: the mentor confirmed mobile money
+payouts won't work. Amounts stay shown in FCFA, paid in sats at the rate we already fetch (B1).
+
+```
+bounty verified ─(objection window)→ start()
+  1. claim the row               pending → processing, attempt n           (compare-and-set)
+  2. payout.started              Settlement moves the bounty to `paying`; if that fails → stop, nothing sent
+  3. FCFA → sats                 floor(amountXof × 1e8 / (FCFA/USDT × USDT/BTC)), rate saved on the row
+  4. LNURL-pay                   user@domain → /.well-known/lnurlp/user → callback?amount=<msat> → BOLT11
+                                 checked: exact amount, network, ≥ 120 s before expiry, description hash
+  5. sentAt saved, then ONE      POST /api/lightning/pay {request, reference: pay-<bountyId>-<n>, max_fee}
+  6. paid / failed / pending     poll every 15 s (Lightning has no documented webhook; one is handled if it comes)
+```
 
 ```ts
-const payouts = new PayoutService({ rails: bitnobClient, store, emit, getBeneficiary, callbackUrl });
-payouts.register(bitnobDispatcher);   // B5 webhooks → handleUpdate()
+const payouts = new PayoutService({
+  rails: bitnobClient,                                  // payLightningInvoice + getLightningPayment
+  resolver: new HttpLnurlResolver({ network: readLightningNetwork() }),
+  rates: new BitnobRates(bitnobClient),
+  store,                                                // DrizzlePayoutStore when DATABASE_URL is set
+  emit: settlement.applyPayoutEvent,                    // the paying-first gate, then the bus
+  getPayee: payeeFromAccounts(readPayoutAccounts()),    // PAYOUT_ACCOUNTS until W4/B7
+});
+payouts.register(bitnobDispatcher);   // a Bitnob webhook whose data.reference is pay-<bountyId>-<n>
 await payouts.resume();               // on boot: finish what a crash interrupted
 payouts.startPolling();               // every 15 s, for payouts still processing
-await payouts.start({ bountyId, userId, amountXof }); // when the bounty becomes `verified`
 ```
 
-Emits `payout.started` (each attempt), `payout.succeeded`, `payout.failed` (each failed attempt) from `@bitbounty/core`.
+Emits `payout.started` (each attempt), `payout.succeeded`, `payout.failed` (each failed attempt).
 
-## Rules
+## Never twice
 | Situation | What happens |
 | --- | --- |
-| `start()` called twice, or concurrently | one row per bounty (`pay-<bountyId>`), compare-and-set on status: only one attempt runs |
-| quote / initialize fails (400, 5xx, network) | nothing was debited: attempt failed, retry after 5 s then 30 s with a **new quote** |
-| quote / initialize answers 401 / 403 / 422, or a config error (missing bank code) | **not retryable**: row `failed` after that one attempt |
-| quote's `settlement_amount` ≠ the bounty amount | not retryable, nothing initialized |
-| finalize | sent **once** (`{ retries: 0 }`): no client-level replay |
-| finalize errors in any way (timeout, 5xx, 409, 422…) | we ask Bitnob (`GET /api/payouts/:id`). Attempt fails **only** if Bitnob says expired/failed, or has no such payout (404). Otherwise **maybe paid**: stays `processing`, poll/webhooks settle it |
-| poll / resume finds the payout `INITIATED` | **waits**. A finalize may already have been sent, so it is never re-sent; Bitnob must move it to success or expired |
-| poll / resume finds a bare `QUOTE` | Bitnob confirms nothing was initialized (so nothing finalized): initialize + finalize |
-| Bitnob says `expired` / failed (webhook or poll) | attempt failed, retry with a new quote |
-| 3 attempts failed | row `failed`, money stays reserved for the developer (bounty `payout_failed`) |
-| success webhook twice, or `processing` after `success` | ignored, `payout.succeeded` emitted once |
-| server killed between create and first attempt | `resume()` runs every `pending` row, including `attempts = 0` |
-| server killed mid-payout | `resume()`: redoing the quote with the same per-attempt reference `pay-<bountyId>-<n>` returns the same Bitnob payout; then it acts on Bitnob's real status as above |
-| quote expired before initialize | attempt failed, new quote |
+| `start()` twice, or concurrently | one row per bounty, compare-and-set on (status, attempts): one invoice, one pay call |
+| the bounty can't be saved as `paying` (on hold, DB down, CAS lost) | `applyPayoutEvent` throws `PayoutNotAllowedError`: the claim is undone (row back to `pending`, attempt not counted), **no LNURL call, no Bitnob call**. The next `/pay` or a restart tries again |
+| LNURL server down, slow (10 s), HTML, 5xx, `{"status":"ERROR"}`, no invoice | nothing was sent: attempt failed, **retried** after 5 s then 30 s with a fresh invoice |
+| invoice for another amount, any-amount invoice, wrong network, bad description hash, amount outside `minSendable`/`maxSendable`, invalid address | nothing was sent: **not retryable** (only the developer can fix their address) |
+| `/lightning/pay` answers 400 / 422 / 429 | Bitnob refused it, nothing paid: retried with a new invoice |
+| `/lightning/pay` answers 401 / 403 (e.g. `FEATURE_NOT_ENABLED`) | not retryable: setup problem |
+| `/lightning/pay` times out, 5xx, 409 | **maybe paid**: stays `processing`, never a new attempt until Bitnob says failed |
+| finding out after an unclear answer | `GET /api/lightning/invoices/:id` when Bitnob gave us an id; otherwise replay **the same reference with the same invoice**. Not a second payment: Bitnob documents pay as idempotent on `reference`, and one BOLT11 (one payment hash) settles at most once on Lightning |
+| replay answers 400/422 after the invoice expired | the payment never existed and can't happen any more: attempt failed, new invoice |
+| invoice expired before it was sent (crash in between) | attempt failed (nothing sent), new invoice |
+| server killed after the claim / after the invoice / mid pay call | `resume()` re-runs the gate if no invoice was saved, sends a saved-but-unsent invoice, or asks Bitnob about a sent one (above) |
+| 3 attempts failed | row `failed`, bounty `payout_failed`, money stays reserved for the developer |
+| success seen twice (poll + webhook), `pending` after `paid`, event about an earlier attempt | ignored, `payout.succeeded` emitted once |
+| mobile money rows (seed, pre-B6) | never driven over Lightning (`rail` must be `lightning`) |
 
-Invariant (fuzzed over 200 seeds in `test/payouts.test.ts`): at most one Bitnob payout per bounty ever reaches `processing`/`success`.
+Invariants fuzzed over 200 seeds in `test/payouts.test.ts`: at most one payment settles per bounty, and
+attempt n+1's reference is only sent after attempt n failed at Bitnob (or never reached it).
 
-Errors in `lastError`, `payout.failed` and the logs mask phone numbers (`+2217******67`).
+Lightning Addresses are masked in logs, errors and the public API (`aw***@blink.sv`); the BOLT11 and
+preimage never leave the server. `lastError` prefixes (`lnurl unreachable:`, `lnurl refused:`,
+`payout account:`, `pay:`) drive the short public reason in the status comment (`settlement/status-extras.ts`).
 
-The beneficiary (`provider`, `phoneE164`, `accountName`, `country`) is read at each attempt. The Bitnob `bank_code` comes from `GET /api/payouts/banks/:country` (cached only when non-empty), else from `BITNOB_<CC>_BANK_CODES`, e.g. `BITNOB_SN_BANK_CODES='{"wave":"…","orange":"…"}'`. **The sandbox answers `{"banks":null}` for SN**, and there are no default codes: confirm them with Bitnob at the workshop. Without them a payout fails with `no Bitnob bank_code for wave in SN …`.
+## Where to pay
+`PAYOUT_ACCOUNTS='{"awa-dev":"awa@blink.sv"}'` (or `{"awa-dev":{"lightningAddress":"awa@blink.sv"}}`) until
+W4/B7 store accounts. `PayoutAccount.lightningAddress` exists in `@bitbounty/core` and `payout_accounts.lightning_address`
+in the database (migration `0002_b6_lightning_payouts`), with the mobile money columns now optional.
 
-## Not wired yet
-`app.ts` doesn't instantiate the service: it needs the Postgres store (F3) and the payout accounts (B3/W4). `InMemoryPayoutStore` is the reference implementation of `PayoutStore` (the Drizzle one must keep `update()` a compare-and-set: `UPDATE … WHERE id = $1 AND status = $2 AND attempts = $3`).
+## Persistence
+`DrizzlePayoutStore` (Postgres, `payouts` table) when `DATABASE_URL` is set: `create` is
+`insert … on conflict (bounty_id) do nothing`, `update` is `UPDATE … WHERE id AND status [AND attempts] RETURNING`.
+`InMemoryPayoutStore` otherwise (tests, offline demo). Both run `test/payout-store.contract.test.ts`
+(the Postgres half with `DATABASE_URL`), including a kill-and-restart that pays once.
+
+## Config
+| Env | |
+| --- | --- |
+| `LIGHTNING_NETWORK` | `testnet` (default, sandbox `lntb…`), `bitcoin`/`mainnet` with production keys. A typo refuses to start |
+| `BITNOB_PAYOUT_CUSTOMER_ID` | optional `customer_id` sent on every pay (the v2 spec lists it as required; unverified) |
+| `PAYOUT_ACCOUNTS` | Lightning Address per GitHub login |
+
+Fee cap: `max_fee = max(10, 1 % of the sats)`.
 
 ## Sandbox check
-Aborts unless `whoami` says `environment=sandbox`. `--dry-run` is read-only (whoami, banks, bank code, one quote):
+Refuses to run unless `whoami` says `environment=sandbox`. Without `--address`, the developer's Lightning
+Address is a tiny local LNURL-pay server whose callback returns a **Bitnob sandbox invoice** for the exact amount:
 ```bash
-pnpm --filter @bitbounty/server payout:smoke -- --dry-run +221XXXXXXXXX wave "Awa Diop" 137
-pnpm --filter @bitbounty/server payout:smoke -- +221XXXXXXXXX wave "Awa Diop" 137   # finalizes: humans only
+pnpm --filter @bitbounty/server payout:smoke -- --dry-run                 # resolve + check the invoice, cross-check with /lightning/decode
+pnpm --filter @bitbounty/server payout:smoke -- --dry-run --wrong-amount  # the receiver answers 1 sat more → refused
+pnpm --filter @bitbounty/server payout:smoke                              # pays (sandbox sats), duplicate triggers on purpose
 ```
+**Status (2026-10-18): our sandbox account answers `403 FEATURE_NOT_ENABLED` ("The Lightning withdrawals
+feature is currently not available", `feature_key: send_lightning`) to `/lightning/pay` and `/lightning/preview`.**
+Everything up to the pay call is proven live; the payment itself needs Bitnob to enable `send_lightning`.

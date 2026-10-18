@@ -4,7 +4,6 @@ import type { Bounty, BountyStatus } from "@bitbounty/core";
 import { Hono } from "hono";
 import { FakeCheckRunGithub, registerCheckRun, RepoBountyLookup } from "../ai/check-run/index.js";
 import { FakeVerifierClient } from "../ai/verifier/index.js";
-import { signBitnobPayload } from "../bitnob/signature.js";
 import { bitnobWebhookRoutes } from "../bitnob/webhook.js";
 import { InMemoryBountyRepo } from "../bounties/repo.js";
 import {

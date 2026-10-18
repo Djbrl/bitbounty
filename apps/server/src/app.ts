@@ -235,9 +235,17 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
     customerId: process.env.BITNOB_PAYOUT_CUSTOMER_ID?.trim() || undefined,
   });
   payoutService.register(bitnobDispatcher);
-  void payoutService.resume();
-  payoutService.startPolling();
   console.log(`[payouts] Lightning payouts on ${lightningNetwork}, ${payoutAccounts.size} account(s) in PAYOUT_ACCOUNTS, store ${database ? "Postgres" : "in memory"}`);
+}
+
+/**
+ * B6: resumes interrupted payouts and starts polling Bitnob. Called by index.ts **after** the
+ * migrations ran (the payouts table may just have gained its Lightning columns), not at import.
+ */
+export function startPayouts(): void {
+  if (!payoutService) return;
+  void payoutService.resume().catch((err) => console.error(`[payouts] resume failed: ${err instanceof Error ? err.message : err}`));
+  payoutService.startPolling();
 }
 // I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
 // Timelines and the live feed come from the internal events (ActivityLog, in memory).
