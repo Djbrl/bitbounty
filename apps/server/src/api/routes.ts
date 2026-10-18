@@ -1,11 +1,12 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { Bounty, BountyStatus, Payout } from "@bitbounty/core";
+import { WORKSPACE_MODES, type Bounty, type BountyStatus, type Payout, type WorkspaceMode } from "@bitbounty/core";
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { BountyRepo } from "../bounties/repo.js";
 import { FundingError, type FundingTarget } from "../funding/lightning.js";
 import type { FundingRecord, FundingStore } from "../funding/store.js";
 import type { PayoutStore } from "../payouts/store.js";
+import { InMemoryPreferencesStore, type PreferencesStore } from "../users/preferences.js";
 import type { ActivityEntry, ActivityLog } from "./activity.js";
 import { groupThousands } from "./format.js";
 import {
@@ -35,6 +36,8 @@ export interface ReadApiDeps {
    * `X-BitBounty-User: <github login>` from the Auth.js session; without it /api/me is 401.
    */
   internalToken?: string;
+  /** L1 onboarding fields (default mode, onboarded at). In memory when not given. */
+  preferences?: PreferencesStore;
   /** SSE keep-alive comment interval (ms). */
   keepAliveMs?: number;
 }
@@ -50,10 +53,11 @@ const PAYOUT_STATUSES: Payout["status"][] = ["pending", "processing", "succeeded
  * I1: the read side of the HTTP API (docs/plan.md §3), in the shapes of fixtures/types.ts so
  * the web pages built on fixtures run unchanged on real data:
  * GET /api/board · /api/bounties[?status=] · /api/bounties/:id · /api/dashboard · /api/users/:login
- * · /api/receipts/:id · /api/me · /api/live (SSE) · POST|GET /api/bounties/:id/funding.
+ * · /api/receipts/:id · /api/me · GET|PUT /api/me/preferences · /api/live (SSE) · POST|GET /api/bounties/:id/funding.
  */
 export function readApiRoutes(deps: ReadApiDeps) {
   const { repo, activity } = deps;
+  const preferences = deps.preferences ?? new InMemoryPreferencesStore();
   const api = new Hono();
 
   const summary = async (b: Bounty): Promise<BountySummary> => {
@@ -268,6 +272,22 @@ export function readApiRoutes(deps: ReadApiDeps) {
         receiptId: p.status === "succeeded" ? p.id : null,
       })),
     });
+  });
+
+  // L1: the onboarding fields the web keeps in the session (read at sign-in, written by /welcome).
+  api.get("/api/me/preferences", async (c) => {
+    const login = userFrom(c);
+    if (!login) return c.json({ error: "unauthorized" }, 401);
+    return c.json(await preferences.get(login));
+  });
+
+  api.put("/api/me/preferences", async (c) => {
+    const login = userFrom(c);
+    if (!login) return c.json({ error: "unauthorized" }, 401);
+    const body: unknown = await c.req.json().catch(() => null);
+    const mode = body && typeof body === "object" ? (body as { defaultMode?: unknown }).defaultMode : undefined;
+    if (!WORKSPACE_MODES.includes(mode as WorkspaceMode)) return c.json({ error: "invalid_mode", allowed: WORKSPACE_MODES }, 400);
+    return c.json(await preferences.setDefaultMode(login, mode as WorkspaceMode));
   });
 
   api.post("/api/bounties/:id/funding", async (c) => {

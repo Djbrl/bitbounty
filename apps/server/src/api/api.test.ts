@@ -171,6 +171,40 @@ describe("GET /api/me, /api/users/:login, /api/receipts/:id", () => {
   });
 });
 
+describe("GET|PUT /api/me/preferences (L1)", () => {
+  const put = (routes: Awaited<ReturnType<typeof setup>>["routes"], user: string | null, body: unknown) =>
+    routes.request("/api/me/preferences", {
+      method: "PUT",
+      headers: { "content-type": "application/json", ...(user ? { authorization: `Bearer ${TOKEN}`, "x-bitbounty-user": user } : {}) },
+      body: JSON.stringify(body),
+    });
+
+  it("needs the web session, starts not onboarded, stamps onboardedAt once and keeps it when the mode changes", async () => {
+    const { get, routes } = await setup();
+    expect((await routes.request("/api/me/preferences")).status).toBe(401);
+    expect((await put(routes, null, { defaultMode: "hunt" })).status).toBe(401);
+    expect(await (await get("/api/me/preferences", "awa")).json()).toEqual({ defaultMode: null, onboardedAt: null });
+
+    const first = (await (await put(routes, "awa", { defaultMode: "maintain" })).json()) as { defaultMode: string; onboardedAt: string };
+    expect(first.defaultMode).toBe("maintain");
+    expect(Date.parse(first.onboardedAt)).not.toBeNaN();
+
+    const second = await (await put(routes, "Awa", { defaultMode: "hunt" })).json();
+    expect(second).toEqual({ defaultMode: "hunt", onboardedAt: first.onboardedAt });
+    expect(await (await get("/api/me/preferences", "AWA")).json()).toEqual(second);
+    expect(await (await get("/api/me/preferences", "moussa")).json()).toEqual({ defaultMode: null, onboardedAt: null });
+  });
+
+  it("refuses a mode outside hunt / maintain", async () => {
+    const { routes } = await setup();
+    for (const body of [{ defaultMode: "admin" }, {}, "hunt", null]) {
+      const res = await put(routes, "awa", body);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ error: "invalid_mode" });
+    }
+  });
+});
+
 describe("funding", () => {
   const post = (routes: Awaited<ReturnType<typeof setup>>["routes"], id: string, rail: unknown) =>
     routes.request(`/api/bounties/${id}/funding`, { method: "POST", body: JSON.stringify({ rail }) });

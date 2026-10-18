@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { BoardView } from "../components/board/board-view";
-import { getBoard, getIssueIndex, getRecentPayouts } from "../components/board/data";
+import { BoardView } from "../../components/board/board-view";
+import { getBoard, getIssueIndex, getRecentPayouts } from "../../components/board/data";
 
 export const metadata: Metadata = {
   title: "BitBounty · Paid issues",
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 // Rendered per request: the data comes from the server (I1), never baked in at build time.
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
+export default async function ExplorePage() {
   const [board, payouts, issues] = await Promise.all([getBoard(), getRecentPayouts(), getIssueIndex()]);
   return <BoardView board={board} payouts={payouts} issues={issues} />;
 }

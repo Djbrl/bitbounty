@@ -247,6 +247,16 @@ function defineSuite(connect: () => Promise<Target>) {
       ).rejects.toThrow();
     });
 
+    it("stores the onboarding fields (L1), null until onboarded, and only the two modes", async () => {
+      const [before] = await db.select().from(users).where(eq(users.id, SEED_IDS.awa));
+      expect(before).toMatchObject({ defaultMode: null, onboardedAt: null });
+      const at = new Date("2026-10-18T09:00:00Z");
+      await db.update(users).set({ defaultMode: "hunt", onboardedAt: at }).where(eq(users.id, SEED_IDS.awa));
+      const [after] = await db.select().from(users).where(eq(users.id, SEED_IDS.awa));
+      expect(after).toMatchObject({ defaultMode: "hunt", onboardedAt: at });
+      await expect(client.query(`update users set default_mode = 'admin' where id = '${SEED_IDS.awa}'`)).rejects.toThrow();
+    });
+
     it("refuses a status outside the contract", async () => {
       await expect(
         client.query(`update bounties set status = 'approved' where id = '${SEED_IDS.bounty("funded")}'`),

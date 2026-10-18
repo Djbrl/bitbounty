@@ -28,6 +28,13 @@ export type FundingRail = "lightning" | "usdt" | "ngn";
 export type Verdict = "pass" | "fail" | "unsure";
 export type PayoutProvider = "wave" | "orange" | "free";
 
+/**
+ * L1: the two views of the app. One GitHub account can do both; the mode only picks the
+ * default view (`/app/hunt` or `/app/maintain`). Permissions come from GitHub, never from the mode.
+ */
+export const WORKSPACE_MODES = ["hunt", "maintain"] as const;
+export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
+
 export interface Criterion {
   text: string;
 }
@@ -126,6 +133,16 @@ export interface User {
   login: string;
   avatarUrl: string | null;
   createdAt: string;
+  /** L1: view `/app` opens on; null until onboarding (`/welcome`) is done. */
+  defaultMode?: WorkspaceMode | null;
+  /** L1: when the user finished onboarding; null = not onboarded yet. */
+  onboardedAt?: string | null;
+}
+
+/** L1: what `/api/me/preferences` reads and writes (the onboarding fields of `User`). */
+export interface UserPreferences {
+  defaultMode: WorkspaceMode | null;
+  onboardedAt: string | null;
 }
 
 export interface PayoutAccount {

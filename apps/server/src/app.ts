@@ -34,6 +34,7 @@ import {
 } from "./funding/index.js";
 import { InMemoryPayoutStore, PayoutService, readBankCodeFallback } from "./payouts/index.js";
 import { beneficiaryFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement, statusExtras } from "./settlement/index.js";
+import { DrizzlePreferencesStore, InMemoryPreferencesStore } from "./users/preferences.js";
 import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
@@ -241,5 +242,6 @@ app.route(
     payouts: payoutService ? payoutStore : database ? new DrizzlePayoutReader(database.db) : undefined,
     lightning: lightningFunding,
     internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
+    preferences: database ? new DrizzlePreferencesStore(database.db) : new InMemoryPreferencesStore(),
   }),
 );

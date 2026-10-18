@@ -58,9 +58,50 @@ describe("middleware", () => {
     expect(new URL(expired!.headers.get("location")!).pathname).toBe("/signin");
   });
 
+  // L1
+  const sessionCookie = async (extra: Record<string, unknown> = {}) =>
+    `authjs.session-token=${await encode({
+      token: { sub: "81234567", githubId: 81234567, login: "awa-ndiaye", avatarUrl: null, ...extra },
+      secret: SECRET,
+      salt: "authjs.session-token",
+      maxAge: 3600,
+    })}`;
+  const onboardedAs = (mode: string) => sessionCookie({ defaultMode: mode, onboardedAt: "2026-10-18T09:00:00.000Z" });
+
+  it("signed out, a deep link into the app goes to sign-in and keeps the way back", async () => {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    for (const path of ["/app/maintain", "/app", "/welcome?intent=hunt", "/settings"]) {
+      const res = await middleware(req(path));
+      expect(res?.status).toBe(307);
+      const loc = new URL(res!.headers.get("location")!);
+      expect(loc.pathname).toBe("/signin");
+      expect(loc.searchParams.get("callbackUrl")).toBe(path);
+    }
+  });
+
+  it("/app opens the default mode once onboarded, /welcome before", async () => {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    const to = async (path: string, cookie: string) => new URL((await middleware(req(path, cookie)))!.headers.get("location")!).pathname;
+    expect(await to("/app", await onboardedAs("maintain"))).toBe("/app/maintain");
+    expect(await to("/app", await onboardedAs("hunt"))).toBe("/app/hunt");
+    expect(await to("/app", await sessionCookie())).toBe("/welcome");
+  });
+
+  it("an onboarded user who lands on /welcome (landing CTA) goes straight to the workspace", async () => {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    const res = await middleware(req("/welcome?intent=maintain", await onboardedAs("hunt")));
+    expect(new URL(res!.headers.get("location")!).pathname).toBe("/app/hunt");
+    const fresh = await middleware(req("/welcome?intent=maintain", await sessionCookie()));
+    expect(fresh?.headers.get("location")).toBeNull();
+    const deep = await middleware(req("/app/maintain", await sessionCookie()));
+    expect(deep?.headers.get("location")).toBeNull();
+  });
+
   it("lets public pages through even with auth on", async () => {
     vi.stubEnv("AUTH_SECRET", SECRET);
-    const res = await middleware(req("/b/42"));
-    expect(res?.headers.get("location")).toBeNull();
+    for (const path of ["/b/42", "/", "/explore", "/start?intent=hunt"]) {
+      const res = await middleware(req(path));
+      expect(res?.headers.get("location")).toBeNull();
+    }
   });
 });

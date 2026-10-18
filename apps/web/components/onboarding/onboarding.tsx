@@ -288,7 +288,7 @@ export function Onboarding({ me: initialMe, api = onboardingApi }: OnboardingPro
             <p className="text-xs leading-snug text-muted">
               Changer de numéro : reconnexion GitHub, SMS aux deux numéros et 72 h de délai, jamais pendant un paiement en cours.
             </p>
-            <Link href="/" className={buttonClass({ size: "lg", block: true, className: "mt-auto" })}>
+            <Link href="/explore" className={buttonClass({ size: "lg", block: true, className: "mt-auto" })}>
               Voir les bounties ouvertes
             </Link>
           </div>

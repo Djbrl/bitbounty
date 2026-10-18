@@ -1,8 +1,9 @@
 // W9: which pages need a GitHub session, and where to send people who don't have one.
+// L1: the signed-in app (/app, /welcome, /settings) joins the list.
 // Pure functions (no next-auth import) so they are unit-tested on their own.
 
 /** Path prefixes that require sign-in. Everything else stays public. Keep in sync with `config.matcher` in middleware.ts. */
-export const PROTECTED_PREFIXES = ["/dashboard", "/me"] as const;
+export const PROTECTED_PREFIXES = ["/dashboard", "/me", "/app", "/welcome", "/settings"] as const;
 
 export const SIGN_IN_PATH = "/signin";
 
@@ -37,13 +38,18 @@ export function signInHref(pathname: string | null | undefined): string {
   return `${SIGN_IN_PATH}?callbackUrl=${encodeURIComponent(safeCallbackUrl(pathname))}`;
 }
 
-/** Human message for the `?error=` code Auth.js appends when sending people back to /signin. */
+/**
+ * L1: Auth.js sends a GitHub "Cancel" (and a refusal) back to /signin as OAuthCallbackError /
+ * AccessDenied. Not an error for the visitor: /signin sends them back to the landing instead.
+ */
+export function isCancelledSignIn(code: string | null | undefined): boolean {
+  return code === "OAuthCallbackError" || code === "AccessDenied";
+}
+
+/** Human message for the other `?error=` codes Auth.js appends when sending people back to /signin. */
 export function signInErrorMessage(code: string | null | undefined): string | null {
   if (!code) return null;
   switch (code) {
-    case "OAuthCallbackError":
-    case "AccessDenied":
-      return "GitHub sign-in was cancelled or refused. You can try again.";
     case "Configuration":
       return "Sign-in is misconfigured on the server (check AUTH_SECRET, AUTH_GITHUB_ID, AUTH_GITHUB_SECRET).";
     case "MissingCSRF":

@@ -1,12 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { authEnabled, isProtectedPath, safeCallbackUrl, signInErrorMessage, signInRedirectUrl } from "./paths";
+import { authEnabled, isCancelledSignIn, isProtectedPath, safeCallbackUrl, signInErrorMessage, signInRedirectUrl } from "./paths";
 
 describe("isProtectedPath", () => {
-  it.each(["/dashboard", "/dashboard/", "/dashboard/acme/repo", "/me", "/me/", "/me/payout"])("protects %s", (p) => {
+  it.each([
+    "/dashboard",
+    "/dashboard/",
+    "/dashboard/acme/repo",
+    "/me",
+    "/me/",
+    "/me/payout",
+    "/app",
+    "/app/maintain",
+    "/app/hunt/b-101",
+    "/welcome",
+    "/settings",
+  ])("protects %s", (p) => {
     expect(isProtectedPath(p)).toBe(true);
   });
 
-  it.each(["/", "/signin", "/b/42", "/pay/42", "/board", "/live", "/meetup", "/dashboards", "/api/me", "/api/auth/session", "/api/health"])(
+  it.each(["/", "/signin", "/b/42", "/pay/42", "/board", "/live", "/meetup", "/dashboards", "/api/me", "/explore", "/application", "/welcomes", "/start", "/api/auth/session", "/api/health"])(
     "leaves %s public",
     (p) => {
       expect(isProtectedPath(p)).toBe(false);
@@ -47,9 +59,15 @@ describe("safeCallbackUrl", () => {
 });
 
 describe("signInErrorMessage", () => {
-  it("explains a refused GitHub consent", () => {
-    expect(signInErrorMessage("AccessDenied")).toMatch(/cancelled or refused/);
-    expect(signInErrorMessage("OAuthCallbackError")).toMatch(/cancelled or refused/);
+  it("treats a GitHub cancel or refusal as a cancel (back to the landing), not an error", () => {
+    expect(isCancelledSignIn("OAuthCallbackError")).toBe(true);
+    expect(isCancelledSignIn("AccessDenied")).toBe(true);
+    expect(isCancelledSignIn("Configuration")).toBe(false);
+    expect(isCancelledSignIn(undefined)).toBe(false);
+  });
+  it("explains the real errors", () => {
+    expect(signInErrorMessage("Configuration")).toMatch(/misconfigured/);
+    expect(signInErrorMessage("MissingCSRF")).toMatch(/expired/);
   });
   it("has a generic fallback and nothing without an error", () => {
     expect(signInErrorMessage("Whatever")).toMatch(/failed/);
