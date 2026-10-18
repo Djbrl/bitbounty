@@ -154,7 +154,10 @@ export const bounties = pgTable(
     statusCommentId: bigint("status_comment_id", { mode: "number" }),
     createdAt: createdAt(),
     expiresAt: ts("expires_at"),
+    /** CR15: Recipient from /pay @user overrode the claimant */
+    payeeLogin: text("payee_login"),
   },
+
   (t) => [
     uniqueIndex("bounties_repo_issue_idx").on(t.repoId, t.issueNumber),
     index("bounties_status_idx").on(t.status),

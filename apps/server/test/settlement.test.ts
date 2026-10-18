@@ -5,6 +5,7 @@ import { FakeBitnob } from "../src/e2e/fake-bitnob.js";
 import { InMemoryEventBus } from "../src/github/pr/index.js";
 import { InMemoryPayoutStore, PayoutService, type LightningRails } from "../src/payouts/index.js";
 import type { PayoutRequest } from "../src/payouts/service.js";
+import { buildIsPayable } from "../src/settlement/is-payable.js";
 import { hasPayoutAccount, payeeFromAccounts, PayoutNotAllowedError, readObjectionWindowMs, readPayoutAccounts, Settlement } from "../src/settlement/index.js";
 
 const AT = "2026-10-17T22:00:00.000Z";
@@ -175,7 +176,7 @@ const flush = async () => {
 };
 
 /** Settlement + the real B2 PayoutService on FakeBitnob, with timers the test fires by hand. */
-function windowSetup(opts: { status?: Bounty["status"]; repo?: InMemoryBountyRepo; objectionMs?: number } = {}) {
+function windowSetup(opts: { status?: Bounty["status"]; repo?: InMemoryBountyRepo; objectionMs?: number; store?: InMemoryPayoutStore } = {}) {
   let repo = opts.repo;
   if (!repo) {
     repo = new InMemoryBountyRepo();
@@ -197,7 +198,7 @@ function windowSetup(opts: { status?: Bounty["status"]; repo?: InMemoryBountyRep
   const fake = new FakeBitnob();
   const finalize = vi.spyOn(fake, "payLightningInvoice");
   const timers: Array<{ fn: () => void; ms: number }> = [];
-  const store = new InMemoryPayoutStore();
+  const store = opts.store ?? new InMemoryPayoutStore();
   const holder: { payouts?: PayoutService } = {};
   const startPayout = vi.fn((req: PayoutRequest) => holder.payouts!.start(req));
   const settlement = new Settlement({
@@ -214,9 +215,10 @@ function windowSetup(opts: { status?: Bounty["status"]; repo?: InMemoryBountyRep
     rates: fake.rates,
     store,
     emit: settlement.applyPayoutEvent,
-    getPayee: async () => ({ lightningAddress: "awa@blink.sv" }),
+    getPayee: async (userId) => ({ lightningAddress: `${userId.replace(/^github:/, "")}@blink.sv` }),
     schedule: () => {},
     log: quiet,
+    isPayable: buildIsPayable(r),
   });
   /** What a GitHub command does: transition, compare-and-set, publish (handle-comment.ts `apply`). */
   const move = async (event: InternalEvent) => {
@@ -230,7 +232,7 @@ function windowSetup(opts: { status?: Bounty["status"]; repo?: InMemoryBountyRep
     await flush();
   };
   const status = async () => (await r.findById("b1"))!.status;
-  return { repo: r, bus, fake, finalize, timers, store, startPayout, move, fireAll, status };
+  return { repo: r, bus, fake, finalize, timers, store, startPayout, payouts: holder.payouts!, move, fireAll, status };
 }
 
 describe("objection window (review #85, finding 1)", () => {
@@ -393,7 +395,35 @@ describe("restart safety (review #85, finding 4)", () => {
     await flush();
     expect(s.startPayout).not.toHaveBeenCalled();
   });
+
+  it("CR15: /pay @other, restart before send, resume pays other exactly once", async () => {
+    const before = windowSetup({ status: "on_hold", objectionMs: 0 });
+    // Crash before sending to Bitnob:
+    before.finalize.mockImplementationOnce(async () => {
+      throw new Error("crashed before send");
+    });
+    await before.move(ev("maintainer.pay", { actorLogin: "fatou", toLogin: "other" }));
+    await flush();
+
+    expect(await before.status()).toBe("paying");
+    const bounty = await before.repo.findById("b1");
+    expect(bounty?.payeeLogin).toBe("other");
+
+    const row = await before.store.getByBounty("b1");
+    expect(row).toBeDefined();
+    expect(row?.userId).toBe("github:other");
+
+    // Restart: same bounty table and payout store, new server process
+    const after = windowSetup({ repo: before.repo, store: before.store, objectionMs: 0 });
+    await after.payouts.resume();
+    await flush();
+
+    expect(after.finalize).toHaveBeenCalledTimes(1);
+    expect(await after.status()).toBe("paying");
+  });
 });
+
+
 
 describe("OBJECTION_WINDOW_MINUTES (review #85, finding 2)", () => {
   it.each([

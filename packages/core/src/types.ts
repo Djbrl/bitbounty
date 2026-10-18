@@ -58,9 +58,12 @@ export interface Bounty {
   /** The PR and commit `pr.linked` recorded. `verify.done` / `pr.merged` must match them. Missing = not checked. */
   prNumber?: number | null;
   headSha?: string | null;
+  /** CR15: Stored recipient when /pay @user overrode the claimant */
+  payeeLogin?: string | null;
   createdAt: string;
   expiresAt: string | null;
 }
+
 
 export interface Funding {
   id: string;

@@ -36,6 +36,13 @@
       "when": 1792292536926,
       "tag": "0004_u1_user_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792329000000,
+      "tag": "0005_cr15_payee_login",
+      "breakpoints": true
     }
   ]
 }

@@ -43,6 +43,7 @@ import {
   type PayoutStore,
 } from "./payouts/index.js";
 import {
+  buildIsPayable,
   hasPayoutAccount,
   payeeFromAccounts,
   payeeWithFallback,
@@ -51,6 +52,7 @@ import {
   Settlement,
   statusExtras,
 } from "./settlement/index.js";
+
 import {
   DrizzleProfileStore,
   githubLanguages,
@@ -262,17 +264,9 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
     maxPayoutSats,
     // M1: a row is resumed after a restart only if settlement already started it (bounty past the
     // objection window, `paying` / `payout_failed`) and it still pays the claimant the bounty's amount.
-    // CR3: the `/pay @user` recipient isn't stored on the bounty, so an unsent `/pay @user` payout
-    // interrupted by a restart is not resumed here (nothing is sent; ops finish it by hand).
-    isPayable: async (row) => {
-      const bounty = await bountyRepo.findById(row.bountyId);
-      if (!bounty) return "bounty not found";
-      if (bounty.status !== "paying" && bounty.status !== "payout_failed") return `bounty is ${bounty.status}, waiting for settlement`;
-      if (bounty.amountXof !== row.amountXof) return `bounty is ${bounty.amountXof} FCFA, the payout ${row.amountXof} FCFA`;
-      const c = await bountyRepo.activeClaimant(row.bountyId);
-      const same = c && (c.userId === row.userId || row.userId.toLowerCase() === `github:${c.login}`.toLowerCase());
-      return same ? true : "the payout's developer is no longer the bounty's claimant";
-    },
+    // CR15: /pay @user sets payeeLogin on the bounty, so resume pays @user instead of the claimant.
+    isPayable: buildIsPayable(bountyRepo),
+
     customerId: process.env.BITNOB_PAYOUT_CUSTOMER_ID?.trim() || undefined,
   });
   payoutService.register(bitnobDispatcher);

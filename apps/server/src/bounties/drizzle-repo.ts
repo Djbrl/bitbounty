@@ -266,8 +266,10 @@ export class DrizzleBountyRepo implements BountyRepo {
       statusCommentId: b.statusCommentId,
       createdAt: new Date(b.createdAt),
       expiresAt: b.expiresAt ? new Date(b.expiresAt) : null,
+      payeeLogin: b.payeeLogin ?? null,
     };
   }
+
 
   /** `github:<login>` → `users.id` (inserted if new); a uuid (user or agent id) as is. */
   private async resolveUserId(id: string): Promise<string> {
@@ -338,10 +340,12 @@ function toBounty(row: {
     funderId: row.funderLogin ? userIdFor(row.funderLogin) : b.funderId,
     verdict: b.verdict,
     statusCommentId: b.statusCommentId,
+    payeeLogin: b.payeeLogin,
     createdAt: b.createdAt.toISOString(),
     expiresAt: b.expiresAt?.toISOString() ?? null,
   };
 }
+
 
 function toClaim(row: { claim: typeof claims.$inferSelect; login: string }): ClaimRecord {
   return {

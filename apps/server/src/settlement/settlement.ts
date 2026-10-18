@@ -155,6 +155,7 @@ export class Settlement {
       if (timer.toLogin) {
         userId = `github:${timer.toLogin}`;
       } else {
+
         const claimant = await this.deps.repo.activeClaimant(bountyId);
         if (!claimant) {
           this.log.error(`[settlement] bounty ${bountyId} is verified but has no claimant to pay`);
@@ -163,6 +164,7 @@ export class Settlement {
         userId = claimant.userId;
       }
       await start({ bountyId, userId, amountXof: bounty.amountXof });
+
     } catch (err) {
       this.log.error(`[settlement] payout for ${bountyId} failed to start: ${err instanceof Error ? err.message : err}`);
     } finally {

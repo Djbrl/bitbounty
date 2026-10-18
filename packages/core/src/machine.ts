@@ -127,7 +127,7 @@ export function transition(bounty: Bounty, event: InternalEvent): TransitionResu
 
   let to = targets[0]!;
   let verdict = bounty.verdict;
-  let { hadSubmission, prNumber, headSha } = bounty;
+  let { hadSubmission, prNumber, headSha, payeeLogin } = bounty;
 
   switch (event.type) {
     case "funding.paid":
@@ -174,11 +174,14 @@ export function transition(bounty: Bounty, event: InternalEvent): TransitionResu
     case "maintainer.pay":
       // From claimed this is a merge without "Fixes #n": work was delivered all the same.
       hadSubmission = true;
+      payeeLogin = event.toLogin ?? null;
       break;
+
     case "maintainer.reject":
       verdict = null;
       prNumber = null;
       headSha = null;
+      payeeLogin = null;
       break;
   }
 
@@ -186,7 +189,9 @@ export function transition(bounty: Bounty, event: InternalEvent): TransitionResu
   if (hadSubmission !== undefined) next.hadSubmission = hadSubmission;
   if (prNumber !== undefined) next.prNumber = prNumber;
   if (headSha !== undefined) next.headSha = headSha;
+  if (payeeLogin !== undefined) next.payeeLogin = payeeLogin;
   return { ok: true, bounty: next, from, to, event };
+
 }
 
 export interface NewBounty {
