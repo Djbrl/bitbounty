@@ -1,6 +1,6 @@
-# Web ↔ server API (I1)
+# Web ↔ server API
 
-The web pages were built on `fixtures/*.json` (F4). The server now serves the same shapes (`fixtures/types.ts`) from real data, and the web switches with one variable.
+The server serves the shapes in `fixtures/types.ts` from real data. The web reads either the server or the fixtures, switched by one variable.
 
 ## Switch
 | Web env | Pages and `/api/*` read from |
@@ -20,25 +20,27 @@ The web pages were built on `fixtures/*.json` (F4). The server now serves the sa
 | `GET /api/bounties[?status=]` | `BountySummary[]` | every bounty, newest first, claimant and PR number |
 | `GET /api/bounties/:id` | `BountyDetail` | fundings, active claim, submission, payout, timeline |
 | `GET /api/dashboard` | `Dashboard & { bounties }` | the signed-in maintainer's bounties, needs-action list |
-| `GET /api/maintain` | `MaintainHome` (`apps/server/src/api/maintain.ts`) | U4: money summary, review queue (Claude's per-criterion verdict, CI, developer), repos (funded, installed, or agent-posted), payouts with the public reason only, the user's agents and budgets |
-| `POST /api/maintain/bounties/:id/pay`, `/hold {note?}` | `{bountyId, status}` | U4: needs a session (401 otherwise, even with auth off). Runs `runMaintainerDecision`, the `/pay` / `/hold` comment path (GitHub permission check, issue lock, `transition()`, bus event → settlement). 403 without write access on the repo, 409 when the status doesn't allow it, 503 without the GitHub App |
+| `GET /api/maintain` | `MaintainHome` (`apps/server/src/api/maintain.ts`) | money summary, review queue (Claude's per-criterion verdict, CI, developer), repos (funded, installed, or agent-posted), payouts with the public reason only, the user's agents and budgets |
+| `POST /api/maintain/bounties/:id/pay`, `/hold {note?}` | `{bountyId, status}` | needs a session (401 otherwise, even with auth off). Runs `runMaintainerDecision`, the `/pay` / `/hold` comment path (GitHub permission check, issue lock, `transition()`, bus event → settlement). 403 without write access on the repo, 409 when the status doesn't allow it, 503 without the GitHub App |
 | `GET /api/users/:login` | `Profile` | paid work (payouts) and active claims; 404 when none |
 | `GET /api/receipts/:id` | `Receipt` | a succeeded payout (`id` = payout id) with merge and funding; `signature` = SHA-256 of the receipt fields |
 | `GET /api/me` | `Me` | needs the session (above) |
 | `GET /api/live` | SSE: `snapshot` then `transition` events | live columns; every internal event as it happens |
-| `POST /api/bounties/:id/funding {rail}` | `FundingSession` | Lightning invoice through B1 (`503` without Bitnob keys, `501` for usdt/ngn) |
+| `POST /api/bounties/:id/funding {rail}` | `FundingSession` | Lightning invoice (`503` without Bitnob keys, `501` for `usdt` / `ngn`: not wired) |
+| `POST /api/bounties/:id/funding/simulate` | `FundingSession` | sandbox keys only: settles the open invoice with Bitnob's `simulate-payment` |
 | `GET /api/bounties/:id/funding` | `{status: pending\|paid, bountyStatus}` | |
-| `POST /api/backlog/fund`, `POST /api/me/payout-account` | `501` with a hint | not wired yet |
+| `GET`/`POST /api/me/mode` | workspace (hunt / maintain) | |
+| `GET`/`POST /api/me/onboarding`, `POST /api/me/lightning-address` | see [onboarding](../apps/server/src/onboarding/README.md) | |
+| `POST /api/backlog/suggest` | `BacklogResult` | "Price my backlog" ([backlog.md](backlog.md)) |
+| `POST /api/backlog/fund`, `POST /api/me/payout-account` | `501` with a hint | not wired |
 
 Where the data comes from:
 - bounties and claims: `bountyRepo` (Postgres with `DATABASE_URL`);
-- fundings: B1's store (memory) plus the `fundings` table;
-- payouts: the `payouts` table (B2's service isn't wired into `app.ts` yet);
-- timelines and the live feed: `ActivityLog`, which records every internal event. It's in memory: after a restart a bounty's timeline starts with its creation date.
+- fundings: the Lightning funding store (in memory) plus the `fundings` table;
+- payouts: the `payouts` table;
+- timelines and the live feed: `ActivityLog`, which records every internal event in memory, so after a restart a bounty's timeline starts at its creation date.
 
-## Known gaps (follow-ups)
-- `/me` onboarding (payout account, SMS, test payout) needs B3's routes wired into the server; the page shows the account as not linked.
-- "Price my backlog" suggestions (A3) aren't fed into `/api/dashboard` yet (`backlog: []` hides the funding bar).
-- Performance: lists make 2 small queries per bounty (claimant, PR) and are capped at 500 bounties; fine for the demo, batch queries later.
-- Payouts and receipts show the developer's Lightning Address masked (`aw***@blink.sv`) and the sats sent (B6); legacy mobile money rows show no address.
-- With the loading skeleton streaming first, a not-found page answers HTTP 200 (Next.js behaviour); it still shows the 404 content.
+## Known gaps
+- Funding several backlog suggestions in one payment (`POST /api/backlog/fund`) isn't wired; bounties are funded one by one.
+- Lists make 2 small queries per bounty and are capped at 500 bounties.
+- With the loading skeleton streaming first, a not-found page answers HTTP 200 (Next.js behaviour) while showing the 404 content.

@@ -1,10 +1,10 @@
 # Demo repo: `Djbrl/bitbounty-demo`
 
-The public GitHub repo the demo happens on (task D1). A tiny JavaScript library, **FCFA amounts and Lightning sats**, with realistic issues: one small real bug that a developer fixes live, and the Wolof translation task.
+The public GitHub repo the demo happens on. A tiny JavaScript library, **FCFA amounts and Lightning sats**, with realistic issues: one small real bug that a developer fixes live, and the Wolof translation task.
 
 - **Repo content:** [`docs/demo/bitbounty-demo/`](bitbounty-demo/) (README, `src/`, `test/`, `locales/`, a GitHub Actions workflow running `npm test`). No dependencies: `npm test` is `node --test`, CI takes ~15 s.
 - **Issues:** the 6 below, exactly as they are created (title, labels, body). The `#### Done when` list of each body is what BitBounty reads as the acceptance criteria.
-- **Script:** [`scripts/demo-repo.sh`](../../scripts/demo-repo.sh) creates the repo from that folder, the labels and the issues, reading this file. It was **not run**: creating the repo and installing the GitHub App are for a human.
+- **Script:** [`scripts/demo-repo.sh`](../../scripts/demo-repo.sh) creates the repo from that folder, the labels and the issues, reading this file (keep the `### Issue N ·`, `Labels:` and `issue-body` markers intact).
 
 The seed data of the board (`pnpm db:seed`) uses other repos (`Djbrl/sunu-wallet`, `Djbrl/teranga-ui`, `Djbrl/xof-rates`) so it never collides with this one.
 
@@ -146,5 +146,5 @@ Dashboards and small screens need short amounts.
 - Covered by tests, `npm test` passes
 <!-- issue-body:end -->
 
-## For the adversarial reviewer
-*Can someone who has never seen it fix the bug in under 5 minutes?* Issue 1 gives a one-line repro, the expected and actual output, and the function to look at. The fix is one character and the test is three lines. Try it: copy `docs/demo/bitbounty-demo/` somewhere, run `npm test` (11 pass), apply the diff above, run it again (12 pass).
+## Check the fix offline
+Issue 1 gives a one-line repro, the expected and actual output, and the function to look at. The fix is one character and the test is three lines. Try it: copy `docs/demo/bitbounty-demo/` somewhere, run `npm test` (11 pass), apply the diff above, run it again (12 pass).

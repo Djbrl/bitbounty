@@ -1,6 +1,6 @@
 # Screenshots
 
-Done-when evidence for the UI tickets. Taken from `next start` in fixtures mode (no API URL, no `AUTH_SECRET`, so `/app/*` and `/welcome` open without a session), at 1280px and 390px wide.
+Evidence screenshots for the UI tasks. Taken from `next start` in fixtures mode (no API URL, no `AUTH_SECRET`, so `/app/*` and `/welcome` open without a session), at 1280px and 390px wide.
 
 | Folder | Ticket | What |
 | --- | --- | --- |
@@ -8,3 +8,4 @@ Done-when evidence for the UI tickets. Taken from `next start` in fixtures mode 
 | [U5](U5/) | U5 | Bounty, pay, profile, receipt, live pages |
 | [L1](L1/) | L1 (#103) | `landing-*` (`/`, top), `explore-*` (`/explore`), `welcome-hunt-*` (`/welcome?intent=hunt`, step 1) |
 | [U2](U2/) | U2 (#106) | `hunt-*` (`/app/hunt`), `maintain-*` (`/app/maintain`), `avatar-menu-*` (avatar menu open with the Hunter/Maintainer switch) |
+| [CR6](CR6/) | CR6 (#134) | `/pay/<id>` at 375px for claimed, paid, refunded and cancelled bounties |

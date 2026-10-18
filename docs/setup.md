@@ -11,7 +11,7 @@ How to run BitBounty on your machine, from nothing to a bounty that reacts to Gi
 ```
 apps/web          Next.js 15 (App Router) + Tailwind 4: every page
 apps/server       Node + Hono: webhooks, commands, funding, settlement, payouts, /api and /v1
-packages/core     the contract: bounty state machine, events, commands parser, money helpers
+packages/core     the contract: bounty state machine, events, types, money helpers
 packages/db       Postgres schema (Drizzle), migrations, demo seed
 packages/bitnob   typed Bitnob client (HMAC signing, retries)
 packages/mcp      MCP server so AI agents can post bounties
@@ -77,11 +77,11 @@ To claim a bounty without paying for it while testing, set `DEV_HOOK_TOKEN` in `
    ```sh
    cd packages/bitnob && pnpm smoke
    pnpm --filter @bitbounty/server lightning:smoke -- 1000    # rates + a Lightning invoice for 1000 FCFA
-   pnpm --filter @bitbounty/server ngn:smoke -- 300           # naira virtual account + simulated deposit + NGN→BTC
+   pnpm --filter @bitbounty/server ngn:smoke -- 300           # naira (sandbox only, not wired on the server)
    ```
-5. Bitnob webhooks (naira deposits, payout events) need a public URL for the server: `npx cloudflared tunnel --url http://localhost:8787` (or ngrok). In the Bitnob dashboard → Webhooks, set `https://<public-url>/webhooks/bitnob`, and put the secret you chose there in `.env` as `BITNOB_WEBHOOK_SECRET` (without it the route answers 503).
+5. Bitnob webhooks (payout events) need a public URL for the server: `npx cloudflared tunnel --url http://localhost:8787` (or ngrok). In the Bitnob dashboard → Webhooks, set `https://<public-url>/webhooks/bitnob`, and put the secret you chose there in `.env` as `BITNOB_WEBHOOK_SECRET` (without it the route answers 503).
 
-Payouts go to the developer's **Lightning Address** in sats ([architecture.md](architecture.md)): until developers can save one from the web, `PAYOUT_ACCOUNTS` in `.env` maps a GitHub login to a Lightning Address, e.g. `{"awa-dev":"awa@blink.sv"}` (Lightning payouts, B6 [#102](https://github.com/Djbrl/bitbounty/pull/102)). `MAX_PAYOUT_SATS` caps one payout (default 100000 sats). The Bitnob sandbox refuses the pay call itself (`403 FEATURE_NOT_ENABLED`, `send_lightning`), so a sandbox payout ends `payout_failed` with nothing debited; `pnpm --filter @bitbounty/server payout:smoke` shows every step up to it. `OBJECTION_WINDOW_MINUTES=0` pays right after the merge (the demo setting). Details and sandbox results: [bitnob-api.md](bitnob-api.md).
+Payouts go in sats to the developer's **Lightning Address**: the one they saved on the web (`/welcome` or `/me`), or an override in `PAYOUT_ACCOUNTS`, e.g. `{"awa-dev":"awa@blink.sv"}`. `LIGHTNING_NETWORK` is `testnet` by default. `MAX_PAYOUT_SATS` caps one payout (default 100000 sats). `OBJECTION_WINDOW_MINUTES=0` pays right after the merge. The Bitnob sandbox refuses the pay call itself (`403 FEATURE_NOT_ENABLED`, `send_lightning`), so a sandbox payout ends `payout_failed` with nothing debited; `pnpm --filter @bitbounty/server payout:smoke` shows every step up to it. Details: [payouts README](../apps/server/src/payouts/README.md), [bitnob-api.md](bitnob-api.md).
 
 ## 4. Claude (optional)
 Set `ANTHROPIC_API_KEY` in `.env` to run the real PR verifier and "Price my backlog" (`claude-sonnet-5-5` by default, `VERIFIER_MODEL` / `BACKLOG_MODEL` to change it). Without it, the verifier uses an offline fake and the backlog pricer a heuristic. Try it without GitHub: `pnpm --filter @bitbounty/server verify:fixtures`, `pnpm --filter @bitbounty/server backlog <owner/repo>` ([backlog.md](backlog.md)).
@@ -100,7 +100,7 @@ pnpm db:seed                # replaces the demo rows only (9 bounties on 3 Djbrl
 docker compose exec db psql -U postgres -d bitbounty -c 'select status, count(*) from bounties group by 1'
 ```
 
-- When `DATABASE_URL` is set the server stores webhooks in `events` (`DrizzleEventStore`, dedupe on `(source, external_id)`) and keeps bounties, claims and submissions in Postgres through `DrizzleBountyRepo` (apps/server/src/bounties/drizzle-repo.ts, shared by G3 comments, G4 PRs, G5 claim timers and A2 checks), so they survive a restart. Without it both are in memory. It logs `[db] ...` at start to say which.
+- When `DATABASE_URL` is set the server stores webhooks in `events` (`DrizzleEventStore`, dedupe on `(source, external_id)`) and keeps bounties, claims and submissions in Postgres through `DrizzleBountyRepo` (`apps/server/src/bounties/drizzle-repo.ts`), plus payouts and onboarding answers, so they survive a restart. Without it everything is in memory. It logs `[db] ...` at start to say which.
 - The server applies pending migrations itself at start when `DATABASE_URL` is set, so the Docker server needs no manual migrate.
 - `pnpm install` builds `@bitbounty/db` (`prepare` script): the server imports it from `dist/`. After a schema change: `pnpm db:generate`, commit the new file in `packages/db/drizzle/`.
 - `pnpm test` runs the DB tests on PGlite (in memory). With `DATABASE_URL` set they also run against that Postgres, in a throwaway database created and dropped by the test.

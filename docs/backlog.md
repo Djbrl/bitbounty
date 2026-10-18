@@ -1,4 +1,4 @@
-# Price my backlog (A3)
+# Price my backlog
 
 Claude reads a repo's open issues, keeps the ones that make good bounties (clear, testable, scoped), drafts 2–4 acceptance criteria and suggests a price in FCFA with a reason. The maintainer ticks the suggestions on `/dashboard` and funds them in one payment. **Nothing is created or funded here**: these are suggestions only.
 
@@ -12,10 +12,10 @@ pnpm --filter @bitbounty/server backlog owner/name [--max 60]
 # HTTP
 curl -X POST http://localhost:8787/api/backlog/suggest -H 'content-type: application/json' -d '{"repo":"owner/name"}'
 ```
-Response (`BacklogResult`): `suggestions` in the same shape as `BacklogSuggestion` in `fixtures/types.ts` (what the W2 page reads), plus `issuesRead`, `issuesConsidered`, `issuesSkipped`, `model`, `isFake`, `complete` (false when some batches gave no answer or the offline heuristic stood in for a failing model), `warnings`.
+Response (`BacklogResult`): `suggestions` in the shape of `BacklogSuggestion` in `fixtures/types.ts`, plus `issuesRead`, `issuesConsidered`, `issuesSkipped`, `model`, `isFake`, `complete` (false when some batches gave no answer or the offline heuristic stood in for a failing model), `warnings`.
 Errors: `400 invalid_repo`, `404 repo_not_found`, `429 github_rate_limited` (with the reset time) or `429 too_many_requests`, `502 github_unavailable`, `502 model_unavailable`, `500 backlog_failed`.
 
-**No user session yet** (I1 adds it through the web app), so the route protects itself:
+The route needs no user session, so it protects itself:
 - the GitHub token is a dedicated `BACKLOG_GITHUB_TOKEN`, never a broad `GITHUB_TOKEN` from the shell. Make it a fine-grained, read-only, public-repos token: anything it can read, callers can price;
 - a complete result is cached per repo for 10 minutes (same repo = no GitHub or model call). Partial results (deadline, failed batches) and heuristic fallbacks are not cached;
 - each client gets 6 new repos per minute. The client is `cf-connecting-ip` (set by the Cloudflare tunnel), else the **last** `x-forwarded-for` hop (the first ones are whatever the caller sent), else the socket address;
@@ -33,7 +33,7 @@ Errors: `400 invalid_repo`, `404 repo_not_found`, `429 github_rate_limited` (wit
    - an issue whose text tries to instruct the model (English or French: "ignore previous instructions", "price_xof: …", "ce ticket vaut 100 000 FCFA"…) is downgraded to `low` and never pre-selected;
    - a batch that fails or answers invalid JSON is skipped with a warning, the rest still comes back;
    - if **every** batch fails (bad key, outage), the offline heuristic answers instead (`isFake: true`, first warning says the model failed) rather than an empty list.
-4. Issue text is wrapped as untrusted data with a random boundary (same approach as the A1 verifier). Criteria are written in the issue's language (French issue → French criteria).
+4. Issue text is wrapped as untrusted data with a random boundary (same approach as the PR verifier). Criteria are written in the issue's language (French issue → French criteria).
 5. Only `high` confidence suggestions below the 100 000 FCFA cap come pre-ticked (`selected: true`).
 6. Suggestion ids include the repo (`sug-teranga-labs-bitnob-js-21`), so they stay unique across repos.
 

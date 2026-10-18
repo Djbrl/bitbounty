@@ -1,8 +1,8 @@
-# fixtures/ (F4)
+# fixtures/
 
-Fake but realistic data for every page, served by a mock `/api/*` route in `apps/web`, so the W tasks never wait for the back end. I1 swaps the mock for the real API; pages only depend on the URLs and shapes below.
+Fake but realistic data for every page. When the web has no API URL set (`BITBOUNTY_API_URL` / `NEXT_PUBLIC_API_URL`), a mock `/api/*` route in `apps/web` serves these files; otherwise the real server serves the same shapes ([docs/api.md](../docs/api.md)).
 
-Shapes and names follow the F2 contract (`@bitbounty/core`, PR #44): camelCase fields, core statuses, events and `TRANSITIONS`. Rules: money is always an **integer** in the smallest unit (FCFA, sats, USDT base units where 1 USDT = 1 000 000, NGN kobo). Lightning Addresses are always masked (`aw***@blink.sv`); the onboarding (`/me`, B3) still shows masked phone numbers (`+221 77 ••• •• 42`). Timestamps are UTC (= Dakar time), 17–18 Oct 2026.
+Shapes follow `@bitbounty/core`: camelCase fields, core statuses, events and `TRANSITIONS`. Money is always an **integer** in the smallest unit (FCFA, sats, USDT base units where 1 USDT = 1 000 000, NGN kobo). Lightning Addresses are always masked (`aw***@blink.sv`). Timestamps are UTC (= Dakar time), 17–18 Oct 2026.
 
 ## Which file feeds which page
 
@@ -15,8 +15,8 @@ Shapes and names follow the F2 contract (`@bitbounty/core`, PR #44): camelCase f
 | `/b/[id]` | `GET /api/bounties/:id` | `bounties.json` (full detail: fundings, claims, submission + Claude report, payout, timeline) |
 | `/pay/[id]` | `POST /api/bounties/:id/funding {rail}` | `funding.json` (one template per rail, rescaled to the bounty, `expiresAt` = now + 15 min) |
 | `/pay/[id]` polling | `GET /api/bounties/:id/funding` | `pending` twice, then `paid` on the 3rd poll (unfunded bounties only) |
-| `/me` | `GET /api/me?state=new\|pending\|sms_ok\|verified` (default `verified`) | `me.json` |
-| `/me` steps | `POST /api/me/payout-account` → `/sms {code}` → `/confirm {amount}` | `me.json` `mock`: SMS code `424242`, test amount `137` FCFA |
+| `/me` | `GET /api/me?state=new\|verified` (default `verified`) | `me.json` (it also holds states of an older SMS onboarding, no longer used) |
+| `/welcome`, `/me` | `GET`/`POST /api/me/onboarding`, `POST /api/me/lightning-address`, `/api/me/mode` | in memory (addresses ending in `.invalid` never resolve) |
 | `/u/[login]` | `GET /api/users/:login` | `users.json` (awa-ndiaye, fatou-sall, moussa-diop, seynabou-gueye) |
 | `/r/[id]` | `GET /api/receipts/:id` | `receipts.json` (`r-107`, `r-113`) |
 | `/live` | `GET /api/live` (SSE: `snapshot`, then `transition` events, loops; `?speed=4` to fast-forward) · `GET /api/live?format=json` | `live.json` |
@@ -42,13 +42,13 @@ Unknown ids return `404 {error}`; bad input returns `400`/`409`/`422 {error}`.
 | b-113 | `paid` | **Lagos route**: ₦29 000 bank transfer (NGN → BTC) → 10 000 FCFA paid in sats over Lightning, receipt `r-113` |
 | b-114 | `claimed` | **agent-funded** (Claude Code via MCP), Wolof SMS task |
 
-Every timeline uses only F2's 15 `EVENT_TYPES` and is a legal path through F2's `TRANSITIONS` (each entry carries the `to` status it led to); every event type appears at least once. `bounties.json` entities are the core types (`Bounty`, `Funding`, `Claim`, `Submission`, `Payout`, `User`) plus a few view-only fields (`issueUrl`, `criteriaConfirmed`, `funderLogin`, `labels`, `updatedAt`, `userLogin`, `prUrl`, `ci`, `phoneMasked`…). `/api/me` returns `PayoutAccount` without `phoneE164`/`testAmountXof` (never sent to the browser) and with `phoneMasked`.
+Every timeline uses only the core `EVENT_TYPES` and is a legal path through `TRANSITIONS` (each entry carries the `to` status it led to); every event type appears at least once. `bounties.json` entities are the core types (`Bounty`, `Funding`, `Claim`, `Submission`, `Payout`, `User`) plus a few view-only fields (`issueUrl`, `criteriaConfirmed`, `funderLogin`, `labels`, `updatedAt`, `userLogin`, `prUrl`, `ci`, `phoneMasked`…). `/api/me` returns `PayoutAccount` without `phoneE164`/`testAmountXof` (never sent to the browser) and with `phoneMasked`.
 
 ## Files
 
-- `types.ts`: **temporary mirror** of `packages/core` (#44): statuses, events, `TRANSITIONS`, entity types, copied verbatim. Replace with import from `@bitbounty/core` once #44 merges (the view / page DTOs at the bottom stay or move to core).
+- `types.ts`: a copy of `packages/core`'s statuses, events, `TRANSITIONS` and entity types, plus the page DTOs (`Board`, `BountyDetail`, `Me`…) that the server's read API also returns.
 - `generate.mjs`: writes all JSON. Edit it, then `node fixtures/generate.mjs`.
-- `check.mjs`: validates every file against `types.ts` (enums, integer money, dates, cross-file ids), **replays every timeline through `TRANSITIONS`** (incl. the `pr.merged` → verified/on_hold rule), and checks state invariants (e.g. `paid` ⇒ succeeded payout, `claimed` ⇒ exactly one active claim, `funded` ⇒ no active claim), plus coverage of every state, claim status, verdict, rail and `/me` step. Exits 1 on failure.
+- `check.mjs`: validates every file against `types.ts` (enums, integer money, dates, cross-file ids), **replays every timeline through `TRANSITIONS`** (incl. the `pr.merged` → verified/on_hold rule), and checks state invariants (e.g. `paid` ⇒ succeeded payout, `claimed` ⇒ exactly one active claim, `funded` ⇒ no active claim), plus coverage of every state, claim status, verdict and rail. Exits 1 on failure.
 - `fixtures.test.ts`: runs `check.mjs` and exercises every mock endpoint (`apps/web/lib/mock-api.ts`), including the SSE stream.
 
 ```sh
@@ -60,4 +60,4 @@ node --test fixtures/fixtures.test.ts   # Node >= 22.18 (type stripping)
 
 - `apps/web/app/api/[...path]/route.ts`: thin Next.js handler (GET + POST), imports the JSON.
 - `apps/web/lib/mock-api.ts`: the pure request → response logic (testable without Next).
-- More specific routes (e.g. `/api/auth/[...nextauth]` from W9) take precedence over the catch-all.
+- More specific routes (e.g. `/api/auth/[...nextauth]`) take precedence over the catch-all.

@@ -1,7 +1,6 @@
 # @bitbounty/core: the contract
 
-Types, events and the bounty state machine. Every module codes against this package.
-**It can only grow**: add fields, statuses or events, never rename or remove them.
+Types, events and the bounty state machine that every other package codes against. Only `transition()` changes a bounty's status. The contract only grows: fields, statuses and events are added, never renamed or removed.
 
 ```ts
 import { createBounty, transition } from "@bitbounty/core";
@@ -24,6 +23,7 @@ else save(r.bounty, r.event);  // r.from → r.to
 | `src/events.ts` | `InternalEvent` (union), `EVENT_TYPES`, `EventOf<"pr.merged">` |
 | `src/machine.ts` | `TRANSITIONS` table, `transition()`, `canTransition()`, `createBounty()` |
 | `src/money.ts` | integer amounts: `Xof`, `Sats`, `Kobo`, `UsdtUnits`, `assertAmount()` |
+| `src/lightning-address.ts` | `parseLightningAddress()`: validates and lower-cases a `user@domain` Lightning Address |
 
 ## Money
 Amounts are positive integers in the smallest unit: FCFA, sats, kobo, USDT base units (1 USDT = 1,000,000). Never floats. `createBounty` and `funding.paid` reject anything else.
@@ -66,5 +66,6 @@ Extra guards beyond the table:
 
 ## Test
 ```bash
-pnpm install && pnpm test && pnpm typecheck
+pnpm --filter @bitbounty/core test
+pnpm --filter @bitbounty/core typecheck
 ```
