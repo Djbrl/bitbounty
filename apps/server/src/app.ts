@@ -42,7 +42,22 @@ import {
   readMaxPayoutSats,
   type PayoutStore,
 } from "./payouts/index.js";
-import { payeeFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement, statusExtras } from "./settlement/index.js";
+import {
+  payeeFromAccounts,
+  payeeWithFallback,
+  readObjectionWindowMs,
+  readPayoutAccounts,
+  Settlement,
+  statusExtras,
+} from "./settlement/index.js";
+import {
+  DrizzleProfileStore,
+  githubLanguages,
+  InMemoryProfileStore,
+  profileRoutes,
+  type ProfileStore,
+} from "./onboarding/index.js";
+import { loginOf, requestUser } from "./api/index.js";
 import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
@@ -213,6 +228,9 @@ export const payoutStore: PayoutStore = database ? new DrizzlePayoutStore(databa
 const lightningNetwork = readLightningNetwork();
 const maxPayoutSats = readMaxPayoutSats();
 const payoutAccounts = readPayoutAccounts();
+/** U1: onboarding answers + the developer's Lightning Address (Postgres when DATABASE_URL is set). */
+export const profileStore: ProfileStore = database ? new DrizzleProfileStore(database.db) : new InMemoryProfileStore();
+const savedLightningAddress = async (login: string) => (await profileStore.get(login)).lightningAddress;
 let payoutService: PayoutService | null = null;
 export const settlement = new Settlement({
   repo: bountyRepo,
@@ -234,7 +252,8 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
     rates: new BitnobRates(client),
     store: payoutStore,
     emit: settlement.applyPayoutEvent,
-    getPayee: payeeFromAccounts(payoutAccounts),
+    // PAYOUT_ACCOUNTS first, then the Lightning Address saved at onboarding (U1).
+    getPayee: payeeWithFallback(payeeFromAccounts(payoutAccounts), savedLightningAddress),
     maxPayoutSats,
     // M1: a row is resumed after a restart only if settlement already started it (bounty past the
     // objection window, `paying` / `payout_failed`) and it still pays the claimant the bounty's amount.
@@ -263,6 +282,7 @@ export function startPayouts(): void {
   payoutService.startPolling();
 }
 // U2: the user's workspace (Maintainer / Hunter) for the web app shell, users.default_mode (L1).
+/** Shared with U1's /welcome (it reads the mode back from here) and U4's /api/maintain. */
 const modeStore = database ? new DrizzleModeStore(database.db) : new InMemoryModeStore();
 app.route(
   "/",
@@ -299,5 +319,26 @@ app.route(
     payouts: database || payoutService ? payoutStore : undefined,
     lightning: lightningFunding,
     internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
+    lightningAddressOf: savedLightningAddress,
+  }),
+);
+
+// U1: /welcome onboarding. The Lightning Address is checked with B6's LNURL resolver before it's saved.
+const internalToken = process.env.INTERNAL_API_TOKEN?.trim() || undefined;
+app.route(
+  "/",
+  profileRoutes({
+    store: profileStore,
+    checker: new HttpLnurlResolver({ network: lightningNetwork }),
+    getLogin: (c) => requestUser(c, internalToken),
+    languagesOf: githubLanguages(),
+    modeOf: (login) => modeStore.getMode(login),
+    reposOf: async (login) => {
+      const installed = await modeStore.installedRepos(login);
+      const funded = (await bountyRepo.list(500)).filter((b) => loginOf(b.funderId)?.toLowerCase() === login.toLowerCase()).map((b) => b.repoFullName);
+      const seen = new Map<string, string>();
+      for (const r of [...installed, ...funded]) if (!seen.has(r.toLowerCase())) seen.set(r.toLowerCase(), r);
+      return [...seen.values()].sort((a, b) => a.localeCompare(b));
+    },
   }),
 );

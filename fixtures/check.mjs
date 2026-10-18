@@ -90,7 +90,7 @@ const EVENT = { occurredAt: is.date, type: oneOf(T.EVENT_TYPES), to: oneOf(T.BOU
 const USER = { id: is.str, githubId: is.int, login: is.str, avatarUrl: nullable(is.str), createdAt: is.anyDate, name: is.str, city: is.str };
 const ACCOUNT = {
   userId: is.str, country: oneOf(['SN']), provider: oneOf(T.PROVIDERS), accountName: is.str, status: oneOf(T.ACCOUNT_STATUSES),
-  verifiedAt: nullable(is.date), lockedUntil: nullable(is.anyDate), phoneMasked: MASKED,
+  verifiedAt: nullable(is.date), lockedUntil: nullable(is.anyDate), phoneMasked: MASKED, lightningAddress: nullable((v) => is.str(v) && /^[a-z0-9]{1,2}\*\*\*@[a-z0-9.-]+$/.test(v)),
 };
 const SUMMARY = { ...BOUNTY, claimedBy: nullable(is.str), prNumber: nullable(is.int) };
 

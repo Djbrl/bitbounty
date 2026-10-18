@@ -92,16 +92,24 @@ test('pages: board, dashboard, backlog, users, receipts, live', () => {
   assert.equal(get('nope').status, 404);
 });
 
-test('/me onboarding: new → pending → sms_ok → verified', () => {
+test('/me payout account: a Lightning Address, checked then saved masked', () => {
   assert.equal(json(get('me', 'state=new')).payoutAccount, null);
-  assert.equal(json(get('me')).payoutAccount.status, 'verified');
-  assert.equal(post('me/payout-account', { provider: 'wave' }).status, 400);
-  assert.equal(json(post('me/payout-account', { provider: 'wave', phone: '+221770000042' })).payoutAccount.status, 'pending');
-  assert.equal(post('me/payout-account/sms', { code: '000000' }).status, 422);
-  assert.equal(json(post('me/payout-account/sms', { code: '424242' })).payoutAccount.status, 'sms_ok');
-  const wrong = post('me/payout-account/confirm', { amount: 173 });
-  assert.equal(wrong.status, 422);
-  assert.equal(json(post('me/payout-account/confirm', { amount: 137 })).payoutAccount.status, 'verified');
+  assert.equal(json(get('me')).payoutAccount.lightningAddress, 'aw***@blink.sv');
+  assert.equal(post('me/lightning-address', { lightningAddress: 'awa' }).status, 400);
+  assert.equal(post('me/lightning-address', { lightningAddress: 'awa@nowhere.invalid' }).status, 422);
+  assert.equal(json(post('me/lightning-address', { lightningAddress: 'Awa.Diop@Blink.sv' })).lightningAddress, 'aw***@blink.sv');
+});
+
+test('/welcome onboarding: answers saved, done sets onboardedAt', () => {
+  const st = json(get('me/onboarding'));
+  assert.equal(st.preferences.step >= 1, true);
+  assert.deepEqual(st.githubLanguages, ['TypeScript', 'Go']);
+  assert.equal(post('me/mode', { mode: 'both' }).status, 400);
+  assert.equal(json(post('me/mode', { mode: 'hunt' })).defaultMode, 'hunt');
+  const saved = json(post('me/onboarding', { preferences: { step: 2, stack: ['Go'] } }));
+  assert.equal(saved.defaultMode, 'hunt');
+  assert.equal(saved.preferences.step, 2);
+  assert.equal(json(post('me/onboarding', { done: true })).onboardedAt, '2026-10-17T15:00:00.000Z');
 });
 
 test('live SSE: snapshot then transitions', async () => {

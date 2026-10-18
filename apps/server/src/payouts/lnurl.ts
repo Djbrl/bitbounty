@@ -23,6 +23,17 @@ export interface LnurlResolver {
   invoiceFor(lightningAddress: string, amountMsat: number): Promise<ResolvedInvoice>;
 }
 
+/** What a Lightning Address accepts (its LNURL-pay parameters), without asking for an invoice. */
+export interface LnurlPayParams {
+  minSendableMsat: number;
+  maxSendableMsat: number;
+}
+
+/** U1: onboarding checks that an address resolves before saving it (nothing is paid). */
+export interface LnurlChecker {
+  check(lightningAddress: string): Promise<LnurlPayParams>;
+}
+
 /**
  * Resolution failed; nothing was paid. `retryable`: the payee's server was down, slow or broken
  * (try again later). Not retryable: the address is invalid or the amount is outside what it accepts.
@@ -53,7 +64,7 @@ export interface HttpLnurlResolverOptions {
 /** Bodies larger than this are refused (a Lightning Address answer is a few hundred bytes). */
 const MAX_BODY = 64 * 1024;
 
-export class HttpLnurlResolver implements LnurlResolver {
+export class HttpLnurlResolver implements LnurlResolver, LnurlChecker {
   private readonly fetch: typeof fetch;
   private readonly timeoutMs: number;
   private readonly minExpirySeconds: number;
@@ -66,12 +77,15 @@ export class HttpLnurlResolver implements LnurlResolver {
     this.now = opts.now ?? (() => new Date());
   }
 
-  async invoiceFor(lightningAddress: string, amountMsat: number): Promise<ResolvedInvoice> {
+  /** Fetches and checks the address's payRequest (first LNURL-pay step). Throws LnurlError. */
+  async check(lightningAddress: string): Promise<LnurlPayParams> {
+    const { min, max } = await this.payRequest(lightningAddress);
+    return { minSendableMsat: min, maxSendableMsat: max };
+  }
+
+  private async payRequest(lightningAddress: string) {
     const addr = parseLightningAddress(lightningAddress, { allowLocal: this.opts.allowLocal });
     if (!addr) throw new LnurlError(`invalid Lightning Address ${maskLightningAddress(lightningAddress)}`, false);
-    if (!Number.isSafeInteger(amountMsat) || amountMsat < 1000) {
-      throw new LnurlError(`invalid amount ${amountMsat} msat`, false);
-    }
     const who = maskLightningAddress(lightningAddress);
     const local = /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(addr.domain);
     const scheme = local ? "http" : "https";
@@ -86,6 +100,17 @@ export class HttpLnurlResolver implements LnurlResolver {
     if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < 1 || min > max) {
       throw new LnurlError(`${who}: bad minSendable/maxSendable (${String(params.minSendable)}/${String(params.maxSendable)})`, true);
     }
+    return { params, min, max, who, local };
+  }
+
+  async invoiceFor(lightningAddress: string, amountMsat: number): Promise<ResolvedInvoice> {
+    if (!parseLightningAddress(lightningAddress, { allowLocal: this.opts.allowLocal })) {
+      throw new LnurlError(`invalid Lightning Address ${maskLightningAddress(lightningAddress)}`, false);
+    }
+    if (!Number.isSafeInteger(amountMsat) || amountMsat < 1000) {
+      throw new LnurlError(`invalid amount ${amountMsat} msat`, false);
+    }
+    const { params, min, max, who, local } = await this.payRequest(lightningAddress);
     if (amountMsat < min) {
       throw new LnurlError(`${who} accepts at least ${min} msat, the payout is ${amountMsat} msat`, false);
     }

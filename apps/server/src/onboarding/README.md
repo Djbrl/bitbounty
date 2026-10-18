@@ -26,3 +26,13 @@ Errors are `{error, message, attemptsLeft?, lockedUntil?}` with `error` in snake
 - The per-user queue is **in-process**. With more than one server instance, the store must do the check-and-update atomically (row lock or `UPDATE … WHERE wrong_tries = $n`).
 - `InMemoryPayoutAccountStore` / `InMemoryTestPayoutStore` are single-process and in memory (tests, offline demo). **F3 has no table for test payouts yet**; `payout_accounts.test_amount_xof` (with the 100–199 check) exists, a `test_payouts` table (reference, amount, status, wrong_tries, error) is still needed for Postgres.
 - `testPayoutRoutes({ service, getUserId, checkSmsCode, getMe })` isn't mounted in `app.ts`: `getUserId` comes from the GitHub session (W9), `checkSmsCode` from the SMS sender, `getMe` from `GET /api/me`. `POST /api/me/payout-account` (create the account, send the SMS) isn't B3.
+
+## /welcome onboarding (U1)
+
+`profileRoutes` (mounted in `app.ts`, same identity as `/api/me`: internal token + `X-BitBounty-User`):
+
+- `GET /api/me/onboarding` → answers so far (`preferences`: role, stack, currency `xof|ngn|sats`, language `fr|en`, repo, step), `onboardedAt`, `defaultMode` (read from U2's mode store), the Lightning Address **masked**, the user's top GitHub languages (public API, cached 6 h, `[]` on any failure) and the repos where the GitHub App is installed.
+- `POST /api/me/onboarding {preferences?, done?}` → same view. `done: true` sets `users.onboarded_at` once. The workspace itself is saved through U2's `POST /api/me/mode`.
+- `POST /api/me/lightning-address {lightningAddress}` → `400 invalid_lightning_address` (not `user@domain`), `422 lightning_address_unreachable` (B6's LNURL resolver couldn't read a payRequest; nothing saved), else saved on `payout_accounts.lightning_address` and returned masked.
+
+Storage: `DrizzleProfileStore` (`users.preferences` jsonb, migration 0004) or `InMemoryProfileStore` without `DATABASE_URL`. Payouts use `PAYOUT_ACCOUNTS` first, then the saved address (`payeeWithFallback`). The SMS / test-amount flow above is legacy (mobile money) and not mounted.

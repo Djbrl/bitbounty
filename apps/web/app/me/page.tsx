@@ -9,12 +9,12 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Mon compte de paiement · BitBounty",
-  description: "Relie ton compte Wave ou Orange Money une seule fois pour recevoir tes bounties.",
+  description: "Ajoute ta Lightning Address une seule fois pour recevoir tes bounties en sats.",
 };
 
 type Props = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
-/** /me: the developer links their payout account once (French, phone-first). `?state=new|pending|sms_ok|verified` for demos. */
+/** /me: the developer saves their Lightning Address once (French). `?state=new` (no address) or `?state=verified` for demos. */
 export default async function MePage({ searchParams }: Props) {
   const state = parseMeState((await searchParams)?.state);
   const me = await fetchMe(state);

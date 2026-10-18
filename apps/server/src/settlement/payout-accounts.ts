@@ -77,3 +77,20 @@ export function payeeFromAccounts(accounts: Map<string, EnvPayoutAccount>) {
     return { lightningAddress: a.lightningAddress };
   };
 }
+
+/**
+ * U1: `PAYOUT_ACCOUNTS` first (ops override), then the Lightning Address the developer saved at
+ * onboarding (`lookup`, by GitHub login). Neither → the primary's PayoutConfigError.
+ */
+export function payeeWithFallback(primary: (userId: string) => Promise<Payee>, lookup: (login: string) => Promise<string | null>) {
+  return async (userId: string): Promise<Payee> => {
+    try {
+      return await primary(userId);
+    } catch (err) {
+      if (!(err instanceof PayoutConfigError)) throw err;
+      const address = await lookup(userId.replace(/^github:/, ""));
+      if (address) return { lightningAddress: address };
+      throw err;
+    }
+  };
+}
