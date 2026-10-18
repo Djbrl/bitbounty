@@ -16,6 +16,8 @@ export type Intent = "maintain" | "hunt";
 
 export const OPEN_APP_HREF = "/welcome";
 export const OPEN_APP_LABEL = "Ouvrir l'app";
+/** GitHub sign-in entry point; back to /welcome afterwards, where the visitor picks an intent. */
+export const SIGN_IN_HREF = "/signin?callbackUrl=%2Fwelcome";
 
 export function welcomeHref(intent: Intent): string {
   return `/welcome?intent=${intent}`;
@@ -26,7 +28,11 @@ const appCta = (cls: string, href: string, label: string) =>
 
 export function landingMarkup(cfg = LANDING_CONFIG): string {
   const slots: Record<string, string> = {
-    NAV_CTA: `<a class="pill dark" href="${cfg.githubAppUrl}" target="_blank" rel="noopener" data-app-cta>Installer</a>`,
+    // U6: the header's two CTAs, same as the app headers. "Se connecter" becomes "Ouvrir l'app" once signed in.
+    NAV_CTA:
+      `<a class="pill green" href="${cfg.githubAppUrl}" target="_blank" rel="noopener noreferrer">Installer sur GitHub</a>` +
+      `\n      ` +
+      appCta("pill line", SIGN_IN_HREF, "Se connecter"),
     HERO_CTAS:
       appCta("pill green", welcomeHref("hunt"), "Trouver une issue payée") +
       `\n      <a class="link" href="${welcomeHref("maintain")}">Publier une bounty ›</a>`,

@@ -27,6 +27,15 @@ describe("landing (L1)", () => {
     expect(html.match(/data-app-cta/g)).toHaveLength(3);
   });
 
+  it("has exactly two nav CTAs: Installer sur GitHub (new tab) and Se connecter", () => {
+    const nav = html.slice(html.indexOf('<header class="nav">'), html.indexOf("</header>"));
+    const pills = [...nav.matchAll(/<a class="pill[^"]*"[^>]*>([^<]*)<\/a>/g)];
+    expect(pills.map((m) => m[1])).toEqual(["Installer sur GitHub", "Se connecter"]);
+    expect(pills[0]![0]).toContain('href="https://github.com/apps/bitbounty-dakar"');
+    expect(pills[0]![0]).toContain('target="_blank"');
+    expect(pills[1]![0]).toContain('href="/signin?callbackUrl=%2Fwelcome"');
+  });
+
   it("scopes every landing CSS rule under .bb-landing", () => {
     const css = readFileSync(new URL("./landing.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
     const selectors = [...css.matchAll(/(?:^|[}{])\s*([^{}@]+?)\s*\{/g)]

@@ -1,12 +1,16 @@
 "use client";
 // Header sign-in slot for AppNav. A client component on purpose: calling auth() in the page would
 // make every page dynamic, so the session is read in the browser from /api/auth/session instead.
-// Auth off (no AUTH_SECRET): the route answers 404 and this renders nothing.
+// U6: it is the header's second CTA, "Se connecter" (secondary pill to /signin), replaced by the account
+// (avatar, @login, sign out) once signed in. Auth off (no AUTH_SECRET, the route answers 404): still
+// "Se connecter"; /signin explains that sign-in is off. Before the session is known it holds the place.
 import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { SIGN_IN_PATH, safeCallbackUrl } from "../../lib/auth/paths";
 import { sessionToUser, type SessionUser } from "../../lib/auth/session-user";
 import { Avatar } from "../ui/avatar";
+import { buttonClass } from "../ui/button";
+import { cx } from "../ui/tone";
 
 export type HeaderSession = { kind: "off" } | { kind: "out" } | { kind: "in"; user: SessionUser };
 
@@ -28,11 +32,19 @@ export function signInHref(path: string): string {
 }
 
 export function HeaderUserView({ session, path = "/" }: { session: HeaderSession | null; path?: string }) {
-  if (!session || session.kind === "off") return null;
-  if (session.kind === "out") {
+  const pill = buttonClass({ variant: "secondary", size: "sm", className: "whitespace-nowrap" });
+  if (!session) {
+    // Same size as the button, so nothing shifts when the session arrives; static on the server.
     return (
-      <a href={signInHref(path)} className="font-semibold text-ink hover:underline">
-        Sign in with GitHub
+      <span aria-hidden className={cx(pill, "invisible")}>
+        Se connecter
+      </span>
+    );
+  }
+  if (session.kind !== "in") {
+    return (
+      <a href={signInHref(path)} className={pill}>
+        Se connecter
       </a>
     );
   }

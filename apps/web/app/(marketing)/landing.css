@@ -47,6 +47,17 @@
 .bb-landing .pill.green { background: var(--green); color: #fff; }
 .bb-landing .pill.green:hover { background: #0E5A32; color: #fff; }
 .bb-landing .pill.dark { background: var(--ink); color: #fff !important; }
+/* U6: secondary nav CTA ("Se connecter"), hairline pill next to the green "Installer sur GitHub". */
+.bb-landing .pill.line { border: 1px solid rgba(11,31,23,0.16); background: #fff; color: var(--ink); }
+.bb-landing .pill.line:hover { border-color: var(--ink); }
+.bb-landing .nav .pill + .pill { margin-left: -14px; }
+.bb-landing .nav .pill { white-space: nowrap; }
+@media (max-width: 560px) {
+  .bb-landing .nav-in { padding: 0 16px; gap: 8px; }
+  .bb-landing .nav nav { gap: 16px; }
+  .bb-landing .nav .pill + .pill { margin-left: -8px; }
+  .bb-landing .nav .pill { padding: 5px 10px; }
+}
 .bb-landing .link { font-weight: 600; padding: 12px 6px; }
 .bb-landing .ctas { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 

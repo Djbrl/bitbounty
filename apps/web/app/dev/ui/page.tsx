@@ -79,7 +79,7 @@ export default function DesignSystemPage() {
           Tokens, fonts and components taken from the landing. Import from{" "}
           <code className="font-mono text-[0.86em]">@/components/ui</code>, docs in{" "}
           <code className="font-mono text-[0.86em]">apps/web/components/README.md</code>. Each panel below forces its theme
-          with <code className="font-mono text-[0.86em]">data-theme</code>; the rest of the app follows the OS.
+          with <code className="font-mono text-[0.86em]">data-theme</code>; the rest of the app is light (dark is for /live).
         </p>
         <div>
           <ToastDemo />

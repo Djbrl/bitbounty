@@ -8,7 +8,7 @@ Components are server components unless noted; wrap them in your own client comp
 
 Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@theme inline`. Use the utilities (`bg-paper`, `text-ink`, `border-rule`…) and dark mode comes for free.
 
-- **Dark mode** follows the OS, or force it with `data-theme="dark|light"` on `<html>` **or on any element** (a subtree can be themed; `/dev/ui` does this). Give a themed subtree `bg-paper text-ink`.
+- **Light everywhere** (U6): the app no longer follows the OS dark mode. Green (`money`) = primary actions, success, money; purple (`agent`, `claim`) = secondary accent (claim/PR states, focus rings, highlights). The dark palette only applies under `data-theme="dark"` on an element (`/live`, the dark panel of `/dev/ui`). Give a themed subtree `bg-paper text-ink`.
 - **Dark palette** = the landing's dark band: ink page, deep-green (`#13291F`, landing ink-2) cards, line-dark hairlines, mint secondary text.
 - Hex values only appear in `globals.css` and in fixed mockup colours (PhoneFrame bezel/notification, Avatar initials backgrounds).
 
@@ -29,7 +29,7 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | `bright` | green-bright | `#3CC77E` / `#A7E8C4` | the Verified pill fill (paler in dark so it never matches Paid) |
 | `amber`, `on-amber` | amber | `#F2A007` on `#2B1A00` | awaiting funds (solid tag, constant) |
 | `pending`, `pending-soft` | (amber, text-safe) | `#855800` / `#F2B440` | on hold, warnings |
-| `claim`, `claim-soft` | (app only) | blue | a developer is on it |
+| `claim`, `claim-soft` | purple | `#7444D4` on `#F1EBFD` (light) | a developer is on it, PR submitted |
 | `danger`, `danger-soft` | (app only) | red | payout failed, errors |
 | `agent`, `agent-soft`, `agent-strong` | purple | `#8250DF` / `#B392F0` | funded by an AI agent (`agent-strong` = AA text on `agent-soft`) |
 | `tier-bronze/silver/gold` | | darker in light for 3:1 | Avatar tier rings (U3) |

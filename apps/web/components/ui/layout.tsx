@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { INSTALL_URL } from "../app-shell/mode";
 import { HeaderUser } from "../auth/HeaderUser";
-import { Avatar } from "./avatar";
+import { buttonClass } from "./button";
 import { cx } from "./tone";
 
 /** The BitBounty mark from the landing nav: ink "b" stroke with a green dot + wordmark. */
@@ -27,14 +28,17 @@ export interface AppNavProps {
   items?: NavItem[];
   /** href of the current page, rendered bold. */
   active?: string;
-  /** Initials for the avatar; omit when signed out. */
+  /** @deprecated U6: no longer rendered; the account menu in `right` shows the signed-in user. */
   initials?: string;
-  /** Slot on the right (e.g. the sign-in button from W9). */
+  /** Second CTA, after "Installer sur GitHub": "Se connecter", or the account menu once signed in (Page passes HeaderUser). */
   right?: ReactNode;
 }
 
-/** Top bar: mark on the left, links + avatar on the right. Wraps under the mark at phone width. */
-export function AppNav({ items = [], active, initials, right }: AppNavProps) {
+/**
+ * Top bar: mark on the left, links + the two CTAs on the right ("Installer sur GitHub" primary, then the
+ * `right` slot). Wraps under the mark at phone width.
+ */
+export function AppNav({ items = [], active, right }: AppNavProps) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
       <Link href="/" aria-label="BitBounty home">
@@ -51,8 +55,12 @@ export function AppNav({ items = [], active, initials, right }: AppNavProps) {
             {item.label}
           </Link>
         ))}
-        {right}
-        {initials && <Avatar initials={initials} size="sm" />}
+        <span className="flex items-center gap-2">
+          <a href={INSTALL_URL} target="_blank" rel="noopener noreferrer" className={buttonClass({ size: "sm", className: "whitespace-nowrap" })}>
+            Installer sur GitHub
+          </a>
+          {right}
+        </span>
       </nav>
     </header>
   );
