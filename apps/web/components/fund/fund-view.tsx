@@ -1,0 +1,245 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
+import { Button, Card, Dot, Pill, buttonClass, cx, formatXof } from "../ui";
+import { FundApiError, createFunding, pollFunding } from "./api";
+import { CopyButton } from "./copy-button";
+import type { FundBounty, FundingRail, FundingSession } from "./data";
+import { RAIL_META, formatCountdown, groupAccountNumber, msLeft, sourceAmount, sourceAmountRaw } from "./format";
+import { QrCode } from "./qr-code";
+import { errorMessage, fundReducer, initialFundState, needsSession } from "./state";
+import { SummaryCard } from "./summary-card";
+
+/** Status poll interval (the mock answers `paid` on the 3rd poll). */
+export const POLL_MS = 2000;
+
+export interface FundViewProps {
+  bounty: FundBounty;
+}
+
+export function FundView({ bounty }: FundViewProps) {
+  const [state, dispatch] = useReducer(fundReducer, bounty.status !== "unfunded", initialFundState);
+  // `null` until mounted: the countdown only renders client-side (no hydration drift).
+  const [now, setNow] = useState<number | null>(null);
+  const polling = useRef(false);
+  const session = state.sessions[state.rail] ?? null;
+  const hasSession = Object.keys(state.sessions).length > 0;
+
+  // 1 s clock for the countdown and expiry.
+  useEffect(() => {
+    if (state.phase !== "paying") return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [state.phase]);
+
+  // Create (or refresh on expiry) the session for the current tab.
+  useEffect(() => {
+    if (now == null || !needsSession(state, now)) return;
+    const rail = state.rail;
+    dispatch({ type: "request", rail });
+    createFunding(bounty.id, rail).then(
+      (session) => dispatch({ type: "session", session }),
+      (e: unknown) => {
+        if (e instanceof FundApiError && e.code === "already_funded") dispatch({ type: "paid" });
+        else dispatch({ type: "error", rail, error: errorMessage(e instanceof FundApiError ? e.code : "network") });
+      },
+    );
+  }, [now, state, bounty.id]);
+
+  // Poll the funding status every 2 s once something can be paid.
+  useEffect(() => {
+    if (state.phase !== "paying" || !hasSession) return;
+    const t = setInterval(() => {
+      if (polling.current) return;
+      polling.current = true;
+      pollFunding(bounty.id)
+        .then((r) => r.status === "paid" && dispatch({ type: "paid" }))
+        .catch(() => {}) // transient: next tick retries
+        .finally(() => (polling.current = false));
+    }, POLL_MS);
+    return () => clearInterval(t);
+  }, [state.phase, hasSession, bounty.id]);
+
+  const fundedSession = session ?? Object.values(state.sessions)[0] ?? null;
+
+  return (
+    <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="grid min-w-0 gap-4">
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">
+          {state.phase === "funded" ? "Bounty funded" : "Fund this bounty"}
+        </h1>
+        {state.phase === "funded" ? (
+          <FundedPanel bounty={bounty} />
+        ) : (
+          <>
+            <RailTabs rail={state.rail} onSelect={(rail) => dispatch({ type: "select", rail })} />
+            <div role="tabpanel" id={`fund-panel-${state.rail}`} aria-labelledby={`fund-tab-${state.rail}`}>
+              {session && now != null && msLeft(session.expiresAt, now) > 0 ? (
+                <RailPanel session={session} now={now} />
+              ) : (
+                <Card padding="lg" className="grid min-h-[200px] place-items-center gap-3 text-center text-sm text-muted">
+                  {state.error ? (
+                    <>
+                      <p className="text-danger">{state.error}</p>
+                      <Button variant="secondary" size="sm" onClick={() => dispatch({ type: "select", rail: state.rail })}>
+                        Try again
+                      </Button>
+                    </>
+                  ) : (
+                    <p>
+                      <Dot tone="pending" pulse /> {session ? "Expired, getting a fresh one…" : "Preparing your payment details…"}
+                    </p>
+                  )}
+                </Card>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      <SummaryCard bounty={bounty} session={fundedSession} sats={state.sats} />
+    </div>
+  );
+}
+
+function RailTabs({ rail, onSelect }: { rail: FundingRail; onSelect: (r: FundingRail) => void }) {
+  return (
+    <div role="tablist" aria-label="Payment method" className="grid grid-cols-3 gap-2">
+      {RAIL_META.map((m) => {
+        const on = m.rail === rail;
+        return (
+          <button
+            key={m.rail}
+            type="button"
+            role="tab"
+            id={`fund-tab-${m.rail}`}
+            aria-selected={on}
+            aria-controls={`fund-panel-${m.rail}`}
+            onClick={() => onSelect(m.rail)}
+            className={cx(
+              "grid min-w-0 gap-0.5 rounded-[10px] border px-3 py-2.5 text-left text-[12.5px] transition",
+              on ? "border-[1.5px] border-money bg-money-soft" : "border-rule bg-sheet hover:bg-chip",
+            )}
+          >
+            <b className="text-[13.5px]">{m.label}</b>
+            <span className="text-muted">{m.hint}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Countdown({ session, now }: { session: FundingSession; now: number }) {
+  return (
+    <span className="font-mono text-[13px] font-semibold text-pending" role="timer" aria-label="Time left before this expires">
+      ⏱ {formatCountdown(msLeft(session.expiresAt, now))} · refreshes on expiry
+    </span>
+  );
+}
+
+function Waiting() {
+  return (
+    <p className="flex items-center gap-2 text-[12.5px] text-muted" aria-live="polite">
+      <Dot tone="pending" pulse /> Waiting for payment… this page updates by itself.
+    </p>
+  );
+}
+
+function Mono({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <div id={id} className="break-all rounded-md bg-chip px-2.5 py-2 font-mono text-xs leading-relaxed text-ink">
+      {children}
+    </div>
+  );
+}
+
+function RailPanel({ session, now }: { session: FundingSession; now: number }) {
+  if (session.rail === "ngn") {
+    const va = session.virtualAccount;
+    return (
+      <Card padding="lg" className="grid gap-4">
+        <div className="grid gap-1">
+          <span className="font-display text-[1.7rem] font-extrabold leading-tight tabular-nums">{sourceAmount(session)}</span>
+          <span className="text-sm text-muted">
+            Bank transfer to your own account number: deposits are matched to this bounty automatically.
+          </span>
+        </div>
+        <dl className="grid gap-3 text-sm sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-x-5">
+          <dt className="text-muted">Bank</dt>
+          <dd className="font-semibold">{va.bankName}</dd>
+          <dt className="text-muted">Account number</dt>
+          <dd className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span id="fund-ngn-account" className="font-mono text-base font-semibold tabular-nums">
+              {groupAccountNumber(va.accountNumber)}
+            </span>
+            <CopyButton value={va.accountNumber} label="Copy number" targetId="fund-ngn-account" />
+          </dd>
+          <dt className="text-muted">Account name</dt>
+          <dd className="break-words font-semibold">{va.accountName}</dd>
+          <dt className="text-muted">Amount</dt>
+          <dd className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span id="fund-ngn-amount" className="font-semibold tabular-nums">
+              {sourceAmount(session)}
+            </span>
+            <CopyButton value={sourceAmountRaw(session)} label="Copy amount" targetId="fund-ngn-amount" />
+          </dd>
+        </dl>
+        <Countdown session={session} now={now} />
+        <Waiting />
+      </Card>
+    );
+  }
+
+  const ln = session.rail === "lightning";
+  const value = ln ? session.invoice : session.address;
+  return (
+    <Card padding="lg" className="grid items-center justify-items-center gap-5 sm:grid-cols-[180px_minmax(0,1fr)] sm:justify-items-stretch">
+      <QrCode value={value} label={ln ? "Lightning invoice QR code" : "USDT deposit address QR code"} className="sm:max-w-none" />
+      <div className="grid w-full min-w-0 gap-2.5">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="font-display text-[1.7rem] font-extrabold leading-tight tabular-nums">{sourceAmount(session)}</span>
+          {!ln && <Pill size="sm">{session.network}</Pill>}
+        </div>
+        <Mono id={ln ? "fund-invoice" : "fund-address"}>{value}</Mono>
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyButton value={value} label={ln ? "Copy invoice" : "Copy address"} targetId={ln ? "fund-invoice" : "fund-address"} />
+          {ln ? (
+            <a href={`lightning:${session.invoice}`} className={buttonClass({ variant: "secondary", size: "sm" })}>
+              Open in wallet
+            </a>
+          ) : (
+            <CopyButton value={sourceAmountRaw(session)} label="Copy amount" />
+          )}
+        </div>
+        {!ln && <p className="text-[12.5px] text-muted">Send exactly this amount on {session.network}. Other networks are lost.</p>}
+        <Countdown session={session} now={now} />
+        <Waiting />
+      </div>
+    </Card>
+  );
+}
+
+function FundedPanel({ bounty }: { bounty: FundBounty }) {
+  return (
+    <Card padding="lg" className="grid justify-items-start gap-3 border-money" role="status" aria-live="polite">
+      <span className="grid size-12 place-items-center rounded-full bg-money text-2xl text-on-solid" aria-hidden>
+        ✓
+      </span>
+      <b className="font-display text-[1.7rem] font-extrabold leading-tight text-money">Funded</b>
+      <p className="text-sm text-muted">
+        {formatXof(bounty.amountXof)} is now held by Bitnob for {bounty.repoFullName} #{bounty.issueNumber}. The bot updates the
+        status comment on the issue; anyone can now <span className="font-mono text-ink">/claim</span> it.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/b/${bounty.id}`} className={buttonClass({ size: "sm" })}>
+          View the bounty
+        </Link>
+        <Link href="/dashboard" className={buttonClass({ variant: "secondary", size: "sm" })}>
+          Back to dashboard
+        </Link>
+      </div>
+    </Card>
+  );
+}
