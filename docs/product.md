@@ -1,12 +1,14 @@
 # BitBounty: product definition
 
+> **Update (Sat 17 Oct, 22:30): payouts are in sats over Lightning.** A mentor confirmed that Wave / Orange Money payouts through Bitnob wouldn't work, even with live keys. Developers are now paid **in sats to their Lightning Address** (LNURL-pay + Bitnob `POST /api/lightning/pay`); cashing out locally is the developer's choice, not part of the product. Funding is unchanged: sats over Lightning, or naira through a Nigerian virtual account. The design notes below were updated to match; the ideas at the end are other projects we considered.
+
 ## Final positioning (17 10 2026)
-**"Algora for West Africa, with Bitnob at the core."** A **marketplace** where open-source developers find paid issues, and get paid in sats over Lightning, to their Lightning Address, the moment the fix is merged (bounties are priced in FCFA).
-- **Front side = developers**: the board of paid issues, search, proof-of-work profiles, payment on Wave.
+**"Algora for West Africa, with Bitnob at the core."** A **marketplace** where open-source developers find paid issues, and get paid in sats over Lightning the moment the fix is merged.
+- **Front side = developers**: the board of paid issues, search, proof-of-work profiles, payment in sats to a Lightning Address.
 - **Money side = maintainers and funders** (Bitcoin projects, African fintechs, funders like Btrust, AI agents): the GitHub App + "Price my backlog" is *how bounties get onto the marketplace*.
-- **Algora proved the model in dollars via Stripe**, which doesn't serve Senegal. We do the same thing where Stripe and PayPal don't pay out: funded in sats / USDT / naira, paid in local currency, all through Bitnob (Lightning, trading, virtual accounts, payouts).
-- Answer to "it's just a clone": we aren't copying the product, we're making it **possible** in a region where it can't work today. Plus what Algora doesn't have: funding in sats and naira, Lightning payouts in minutes, proof-of-work profiles, agents as funders.
-- Day-one board: optionally list existing public bounties (marked "external, paid in dollars elsewhere") alongside ours ("paid in FCFA on Wave"), so the marketplace doesn't look empty.
+- **Algora proved the model in dollars via Stripe**, which doesn't serve Senegal. We do the same thing where Stripe and PayPal don't pay out: funded in sats / naira, paid in sats over Lightning, all through Bitnob (Lightning, trading, virtual accounts, rates).
+- Answer to "it's just a clone": we aren't copying the product, we're making it **possible** in a region where it can't work today. Plus what Algora doesn't have: funding in sats and naira, payouts over Lightning, proof-of-work profiles, agents as funders.
+- Day-one board: optionally list existing public bounties (marked "external, paid in dollars elsewhere") alongside ours ("paid in sats over Lightning"), so the marketplace doesn't look empty.
 
 
 > **Name: BitBounty** (decided 17 10 2026, previously "Liggéey"). **Primary target: maintainers.**
@@ -21,7 +23,7 @@
 **Promise to the maintainer:** *Put a price on your backlog. Pay only when it's merged.*
 - **You only pay for merged work**: the money is held, and refunded if nothing gets merged.
 - **Less review work**: Claude checks the acceptance criteria and filters spam / AI junk before you open the PR.
-- **Zero payout admin**: no invoices, no collecting IDs, no international transfers. We pay the FCFA bounty in sats over Lightning, to the developer's Lightning Address, through Bitnob.
+- **Zero payout admin**: no invoices, no collecting IDs, no international transfers. We pay in sats over Lightning, through Bitnob: a Lightning Address is all a developer needs.
 - **Fund however suits you**: Lightning, USDT, or a naira bank transfer.
 - **Access to a pool of African developers growing fast** (+3.4M devs in a year in Africa & the Middle East, Octoverse 2025).
 
@@ -29,7 +31,7 @@
 
 **Maintainer surface (added):** a `bitbounty.app/dashboard` page: active bounties across all repos, budget and spending, median merge → payment time, actions (fund, `/pay`, `/hold`, refund), and "Price my backlog" suggestions.
 
-**Developers stay the supply** (their flows don't change: link Wave once, `/claim`, PR, paid), but the pitch, the landing page and the demo open from the maintainer's side.
+**Developers stay the supply** (their flows don't change: save a Lightning Address once, `/claim`, PR, paid), but the pitch, the landing page and the demo open from the maintainer's side.
 
 **Demo opening (maintainers version):** "You maintain an SDK with 40 open issues. Contributors aren't coming. And paying someone in Dakar or Lagos means invoices, transfers, compliance. BitBounty: put a price on your backlog, pay only what gets merged, we handle the rest."
 
@@ -59,7 +61,7 @@ Hard rules:
 | Role | Who | What they do |
 |---|---|---|
 | **Funder** | maintainer, company, sponsor, **AI agent** | funds an issue (`/bounty 10000 FCFA` or the API) |
-| **Earner** | African developer | links GitHub ↔ Wave once, claims, opens the PR, gets paid |
+| **Earner** | African developer | links GitHub ↔ a Lightning Address once, claims, opens the PR, gets paid |
 | **Maintainer** | owner of the repo | installs the app, merges as usual |
 
 An agent is **a funder like any other**. It uses the API (or the MCP server) with a budget set by a **human owner who stays accountable**. BitBounty doesn't care whether the funder is a human or an agent.
@@ -78,14 +80,14 @@ An agent is **a funder like any other**. It uses the API (or the MCP server) wit
                ▲   │ API calls
    notifications│  ▼
         Bitnob (where the money moves)
-   Lightning/USDT in · balance · FX · payouts Wave/OM
+   Lightning/NGN in · balance · FX · Lightning payouts
 ```
 BitBounty is **the trust layer between the work (GitHub) and the money (Bitnob)**.
 
 ## The surfaces (only three)
 1. **The GitHub App, the main interface.** Commands in comments (`/bounty`, `/claim`, `/unclaim`), bot comments (status, Claude's verdict, payment receipt), labels (`💰 10 000 FCFA`). Nobody has to learn a new tool.
 2. **A small website (PWA, works on a phone).**
-   - Earner: sign in with GitHub → link a Wave/OM number → earnings and receipts.
+   - Earner: sign in with GitHub → save a Lightning Address → earnings and receipts.
    - Funder: payment page (Lightning QR / USDT address) opened from the bot's link.
    - Public: **the board of paid issues** across Africa + the public ledger of payouts.
 3. **The API + MCP server** for agents (`post_bounty`, `get_status`, `cancel`), with a budget policy.
@@ -99,7 +101,7 @@ No native app. No dashboard for its own sake.
 - **Nemotron** works in the background: suggested price on every issue, French translation, spam / AI-junk score on PRs.
 
 ## Bitnob, end to end
-Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST /api/addresses` → `deposit.success`. Escrow: Bitnob balance (custody) + our ledger (allocation per issue). Price: `GET /api/exchange-rates` (FCFA ↔ BTC/USDT). Payout: `POST /api/payouts/quotes` → `/initialize` (mobile_money, Wave/OM) → `/finalize` → `payouts.withdrawal.success`. Refund: Lightning `pay` to the funder. Earners: `customers` + `beneficiaries`.
+Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST /api/addresses` → `deposit.success`. Escrow: Bitnob balance (custody) + our ledger (allocation per issue). Price: `GET /api/exchange-rates` (FCFA ↔ BTC/USDT). Payout: FCFA → sats at Bitnob's rate → LNURL-pay on the developer's Lightning Address → `POST /api/lightning/pay` (one call per attempt, idempotent reference) → polled until paid. Refund: Lightning `pay` to the funder. Earners: `customers` + `beneficiaries`.
 
 ## Business model
 5% on funding. Later: monthly plan for organisations (budgets, invoices).
@@ -107,10 +109,10 @@ Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST 
 ## Defensible differences
 - Algora / Opire: pay through Stripe (not Senegal), no Lightning, no agent clients.
 - GitHub Sponsors: one-off donations, not work; payouts uncertain in Senegal.
-- Us: **payment in FCFA on Wave within minutes of the merge**, agents as clients, built to grow the open-source community in West Africa.
+- Us: **payment in sats over Lightning within minutes of the merge**, agents as clients, built to grow the open-source community in West Africa.
 
 ## Hackathon scope (23 h)
-- **Must:** GitHub App + state machine + Lightning funding + Wave payout (sandbox) + Claude verifier + website (earner onboarding, payment page, board, receipt).
+- **Must:** GitHub App + state machine + Lightning funding + Lightning payout (sandbox) + Claude verifier + website (earner onboarding, payment page, board, receipt).
 - **Should:** MCP server + the "Claude Code funds a Wolof translation" demo.
 - **Cut (roadmap):** sponsor splits, bulk payouts, disputes beyond "the maintainer decides".
 - **Dogfooding:** our own hackathon repo runs through BitBounty.
@@ -136,16 +138,13 @@ Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST 
 5. Paid → Lightning sats are converted to USDT (trading) to avoid volatility → the ledger reserves 10,000 FCFA for #12 → the bot edits its comment: **✅ Funded: 10,000 FCFA held** · `💰 10 000 FCFA` label · link to the public bounty page (timeline + payment reference).
    **An unfunded bounty can't be claimed.** Developers only ever see real money.
 
-## Flow 3: the developer links their payout account (once, the trust point)
-> **Update (B6):** payouts now go in sats over Lightning to the developer's **Lightning Address** (e.g. `awa@blink.sv`); Bitnob's mentor confirmed Wave / Orange Money payouts won't work for us. The phone + SMS + test payout flow below is the original plan (B3), kept for reference.
+## Flow 3: the developer saves a Lightning Address (once, the trust point)
 **Never on GitHub** (comments are public). Everything happens on bitbounty.app/me:
 1. Sign in with GitHub.
-2. Country → provider (Wave / Orange Money / Free Money) → number → **name registered on the account**.
-3. **SMS code** to the number (proves they own the phone).
-4. **Test payout:** we send a random small amount (e.g. **137 FCFA**) through Bitnob to that number on that provider. The developer types the amount they received. ✓ = the number is right, the provider is right, the account receives, and the full payout path works **before** any real bounty. (Same idea as banks' test micro-deposits.)
-5. Status: **"Payment verified ✓"**. They can claim before verification, but a payout only goes out to a verified account.
-- Change of number: GitHub re-authentication + SMS on both numbers + **72 h delay**, and never while a payout is in progress (protects against a hijacked GitHub account redirecting the money).
-- 1 number = 1 GitHub account. If someone posts their number in a comment: the bot hides the comment ("minimized") and reminds them where to link it.
+2. Enter a Lightning Address (`name@wallet.domain`, from any Lightning wallet).
+3. BitBounty resolves it (LNURL-pay) to check it answers and accepts the amounts we pay, **before** any real bounty depends on it.
+4. They can claim before saving one, but a payout only goes out to a saved, working address.
+- Change of address: GitHub re-authentication + **72 h delay**, and never while a payout is in progress (protects against a hijacked GitHub account redirecting the money).
 
 ## Flow 4: claiming
 1. The developer writes `/claim` on the issue.
@@ -161,8 +160,8 @@ Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST 
 
 ## Flow 6: merge → payment
 1. Merge that closes #12 + CI green + Claude OK → **✔ Validated** → objection window (24 h, `/pay now` to skip it; 0 in the demo).
-2. Bitnob: quote (settlement_amount 10000 XOF, from USDT) → initialize (mobile_money, provider, number) → finalize → notification `payouts.withdrawal.success`.
-3. Final status comment: **💸 Paid 10,000 FCFA to @awa on Wave · 6 min after the merge · ref PAYOUT_XXXX** + SMS/email to the developer + public receipt.
+2. 10,000 FCFA → sats at Bitnob's rate (rounded down, rate stored) → LNURL-pay invoice from the developer's Lightning Address for exactly that amount → Bitnob `POST /api/lightning/pay` → paid.
+3. Final status comment: **💸 Paid ~20,400 sats (10,000 FCFA) to @awa over Lightning · 6 min after the merge** + public receipt.
 - Claude says ❌ or CI is red → no automatic payment; the bot asks the maintainer `/pay` or `/reject <reason>`.
 - Merge without "Fixes #12" → the bot asks: "Is PR #34 the fix for #12? `/pay @awa`".
 
@@ -172,11 +171,11 @@ Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST 
 | Lightning invoice expires during payment | the payment page generates a new one; the old one can no longer be paid |
 | USDT under/over-payment | credited to the funder's BitBounty balance; bounty funded only once the full amount is there |
 | Price moves between funding and payout | the 3% buffer covers it; leftover buffer goes back to the funder's balance, any shortfall is absorbed by the fee |
-| Bitnob quote expired (15 min) | automatic new quote |
-| Payout fails (wrong number, provider down, `withdrawal.expired`) | 3 retries with backoff → developer alerted "update your account"; **the money stays reserved for them** and never goes back to the funder after a merge |
+| Lightning invoice from the developer's wallet expires or has the wrong amount | refused, nothing paid; a new invoice on the next attempt |
+| Payout fails (wallet unreachable, Lightning route fails, Bitnob refuses) | 3 retries with backoff → developer alerted "update your account"; **the money stays reserved for them** and never goes back to the funder after a merge |
 | Bitnob unavailable | queue + retry, status "payment in progress" |
 | Duplicate webhook | idempotent: reference = repo + issue + PR |
-| Mobile money account limit (unverified Wave account) | split into several payouts, or warn at linking time |
+| Wallet's min / max amount (LNURL `minSendable` / `maxSendable`) | refused before asking for an invoice; developer asked to use another address |
 | Funder cancels before claim | refund to their balance (withdraw over Lightning or USDT) |
 | Funder cancels after claim, no PR | allowed, developer notified |
 | Funder cancels after a PR | impossible without `/dispute` |
@@ -189,11 +188,11 @@ Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST 
 | Maintainer ignores a correct PR | `/dispute` → Claude report + 7 days. We can't force a merge: **public stats per repo** (% of bounties paid, median time to pay) act as the deterrent |
 | Funder = developer (cashing crypto out through fake bounties) | blocked if same identity; limits per account; pattern detection; KYC thresholds. **Compliance point to raise with Bitnob** |
 | Agent as funder | same API, budget set by its human owner; the merge is still done by a human maintainer |
-| Developer's GitHub account hijacked | 72 h delay on number changes + SMS on both numbers |
+| Developer's GitHub account hijacked | 72 h delay on Lightning Address changes |
 
 ## Where the UX can break (to address before the demo)
-1. **African funders can't pay in FCFA** (Bitnob has no Wave inbound). Lightning / USDT is fine for the diaspora and foreign companies, but a Dakar company with only Wave can't fund. → Short term: Nigerian NGN accounts; later, an on-ramp partner (Banxaas sells sats for Wave).
-2. **The test micro-payout** costs a little per developer and depends on payouts working in the sandbox for SN. → Verify in the sandbox first.
+1. **African funders can't pay in FCFA** (Bitnob has no FCFA inbound). Lightning is fine for the diaspora and foreign companies, but a Dakar company with only local money can't fund. → Short term: Nigerian NGN accounts; later, an on-ramp partner that sells sats for FCFA.
+2. **Lightning payouts** depend on Bitnob enabling Lightning withdrawals on the account. → Verify in the sandbox first.
 3. **Notifications:** an African developer doesn't necessarily watch their GitHub notifications. → Email + SMS on claim / payment.
 4. **Language:** French by default for developers, English for funders. The bot comments in the repo's language.
 5. **Prices in two currencies:** developers only ever see FCFA, funders only their own currency. Mixing them = confusion.
@@ -238,8 +237,8 @@ Not a simulation: **real bounties, real Senegalese developers, real money**, in 
 
 ### 5. Pan-African in and out (closing the "no FCFA in" gap)
 - In: Lightning + USDT (diaspora, foreign companies, agents) **+ NGN virtual accounts** (a Nigerian company funds with an ordinary bank transfer).
-- Out: mobile money in 9+ countries (SN, CI, NE, GH, KE, UG, XAF…).
-- Demo: a Lagos maintainer funds in naira → a Dakar developer gets paid in FCFA on Wave. That's the pattern that won in Nairobi (WestToEast), but **for work**, not just a transfer.
+- Out: sats over Lightning, to any Lightning Address, in any country.
+- Demo: a Lagos maintainer funds in naira → a Dakar developer gets paid in sats over Lightning. That's the pattern that won in Nairobi (WestToEast), but **for work**, not just a transfer.
 
 ## Jury objections and answers
 | Objection | Answer |
@@ -252,7 +251,7 @@ Not a simulation: **real bounties, real Senegalese developers, real money**, in 
 | "Will it survive after the hackathon?" | The SDK repo keeps running through BitBounty; 5% fee; open-source repo. |
 
 ## Prep before Saturday (no product code)
-1. Bitnob sandbox: payouts SN/Wave + on-the-fly Lightning + NGN virtual accounts.
+1. Bitnob sandbox: payouts + Lightning invoices + NGN virtual accounts.
 2. Ask Bitnob for production keys + the off-ramp/compliance question.
 3. Recruit 10–15 developers (Galsen DEV, GDG Dakar, university clubs).
 4. Real-bounty budget (~100k FCFA) + who pays it.
@@ -264,14 +263,14 @@ Not a simulation: **real bounties, real Senegalese developers, real money**, in 
 # Other ideas at the same bar (AI-essential + Bitnob-essential + undeniable demo)
 
 ## Làkk: the Wolof data market ("làkk" = language, to check)
-AI labs and agents need data in Wolof, Pulaar and Serer (speech, text, translation) and can't find any. Senegalese speakers record and validate, **paid per accepted sample on Wave**. A model checks quality (audio quality, transcription consistency, cross-validation by other speakers). Buyers (labs, agents) pay per sample over Lightning (L402).
-- AI essential (quality, cross-validation, pricing), Bitnob essential (Lightning in, Lightning out by the thousand, bulk payouts).
+AI labs and agents need data in Wolof, Pulaar and Serer (speech, text, translation) and can't find any. Senegalese speakers record and validate, **paid per accepted sample over Lightning**. A model checks quality (audio quality, transcription consistency, cross-validation by other speakers). Buyers (labs, agents) pay per sample over Lightning (L402).
+- AI essential (quality, cross-validation, pricing), Bitnob essential (Lightning in and out, by the thousand).
 - Demo: a judge records a sentence in Wolof → validated → paid in seconds; a counter of hours of Wolof collected during the hackathon.
 - It's **the same rails as BitBounty** (verified work → instant payment) for data instead of code. Pitch both as a platform: "BitBounty for code, Làkk for language".
 - Risks: consent, licensing, fair pay (to design upfront).
 
 ## Allowance: bank accounts for AI agents (Dakar SME back office)
-An agent runs a small Dakar business's back office: pays 3 suppliers on Wave, renews a SaaS through a **single-use card**, refuses a payment that breaks the policy, asks a human to approve above a threshold. Spending rules (per supplier, per day, whitelist), a log readable by people.
+An agent runs a small Dakar business's back office: pays 3 suppliers, renews a SaaS through a **single-use card**, refuses a payment that breaks the policy, asks a human to approve above a threshold. Spending rules (per supplier, per day, whitelist), a log readable by people.
 - The 2026 trend (Firebreak, The Doghouse) + maximum Bitnob depth (cards, payouts, Lightning, trading).
 - Risk: card issuing / Wallet Infrastructure access in the sandbox.
 
@@ -290,15 +289,15 @@ An agent runs a small Dakar business's back office: pays 3 suppliers on Wave, re
 ---
 
 # Funding from Lagos in naira (checked in the docs, 16 10 2026)
-Chain: **NGN virtual account → NGN balance → NGN/USDT (or NGN/BTC) trade → XOF payout to Wave.**
+Chain: **NGN virtual account → NGN balance → NGN/BTC trade → sats paid over Lightning.**
 1. The funder (a Lagos company) is a Bitnob `customer` with full identity details (required for a naira account) → `POST /api/virtual-accounts` → a dedicated Nigerian account number (shown on the payment page, "Bank transfer" tab).
 2. They make an ordinary bank transfer → credited within ~10 min to **our company NGN balance** (not per customer) → webhook `virtual_account.deposit.success` (camelCase envelope, snake_case payload; amounts in kobo).
 3. Our ledger assigns the deposit to the bounty (the account is tied to the funder).
 4. Conversion: `POST /api/trading/quotes` NGN/USDT (or NGN/BTC), whole-naira amounts, ₦500–₦10M, `quote_id` required, quote valid ~10 s in production / 30 s in sandbox → `POST /api/trading/orders`.
-5. On merge: XOF payout from USDT (or BTC) as usual.
+5. On merge: payout in sats over Lightning as usual.
 - Sandbox: `POST /api/virtual-accounts/:id/simulate-deposit` credits **₦1,000 per call** (fixed) → loop it to reach a bounty's amount. NGN quotes/orders work in sandbox.
 - Production: virtual accounts + NGN trading are enabled by Bitnob **after KYB** (24–48 h), not self-serve.
-- **Bitcoin rule:** going through **NGN → BTC → XOF** makes Bitcoin the bridge between the two currencies (like WestToEast). Otherwise Lightning (diaspora / agent funding) remains the main Bitcoin feature.
+- **Bitcoin rule:** going through **NGN → BTC → Lightning** makes Bitcoin the bridge between Lagos and Dakar (like WestToEast). Otherwise Lightning (diaspora / agent funding) remains the main Bitcoin feature.
 
 ---
 
@@ -308,6 +307,6 @@ Btrust's mission, as on its site: *"Locating, educating, and remunerating Bitcoi
 - **Locate** → the public board + **proof-of-work profiles** (paid, merged, verifiable work). That's exactly the signal Btrust uses to award its grants.
 - **Educate** → the ladder of "good first paid issues" + **Claude's review on every PR** (criterion by criterion, with evidence). Every bounty is a paid exercise with feedback.
 - **Remunerate** → payment in sats over Lightning, minutes after the merge, through Bitnob. No PayPal, no Stripe, no wire transfer.
-**Use case to say on stage:** a funder like Btrust (or a Bitcoin project) puts sats over Lightning on issues in Bitcoin open-source repos → developers in Dakar, Lagos or Nairobi get paid in FCFA, naira or shillings. Sats in, local currency out.
-**Line:** "Btrust locates, educates and remunerates Bitcoin engineers in the Global South. BitBounty turns that into a GitHub button: an issue, a price in sats, and a payment on Wave as soon as it merges."
+**Use case to say on stage:** a funder like Btrust (or a Bitcoin project) puts sats over Lightning on issues in Bitcoin open-source repos → developers in Dakar, Lagos or Nairobi get paid in sats to their Lightning Address. Sats in, sats out.
+**Line:** "Btrust locates, educates and remunerates Bitcoin engineers in the Global South. BitBounty turns that into a GitHub button: an issue, a price in sats, and a payment in sats as soon as it merges."
 Careful: quote their wording exactly, and don't imply a partnership that doesn't exist.

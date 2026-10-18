@@ -12,7 +12,7 @@ checks the `X-Hub-Signature-256` HMAC, stores each delivery once in the `events`
 | App ID | `5360174` → `GITHUB_APP_ID` |
 | Client ID | `Iv23liCkNNOVL2DflyZ1` → `GITHUB_CLIENT_ID` |
 | Visibility | Public (any account can install it) |
-| Webhook URL | `https://smee.io/gk8M8VuUD4ZMaO7A` → `WEBHOOK_PROXY_URL` (switch to `https://<railway-host>/webhooks/github` once deployed) |
+| Webhook URL | `https://smee.io/gk8M8VuUD4ZMaO7A` → `WEBHOOK_PROXY_URL` (the Docker `smee` service forwards it to the server, see [setup.md](setup.md)) |
 | Callback URLs (OAuth, W9) | `http://localhost:3000/api/auth/callback/github` · to add: `https://bitbounty-app.vercel.app/api/auth/callback/github` (see [auth.md](auth.md)) |
 | Settings page | https://github.com/settings/apps/bitbounty-dakar |
 
@@ -28,7 +28,7 @@ If you ever need to register a new one: https://github.com/settings/apps/new wit
 ## 2. Remaining manual steps (owner only, secrets never committed)
 
 1. **Webhook secret.** Generate one: `openssl rand -hex 32`. Paste it in the app settings → *Webhook secret*
-   → Save. Put the same value in your local `.env` (and Railway) as `GITHUB_WEBHOOK_SECRET`.
+   → Save. Put the same value in your local `.env` (and the server's `.env`) as `GITHUB_WEBHOOK_SECRET`.
    Share it with the team over a private channel, not in the repo.
 2. **Private key.** App settings → *Private keys* → *Generate a private key* (downloads a `.pem`).
    Put it in `.env` as `GITHUB_PRIVATE_KEY`, either one line with `\n`:
@@ -41,10 +41,10 @@ If you ever need to register a new one: https://github.com/settings/apps/new wit
 
 ```bash
 cp .env.example .env            # then fill GITHUB_WEBHOOK_SECRET (+ GITHUB_PRIVATE_KEY)
-cd apps/server && npm install   # or pnpm install at the root once F1 is merged
+pnpm install                    # at the repo root
 
 # terminal 1: the receiver (in-memory store, logs each event)
-npm run dev:webhook             # → http://localhost:3001/webhooks/github
+pnpm --filter @bitbounty/server dev:webhook   # → http://localhost:3001/webhooks/github
 
 # terminal 2: forward smee → local
 npx smee-client --url https://smee.io/gk8M8VuUD4ZMaO7A --target http://localhost:3001/webhooks/github
