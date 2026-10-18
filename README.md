@@ -165,28 +165,28 @@ Example with P = $1,000 and points 30 / 28 / 25 / 17 (T = 100): $290, $274, $250
 | | | |
 | | | |
 
-### Points tally (filled in during the event)
-Status at Sun 18 Oct, 11:30, with rule 11 applied to every merged PR (per-PR audit: who wrote it, clean or fixed, breaks, done-when at push).
+### Points tally (final, Sun 18 Oct, 14:30)
+Rule 11 applied to every merged PR (per-PR audit: who wrote it, clean or fixed, breaks, done-when at push). To be agreed by all 4 members (rule 10) in the Signed table above.
 
 | Member | Earned | Lost to the pool (done-when not met at push) | Halved (bad break) | Reviews | Points |
 | --- | --- | --- | --- | --- | --- |
-| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (30) · F7 (2) · A5 (2) · L1 (3), U1, U2 (2), U3, U4, U5 (12) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 12 (+5, capped by rule 6) | **58.5** |
-| Rabatou | F2 (3), B4 (3) | F5 (2), B5 (2), B1 (3), B2 (5), B3 (1), I2 (3) | – | ½ credit #91 (+0.25) | **6.25** |
+| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (30) · F7 (2) · A5 (2) · L1 (3), U1, U2 (2), U3, U4, U5 (12) · D1 (2), D3 (2), D4 (2), D5 (2), D6 (1), D7 (5) · I5 (1), CR1–CR4 (4) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3), B6 (5) | F4: broke main's web build · W2: broken fund link | 12 (+5, capped by rule 6) | **77.5** |
+| Rabatou | F2 (3), B4 (3), D2 (3) | F5 (2), B5 (2), B1 (3), B2 (5), B3 (1), I2 (3) | – | ½ credit #91 (+0.25) | **9.25** |
 | Kml221-bot | I1 (3), A4 (3), A3 (3), I3 (2), U0 (3) | F1 (3), F3 (2) | – | – | **14** |
 | cheikhteej | – | – | – | – | **0** |
-| **Shared pool** | | **28 pts → +7 each** | | | |
+| **Shared pool** | | **33 pts → +8.25 each** | | | |
 
-Update (Sun 18 Oct): Djbrl's 4 rule 11 reviews at 23:23 (#90, #76, #75, #85, logged in #77) add +2, capped at 5 by rule 6 → +1.5, Djbrl 35 → **36.5**.
-Update (Sun 18 Oct): the W1, W3–W8, G1–G3, G5, A1, A2 subtotal is 30, not 29 (2+3+3+2+2+2+2 + 2+2+3+2 + 3+2, matches the issues' `pts:` labels; flagged by CodeRabbit, #92). Djbrl 57.5 → **58.5**.
+**With the pool:** Djbrl 85.75 · Kml221-bot 22.25 · Rabatou 17.5 · cheikhteej 8.25 · **T = 133.75**.
+**Shares** (`0.20 × P / 4 + 0.80 × P × p / T`): Djbrl 56.3 % · Kml221-bot 18.3 % · Rabatou 15.5 % · cheikhteej 9.9 % of the prize.
 
-Changes since 22:15: I1, A4, A3 merged with full points (fixes #99, #96, #97), I3 merged with full points (#93, fixes #101), I2 merged with done-when not met (fixes #98, 3 pts to the pool), F7 (#89) sized at 2 by the captain, Djbrl's reviews capped at 5 (rule 6). B2/B3 closed as not planned (replaced by B6/B7).
-
-Since 02:15: A5 merged (#113). Wave 3b: U0 by Kml221-bot (#121, their commit), then L1, U1–U5 taken over by Djbrl as captain (one commit in 1h30 for 7 claimed tasks): U1 #125, U3 #126, U4 #127, U5 #123 merged with their done-when met.
-
-L1 and U2 moved to earned at 11:30: screenshots at 1280/390 merged (#152) and the old landing now redirects to the app. Kml221-bot's U0 review fixes (#150) and CR10 seed guard (#151) merged with their commits.
-
-Pending: B6 (Djbrl, 5, merged in #102, done-when needs a real production payment), D1–D7 (demo repo app install + funding, deck review, rehearsals, video, npm package, submission, trailer), unclaimed B7, I4.
-To settle (rule 9): whether the finisher of a pooled task (F1, F3, B1, B5 were completed by Djbrl in #51, #72/#74, #80, #78) earns any of its points, or they stay in the pool.
+Final changes since 11:30:
+- **Demo (wave 3):** D1 demo repo, D3 rehearsals, D4 backup video, D5 README/docs, D6 submission and D7 landing credited to Djbrl, who did them; D2 pitch deck to Rabatou (#174).
+- **B6** (Lightning payouts, merged in #102): done-when (Bitnob reports a real payout paid) never met: production key fails with `401 Invalid HMAC`, sandbox refuses `send_lightning` (403). Rule 11 → **5 pts to the pool**.
+- **I5** (CodeRabbit review, #92, 1 pt) and its fixes **CR1–CR4** (#143, #145, #147, #144; 1 pt each) to Djbrl, who set up and ran CodeRabbit. CR5 (#133) needed no change.
+- **CR6–CR10** by Kml221-bot (#172/#166, #163, #161, #157, #162) were never sized (rule 7) and count 0 unless 2 members size them before signing.
+- **Not done, not counted:** B7 (#87), I4 (#34), I6 (#95).
+- **Stays in the pool:** F1, F3, B1, B5 (finished by Djbrl in #51, #72/#74, #80, #78); the rule 9 question is closed that way.
+- I2 stays at 0 (offline only, see the verdicts below).
 
 #### Rule 11 verdicts on open PRs (Sat 17 Oct, 23:15)
 Each PR was tested as pushed (install, lint, typecheck, tests, build, built server boots) and its feature was exercised by hand. Points only count once the PR is merged (rule 4).
