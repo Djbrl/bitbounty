@@ -98,10 +98,22 @@ describe("render", () => {
     expect(html).toContain("6 min");
   });
 
-  it("shows the payout error on b-108", async () => {
+  it("shows the public payout reason on b-108, never the raw error", async () => {
     const html = renderToStaticMarkup(<BountyView b={await must("b-108")} receiptId={null} />);
-    expect(html).toContain("lnurl unreachable");
+    expect(html).toContain("the developer&#x27;s Lightning wallet didn&#x27;t answer");
+    expect(html).not.toMatch(/lnurl unreachable|LNURL server timed out/);
     expect(html).toContain("mo***@walletofsatoshi.com");
+    expect(html).toMatch(/data-milestone="paid" data-state="failed"/);
+  });
+
+  it("tracks milestones funded → claimed → PR → verified → paid", async () => {
+    const html = renderToStaticMarkup(<BountyView b={await must("b-104")} receiptId={null} />);
+    expect(html.match(/data-milestone=/g)).toHaveLength(5);
+    expect(html).toMatch(/data-milestone="pr" data-state="done"/);
+    expect(html).toMatch(/data-milestone="verified" data-state="current"/);
+    // b-102: the PR was rejected, so claim and PR no longer count (bounty is open again).
+    const reopened = progressSteps(await must("b-102"));
+    expect(reopened.map((s) => s.done)).toEqual([true, false, false, false, false]);
   });
 
   it("renders a receipt with FCFA, sats, masked Lightning Address and PR link", async () => {
@@ -113,5 +125,9 @@ describe("render", () => {
     expect(html).not.toMatch(/Wave|Orange Money|\+221/);
     expect(html).toContain("https://github.com/teranga-labs/bitnob-js/pull/34");
     expect(html).toContain("6 min");
+    // U5: printable, signature in mono, actions hidden on paper.
+    expect(html).toMatch(/data-signature="true" class="[^"]*font-mono/);
+    expect(html).toContain("print:hidden");
+    expect(html).toContain("Imprimer");
   });
 });

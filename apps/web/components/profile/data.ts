@@ -27,9 +27,23 @@ export type WorkItem = Profile["work"][number] & {
   signed: boolean;
 };
 
+/** U5 hunter tier, from paid bounties (same thresholds as the U3 hunter card): 1+ bronze, 5+ silver, 15+ gold. */
+export type HunterTier = "bronze" | "silver" | "gold";
+export const TIER_MIN: Record<HunterTier, number> = { bronze: 1, silver: 5, gold: 15 };
+
+export function hunterTier(paidCount: number): HunterTier | null {
+  if (paidCount >= TIER_MIN.gold) return "gold";
+  if (paidCount >= TIER_MIN.silver) return "silver";
+  if (paidCount >= TIER_MIN.bronze) return "bronze";
+  return null;
+}
+
 export interface ProfileView {
   user: Profile["user"];
   initials: string;
+  tier: HunterTier | null;
+  /** Sats received over Lightning, summed from the receipts; null when no receipt carries sats. */
+  totalSats: number | null;
   stats: Profile["stats"];
   languages: string[];
   repos: { fullName: string; url: string; count: number }[];
@@ -80,6 +94,8 @@ export function shapeProfile(p: Profile, receiptOf: (id: string) => Receipt | nu
   return {
     user: p.user,
     initials: initialsOf(p.user.name, p.user.login),
+    tier: hunterTier(p.stats.paidCount),
+    totalSats: work.some((w) => w.sats != null) ? work.reduce((n, w) => n + (w.sats ?? 0), 0) : null,
     stats: p.stats,
     languages: p.languages,
     repos: [...byRepo].map(([fullName, count]) => ({ fullName, url: `https://github.com/${fullName}`, count })),

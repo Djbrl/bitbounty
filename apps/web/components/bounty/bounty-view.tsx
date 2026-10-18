@@ -4,11 +4,11 @@ import { formatXof, Amount } from "../ui/amount";
 import { buttonClass } from "../ui/button";
 import { Card, Eyebrow } from "../ui/card";
 import { Pill, Tag } from "../ui/pill";
-import { ProgressSteps } from "../ui/progress-steps";
 import { STATUS_META } from "../ui/status";
 import { StatusPill } from "../ui/status-pill";
 import { cx, TONE_DOT } from "../ui/tone";
 import type { BountyDetail } from "./data";
+import { publicPayoutText } from "./public-reason";
 import {
   actorLabel,
   criteriaScore,
@@ -21,6 +21,7 @@ import {
   formatSatsAmount,
   payoutDestination,
   progressSteps,
+  type Step,
   RAIL_LABEL,
   VERDICT_META,
   wasRejected,
@@ -58,7 +59,6 @@ function CardTitle({ children, right }: { children: ReactNode; right?: ReactNode
 
 /** Header: mirrors the bot's status comment (amount + status pill + mini progress). */
 export function BountyHeader({ b }: { b: BountyDetail }) {
-  const steps = progressSteps(b);
   return (
     <Card padding="lg" className="grid gap-4">
       <div className="grid gap-1.5">
@@ -87,8 +87,90 @@ export function BountyHeader({ b }: { b: BountyDetail }) {
           ))}
         </div>
       )}
-      <ProgressSteps steps={steps.map((s) => ({ ...s, at: s.at && formatDateTime(s.at) }))} />
       <p className="text-sm text-muted">{STATUS_META[b.status].hint}</p>
+    </Card>
+  );
+}
+
+type MilestoneState = "done" | "current" | "failed" | "todo";
+
+/** Which milestone is in progress, and whether the last one is stuck (payout failed, on hold). */
+function milestoneStates(b: BountyDetail, steps: Step[]): MilestoneState[] {
+  const closed = b.status === "refunded" || b.status === "cancelled";
+  const next = steps.findIndex((s) => !s.done);
+  return steps.map((s, i) => {
+    if (s.done) return "done";
+    if (closed || i !== next) return "todo";
+    if (b.status === "payout_failed" || b.status === "on_hold") return "failed";
+    return "current";
+  });
+}
+
+const MILESTONE_HINT: Record<Step["key"], string> = {
+  funded: "Money held by Bitnob",
+  claimed: "A developer says /claim",
+  pr: "PR with Fixes #issue",
+  verified: "Claude checks, maintainer merges",
+  paid: "Sats to a Lightning Address",
+};
+
+/** U5: Upwork-style milestone tracker, Funded → Claimed → PR → Verified → Paid. Vertical on phones, a row on desktop. */
+export function Milestones({ b }: { b: BountyDetail }) {
+  const steps = progressSteps(b);
+  const states = milestoneStates(b, steps);
+  return (
+    <Card padding="lg" as="section" aria-labelledby="milestones-title">
+      <CardTitle right={<span className="text-sm text-muted">{steps.filter((s) => s.done).length}/5</span>}>
+        <span id="milestones-title">Milestones</span>
+      </CardTitle>
+      <ol className="grid gap-0 sm:grid-cols-5 sm:gap-3">
+        {steps.map((s, i) => {
+          const st = states[i]!;
+          const last = i === steps.length - 1;
+          return (
+            <li
+              key={s.key}
+              data-milestone={s.key}
+              data-state={st}
+              aria-current={st === "current" ? "step" : undefined}
+              className="relative grid grid-cols-[28px_minmax(0,1fr)] gap-3 pb-5 last:pb-0 sm:grid-cols-1 sm:gap-2 sm:pb-0"
+            >
+              {!last && (
+                <span
+                  aria-hidden
+                  className={cx(
+                    "absolute left-[13px] top-7 bottom-0 w-0.5 sm:left-8 sm:right-[-12px] sm:top-[13px] sm:bottom-auto sm:h-0.5 sm:w-auto",
+                    s.done && steps[i + 1]!.done ? "bg-money" : "bg-rule",
+                  )}
+                />
+              )}
+              <span
+                aria-hidden
+                className={cx(
+                  "relative grid size-7 place-items-center rounded-full font-mono text-xs font-semibold",
+                  st === "done" && "bg-money text-on-solid",
+                  st === "current" && "border-2 border-money bg-sheet text-money",
+                  st === "failed" && "border-2 border-danger bg-danger-soft text-danger",
+                  st === "todo" && "bg-chip text-muted",
+                )}
+              >
+                {st === "done" ? "✓" : st === "failed" ? "!" : i + 1}
+              </span>
+              <div className="grid min-w-0 gap-0.5">
+                <b className={cx("text-[15px]", st === "todo" && "text-muted")}>
+                  {s.label}
+                  <span className="sr-only">{st === "done" ? " (done)" : st === "current" ? " (in progress)" : ""}</span>
+                </b>
+                {s.key === "funded" || s.key === "paid" ? (
+                  <Amount xof={s.key === "paid" && b.payout ? b.payout.amountXof : b.amountXof} size="sm" money={s.done && s.key === "paid"} />
+                ) : null}
+                <span className="break-words text-[13px] text-muted">{s.detail ?? MILESTONE_HINT[s.key]}</span>
+                {s.at && <span className="font-mono text-[11.5px] text-muted">{formatDateTime(s.at)}</span>}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </Card>
   );
 }
@@ -229,7 +311,7 @@ export function VerdictCard({ b }: { b: BountyDetail }) {
 export function Timeline({ b }: { b: BountyDetail }) {
   return (
     <Card padding="lg">
-      <CardTitle>Timeline</CardTitle>
+      <CardTitle>Activity</CardTitle>
       <ol className="grid">
         {b.timeline.map((e, i) => {
           const m = EVENT_META[e.type];
@@ -315,8 +397,8 @@ export function PayoutCard({ b, receiptId }: { b: BountyDetail; receiptId: strin
         )}
       </div>
       {p.lastError && (
-        <p className="mt-3 rounded-lg bg-danger-soft p-3 text-sm text-danger">
-          {p.lastError}. The money stays reserved for @{p.userLogin}.
+        <p className="mt-3 rounded-lg bg-danger-soft p-3 text-sm text-danger" data-payout-reason>
+          Last attempt failed: {publicPayoutText(p.lastError)}. The money stays reserved for @{p.userLogin}.
         </p>
       )}
       {receiptId && (
@@ -385,6 +467,7 @@ export function BountyView({ b, receiptId }: { b: BountyDetail; receiptId: strin
   return (
     <div className="grid gap-6">
       <BountyHeader b={b} />
+      <Milestones b={b} />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div className="grid min-w-0 gap-6">
           <CriteriaCard b={b} />
