@@ -64,7 +64,6 @@ export interface Bounty {
   expiresAt: string | null;
 }
 
-
 export interface Funding {
   id: string;
   bountyId: string;

@@ -176,7 +176,6 @@ export function transition(bounty: Bounty, event: InternalEvent): TransitionResu
       hadSubmission = true;
       payeeLogin = event.toLogin ?? null;
       break;
-
     case "maintainer.reject":
       verdict = null;
       prNumber = null;
@@ -191,7 +190,6 @@ export function transition(bounty: Bounty, event: InternalEvent): TransitionResu
   if (headSha !== undefined) next.headSha = headSha;
   if (payeeLogin !== undefined) next.payeeLogin = payeeLogin;
   return { ok: true, bounty: next, from, to, event };
-
 }
 
 export interface NewBounty {

@@ -436,8 +436,6 @@ describe("restart safety (review #85, finding 4)", () => {
   });
 });
 
-
-
 describe("OBJECTION_WINDOW_MINUTES (review #85, finding 2)", () => {
   it.each([
     [undefined, 0],
