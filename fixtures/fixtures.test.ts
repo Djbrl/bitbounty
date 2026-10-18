@@ -104,8 +104,9 @@ test('/welcome onboarding: answers saved, done sets onboardedAt', () => {
   const st = json(get('me/onboarding'));
   assert.equal(st.preferences.step >= 1, true);
   assert.deepEqual(st.githubLanguages, ['TypeScript', 'Go']);
-  assert.equal(post('me/onboarding', { defaultMode: 'both' }).status, 400);
-  const saved = json(post('me/onboarding', { defaultMode: 'hunt', preferences: { step: 2, stack: ['Go'] } }));
+  assert.equal(post('me/mode', { mode: 'both' }).status, 400);
+  assert.equal(json(post('me/mode', { mode: 'hunt' })).defaultMode, 'hunt');
+  const saved = json(post('me/onboarding', { preferences: { step: 2, stack: ['Go'] } }));
   assert.equal(saved.defaultMode, 'hunt');
   assert.equal(saved.preferences.step, 2);
   assert.equal(json(post('me/onboarding', { done: true })).onboardedAt, '2026-10-17T15:00:00.000Z');
