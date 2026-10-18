@@ -80,7 +80,7 @@ function HunterCard({ data, t }: { data: HuntData; t: HuntText }) {
         <div className="col-span-2 grid gap-1 sm:col-span-1">
           <dt className="text-xs text-muted">{t.earned}</dt>
           <dd>
-            <Amount xof={me.earnings.totalXof} sats={totalSats ?? undefined} size="lg" money={me.earnings.totalXof > 0} />
+            <Amount xof={me.earnings.totalXof} sats={totalSats ?? undefined} currency={data.currency === "sats" ? "sats" : "xof"} size="lg" money={me.earnings.totalXof > 0} />
           </dd>
         </div>
         <div className="grid gap-1">

@@ -4,7 +4,7 @@ import bountiesFx from "../../../../fixtures/bounties.json";
 import type { BountyDetail, BountySummary } from "../../../../fixtures/types";
 import { getBoard } from "../board/data";
 import { TIER_MIN } from "../profile/data";
-import { loadHunt, parseStack } from "./data";
+import { loadHunt, pickStack } from "./data";
 import { applyExplore, bountyLanguages, canonicalLanguage, exploreOptions, inBucket, NO_FILTER, timeAgo } from "./explore";
 import { ExploreGrid } from "./explore-grid";
 import { HuntView } from "./hunt-view";
@@ -69,10 +69,10 @@ describe("languages and matching", () => {
     expect(forYou([], ["Go"]).rows).toEqual([]);
   });
 
-  it("parses the stack cookie", () => {
-    expect(parseStack("TypeScript,%20Go,,")).toEqual(["TypeScript", "Go"]);
-    expect(parseStack(undefined)).toEqual([]);
-    expect(parseStack("%E0%A4%A")).toEqual(["%E0%A4%A"]);
+  it("prefers U1's saved stack, then GitHub languages, then the profile", () => {
+    expect(pickStack(["Rust"], ["Go"], ["Python"])).toEqual(["Rust"]);
+    expect(pickStack([], ["Go"], ["Python"])).toEqual(["Go"]);
+    expect(pickStack(undefined, undefined, ["Python"])).toEqual(["Python"]);
   });
 });
 

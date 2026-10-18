@@ -1,29 +1,20 @@
 // U3: server-side data for /app/hunt. Same I1 loaders as the other pages (real server when
 // BITBOUNTY_API_URL is set, fixtures otherwise): GET /api/me, /api/users/:login, /api/board,
-// /api/bounties/:id for each claim and payout. Only /api/me is required; the rest degrade per section.
+// /api/me/onboarding (U1 stack + currency), /api/bounties/:id for each claim and payout. Only /api/me is required; the rest degrade per section.
 import { cookies } from "next/headers";
-import type { Me } from "../../../../fixtures/types";
+import type { DisplayCurrency, Me } from "../../../../fixtures/types";
 import { getBoard } from "../board/data";
 import { getBounty } from "../bounty/data";
 import { fetchMe } from "../onboarding/load-me";
 import { fetchProfile, type ProfileView } from "../profile/data";
+import { fetchOnboarding } from "../welcome/load";
 import { activityFeed, claimCard, forYou, tierProgress, weekStreak, type BountyDetail, type ClaimCard, type FeedItem, type ForYou, type TierProgress } from "./shape";
 
-/** Cookie U1 can write with the hunter's chosen stack (comma separated). Until then: GitHub languages. */
-export const STACK_COOKIE = "bb_stack";
-
-export function parseStack(raw: string | undefined): string[] {
-  return (raw ?? "")
-    .split(",")
-    .map((s) => {
-      try {
-        return decodeURIComponent(s).trim();
-      } catch {
-        return s.trim();
-      }
-    })
-    .filter(Boolean)
-    .slice(0, 20);
+/** Stack used for "For you": U1's saved chips, else the GitHub languages U1 read, else the profile's. */
+export function pickStack(prefs: string[] | undefined, githubLanguages: string[] | undefined, profileLanguages: string[]): string[] {
+  if (prefs?.length) return prefs;
+  if (githubLanguages?.length) return githubLanguages;
+  return profileLanguages;
 }
 
 /** A section that failed to load renders its own error state instead of breaking the page. */
@@ -53,6 +44,8 @@ export interface HuntData {
   streak: number;
   totalSats: number | null;
   languages: string[];
+  /** U1 display currency (amounts stay FCFA underneath). */
+  currency: DisplayCurrency;
   claims: Part<ClaimCard[]>;
   forYou: Part<ForYou>;
   feed: Part<FeedItem[]>;
@@ -61,11 +54,11 @@ export interface HuntData {
 export async function loadHunt(now: Date = new Date()): Promise<HuntData> {
   const me = await fetchMe();
   const login = me.user.login;
-  const prefs = parseStack(await readCookie(STACK_COOKIE));
 
   const detailIds = [...new Set([...me.activeClaims.map((c) => c.bountyId), ...me.payouts.map((p) => p.bountyId)])].slice(0, 12);
-  const [profile, board, details] = await Promise.all([
+  const [profile, onboarding, board, details] = await Promise.all([
     fetchProfile(login, now).catch(() => null),
+    fetchOnboarding().catch(() => null),
     part(getBoard()),
     part(Promise.all(detailIds.map((id) => getBounty(id).catch(() => null)))),
   ]);
@@ -74,7 +67,7 @@ export async function loadHunt(now: Date = new Date()): Promise<HuntData> {
 
   const paidCount = Math.max(me.earnings.paidCount, profile?.stats.paidCount ?? 0);
   const languages = profile?.languages ?? [];
-  const stack = prefs.length ? prefs : languages;
+  const stack = pickStack(onboarding?.preferences.stack, onboarding?.githubLanguages, languages);
 
   return {
     me,
@@ -82,7 +75,8 @@ export async function loadHunt(now: Date = new Date()): Promise<HuntData> {
     progress: tierProgress(paidCount),
     streak: profile ? weekStreak(profile.heat) : 0,
     totalSats: profile?.totalSats ?? null,
-    languages,
+    languages: languages.length ? languages : (onboarding?.githubLanguages ?? []),
+    currency: onboarding?.preferences.currency ?? "xof",
     claims: details.ok ? { ok: true, value: me.activeClaims.map((c) => claimCard(c, byId.get(c.bountyId) ?? null, login)) } : { ok: false },
     forYou: board.ok ? { ok: true, value: forYou(board.value.bounties, stack) } : { ok: false },
     feed: details.ok ? { ok: true, value: activityFeed([...byId.values()], login) } : { ok: false },
