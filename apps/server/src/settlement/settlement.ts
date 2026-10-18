@@ -16,6 +16,7 @@ export class PayoutNotAllowedError extends Error {
  *
  *   verify.done (A2)          → records the verdict on the `submitted` bounty
  *   pr.merged / maintainer.pay → bounty `verified` → starts the payout (B2) after the objection window
+ *                                (`/pay now` → no window)
  *   payout.started/succeeded/failed (B2) → `paying` / `paid` / `payout_failed`, published on the bus
  *   funding.paid, pr.linked, verify.done, pr.merged, payout.* → status comment re-rendered (`sync`)
  *
@@ -68,7 +69,8 @@ export class Settlement {
     const { bus } = this.deps;
     bus.subscribe("verify.done", (e) => this.onVerifyDone(e));
     bus.subscribe("pr.merged", (e) => this.payIfVerified(e.bountyId));
-    bus.subscribe("maintainer.pay", (e) => this.payIfVerified(e.bountyId));
+    // `/pay now` skips the objection window; plain `/pay` waits it like a merge.
+    bus.subscribe("maintainer.pay", (e) => this.payIfVerified(e.bountyId, { now: e.now === true }));
     // Leaving `verified` during the window cancels its timer (the timer re-checks the status anyway).
     bus.subscribe("maintainer.hold", (e) => void this.pending.delete(e.bountyId));
     bus.subscribe("maintainer.reject", (e) => void this.pending.delete(e.bountyId));
@@ -111,7 +113,7 @@ export class Settlement {
     await this.apply(event);
   }
 
-  private async payIfVerified(bountyId: string) {
+  private async payIfVerified(bountyId: string, opts: { now?: boolean } = {}) {
     const bounty = await this.deps.repo.findById(bountyId);
     if (!bounty || bounty.status !== "verified") return;
     if (!this.deps.startPayout) {
@@ -125,7 +127,8 @@ export class Settlement {
     // A newer timer replaces an older one (redelivered merge, /hold then /pay): only it may pay.
     const token = Symbol(bountyId);
     this.pending.set(bountyId, token);
-    this.schedule(() => void this.payAfterWindow(bountyId, token), this.deps.objectionMs ?? 0);
+    const delay = opts.now ? 0 : (this.deps.objectionMs ?? 0);
+    this.schedule(() => void this.payAfterWindow(bountyId, token), delay);
   }
 
   /** The end of the objection window: pays only if this is still the bounty's timer and it is still `verified`. */

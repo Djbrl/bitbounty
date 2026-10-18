@@ -274,6 +274,30 @@ describe("objection window (review #85, finding 1)", () => {
     expect(await s.status()).toBe("paying");
   });
 
+  it("CR2: /pay now skips the window (delay 0); plain /pay waits it", async () => {
+    const now = windowSetup({ status: "on_hold" });
+    await now.move(ev("maintainer.pay", { actorLogin: "fatou", now: true }));
+    expect(now.timers.map((t) => t.ms)).toEqual([0]);
+    await now.fireAll();
+    expect(now.finalize).toHaveBeenCalledTimes(1);
+    expect(await now.status()).toBe("paying");
+
+    const plain = windowSetup({ status: "on_hold" });
+    await plain.move(ev("maintainer.pay", { actorLogin: "fatou" }));
+    expect(plain.timers.map((t) => t.ms)).toEqual([WINDOW_MS]);
+    expect(plain.startPayout).not.toHaveBeenCalled();
+  });
+
+  it("CR2: /pay now still gives one payment when a merge timer is pending", async () => {
+    const s = windowSetup();
+    await s.bus.publish(ev("pr.merged", { prNumber: 2, ciGreen: true }));
+    await s.move(ev("maintainer.hold", { actorLogin: "fatou" }));
+    await s.move(ev("maintainer.pay", { actorLogin: "fatou", now: true }));
+    await s.fireAll();
+    expect(s.startPayout).toHaveBeenCalledTimes(1);
+    expect(s.finalize).toHaveBeenCalledTimes(1);
+  });
+
   it("a redelivered merge during the window → one payout, one payment", async () => {
     const s = windowSetup();
     await s.bus.publish(ev("pr.merged", { prNumber: 2, ciGreen: true }));
