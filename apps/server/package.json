@@ -19,7 +19,8 @@
     "ngn:smoke": "tsx --env-file-if-exists=../../.env scripts/ngn-smoke.ts",
     "e2e": "tsx --env-file-if-exists=../../.env scripts/e2e.ts",
     "demo:failures": "tsx scripts/failure-paths.ts",
-    "live-pay": "tsx scripts/live-pay.ts"
+    "live-pay": "tsx scripts/live-pay.ts",
+    "agent:demo": "tsx scripts/agent-demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
@@ -33,6 +34,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
     "pg": "^8.23.1",
