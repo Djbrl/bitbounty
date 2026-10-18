@@ -22,7 +22,7 @@ describe("profile data", () => {
     expect(p.stats.totalXof).toBe(10000);
     expect(p.payoutVerified).toBe(true);
     expect(p.repos).toEqual([{ fullName: "teranga-labs/bitnob-js", url: "https://github.com/teranga-labs/bitnob-js", count: 1 }]);
-    expect(p.work[0]).toMatchObject({ receiptHref: "/r/r-107", provider: "wave", bitnobReference: "PAYOUT_8C34EAC4BC", signed: true });
+    expect(p.work[0]).toMatchObject({ receiptHref: "/r/r-107", sats: 16_180, bitnobReference: "PAYOUT_8C34EAC4BC", signed: true });
     expect(p.heat).toHaveLength(26);
     expect(p.heat[25]).toBe(1);
   });

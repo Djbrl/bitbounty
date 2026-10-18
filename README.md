@@ -26,7 +26,7 @@ Btrust's mission, in its own words: "Locating, educating, and remunerating Bitco
 6. **The maintainer merges.** The merge is the approval (`/hold` stops a payout, `/pay` forces one).
 7. **The developer is paid in sats** over Lightning to their Lightning Address: BitBounty converts the FCFA amount to sats at Bitnob's rate, asks the developer's wallet for an invoice for that exact amount (LNURL-pay), and Bitnob pays it. The status comment becomes a receipt.
 
-Payout status (18 Oct): the Lightning payout rail ([#102](https://github.com/Djbrl/bitbounty/pull/102)) is proven in the Bitnob sandbox up to the pay call (rates, LNURL-pay, invoice checks, one pay call per bounty). Bitnob's sandbox doesn't enable Lightning withdrawals on our account (`403 FEATURE_NOT_ENABLED`), so a successful sandbox payment is not shown yet.
+Payout status (18 Oct): Lightning payouts are merged ([#102](https://github.com/Djbrl/bitbounty/pull/102)): one pay call per attempt so a bounty is never paid twice, a cap in sats per payout (`MAX_PAYOUT_SATS`), and payouts stored in Postgres so a restart resumes them. Bitnob's sandbox refuses the pay call (`403 FEATURE_NOT_ENABLED`, `send_lightning`: Lightning withdrawals aren't enabled on our sandbox account), so the real payment is being proven on Bitnob production.
 
 Agents can fund bounties too: an AI agent with a `bb_` key and a budget set by its human owner posts bounties through the `/v1` API or the MCP server (`packages/mcp`), see [docs/agents.md](docs/agents.md).
 

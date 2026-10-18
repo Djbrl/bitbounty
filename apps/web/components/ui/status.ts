@@ -23,7 +23,7 @@ export const STATUS_META: Record<BountyStatus, StatusMeta> = {
   claimed: { tone: "claim", label: "Claimed", labelFr: "Réservé", hint: "A developer has 72 h to open a PR." },
   submitted: { tone: "claim", label: "PR submitted", labelFr: "PR soumise", hint: "PR linked. Claude checks the criteria." },
   verified: { tone: "money", label: "Verified", labelFr: "Vérifié", hint: "Merged, CI green, verdict pass. Objection window." },
-  paying: { tone: "money", label: "Paying out", labelFr: "Paiement en cours", hint: "Bitnob payout to mobile money in flight." },
+  paying: { tone: "money", label: "Paying out", labelFr: "Paiement en cours", hint: "Bitnob Lightning payout in flight." },
   paid: { tone: "money-solid", label: "Paid", labelFr: "Payé", hint: "Paid out. Receipt everywhere." },
   on_hold: { tone: "pending", label: "On hold", labelFr: "En pause", hint: "Maintainer put the payout on hold." },
   payout_failed: { tone: "danger", label: "Payout failed", labelFr: "Paiement échoué", hint: "Retrying. Money stays reserved for the developer." },

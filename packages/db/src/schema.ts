@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   check,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -55,6 +56,8 @@ export const claimStatus = pgEnum("claim_status", ["active", "released", "expire
 export const verdict = pgEnum("verdict", ["pass", "fail", "unsure"]);
 export const payoutStatus = pgEnum("payout_status", ["pending", "processing", "succeeded", "failed"]);
 export const payoutProvider = pgEnum("payout_provider", ["wave", "orange", "free"]);
+/** B6: how a payout is sent. Rows from before B6 are mobile money. */
+export const payoutRail = pgEnum("payout_rail", ["mobile_money", "lightning"]);
 export const payoutAccountStatus = pgEnum("payout_account_status", ["pending", "sms_ok", "verified"]);
 export const ledgerKind = pgEnum("ledger_kind", ["fund", "fee", "reserve", "payout", "refund", "fx"]);
 export const eventSource = pgEnum("event_source", ["github", "bitnob", "system"]);
@@ -76,10 +79,12 @@ export const payoutAccounts = pgTable(
     userId: uuid("user_id")
       .primaryKey()
       .references(() => users.id, { onDelete: "cascade" }),
+    /** B6: where payouts go (Lightning Address, LUD-16). The mobile money columns are the legacy B3 rail. */
+    lightningAddress: text("lightning_address"),
     country: text("country").notNull(),
-    provider: payoutProvider("provider").notNull(),
-    phoneE164: text("phone_e164").notNull(),
-    accountName: text("account_name").notNull(),
+    provider: payoutProvider("provider"),
+    phoneE164: text("phone_e164"),
+    accountName: text("account_name"),
     status: payoutAccountStatus("status").notNull().default("pending"),
     testAmountXof: integer("test_amount_xof"),
     verifiedAt: ts("verified_at"),
@@ -90,6 +95,12 @@ export const payoutAccounts = pgTable(
     uniqueIndex("payout_accounts_phone_idx").on(t.phoneE164),
     check("payout_accounts_phone_e164", sql`${t.phoneE164} ~ '^[+][1-9][0-9]{7,14}$'`),
     check("payout_accounts_test_amount", sql`${t.testAmountXof} between 100 and 199`),
+    // Somewhere to pay: a Lightning Address (B6), or the legacy mobile money number.
+    check("payout_accounts_destination", sql`${t.lightningAddress} is not null or ${t.phoneE164} is not null`),
+    check(
+      "payout_accounts_lightning_address",
+      sql`${t.lightningAddress} ~ '^[a-z0-9._+-]{1,64}@([a-z0-9]([a-z0-9-]*[a-z0-9])?[.])+[a-z]{2,63}$'`,
+    ),
   ],
 );
 
@@ -239,12 +250,28 @@ export const payouts = pgTable(
     lastError: text("last_error"),
     createdAt: createdAt(),
     paidAt: ts("paid_at"),
+    // B6, Lightning: the current attempt's details (reset at each attempt).
+    rail: payoutRail("rail").notNull().default("mobile_money"),
+    lightningAddress: text("lightning_address"),
+    /** Sats sent, floor(amount_xof / xof_per_btc * 1e8). */
+    amountSats: bigint("amount_sats", { mode: "number" }),
+    /** FCFA per 1 BTC used for amount_sats (an exchange rate, not money). */
+    xofPerBtc: doublePrecision("xof_per_btc"),
+    /** BOLT11 obtained through LNURL-pay for exactly amount_sats. */
+    paymentRequest: text("payment_request"),
+    paymentHash: text("payment_hash"),
+    invoiceExpiresAt: ts("invoice_expires_at"),
+    /** Set before the pay request leaves: from then on only Bitnob can say the attempt failed. */
+    sentAt: ts("sent_at"),
+    preimage: text("preimage"),
   },
   (t) => [
     // One payout per bounty: retries update this row, they never add one.
     uniqueIndex("payouts_bounty_idx").on(t.bountyId),
+    index("payouts_status_idx").on(t.status),
     check("payouts_amount_positive", sql`${t.amountXof} > 0`),
     check("payouts_attempts", sql`${t.attempts} >= 0`),
+    check("payouts_amount_sats_positive", sql`${t.amountSats} > 0`),
   ],
 );
 

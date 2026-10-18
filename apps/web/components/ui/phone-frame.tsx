@@ -51,7 +51,7 @@ export interface PhoneNotificationProps {
   icon?: ReactNode;
 }
 
-/** iOS-style push notification ("Wave · You received 10 000 F"). Fixed light look, like the real OS. */
+/** iOS-style push notification ("Blink · You received 16 180 sats"). Fixed light look, like the real OS. */
 export function PhoneNotification({ title, body, icon = "W" }: PhoneNotificationProps) {
   return (
     <div className="grid grid-cols-[30px_1fr] gap-2.5 rounded-2xl bg-white/90 p-2.5 text-[#141a17] shadow-[0_6px_18px_rgb(0_0_0/0.18)]">

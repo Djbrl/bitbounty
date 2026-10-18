@@ -156,7 +156,7 @@ function describe(e: InternalEvent): string {
     case "payout.started":
       return "Payout started";
     case "payout.succeeded":
-      return "Paid on mobile money";
+      return "Paid in sats over Lightning";
     case "payout.failed":
       return "Payout failed, will retry";
   }

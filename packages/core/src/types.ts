@@ -118,6 +118,26 @@ export interface Payout {
   attempts: number;
   lastError: string | null;
   paidAt: string | null;
+  /**
+   * B6 (Lightning payouts), all optional so older rows and callers stay valid.
+   * The current attempt's Lightning details: what we asked the developer's Lightning Address
+   * for, the invoice it returned and the rate used. Reset at each new attempt.
+   */
+  rail?: "lightning" | "mobile_money";
+  /** The Lightning Address paid by the current attempt, e.g. `awa@blink.sv`. */
+  lightningAddress?: string | null;
+  /** Sats sent: `floor(amountXof / xofPerBtc * 1e8)`. */
+  amountSats?: number | null;
+  /** FCFA per 1 BTC used for `amountSats` (kept for the receipt). */
+  xofPerBtc?: number | null;
+  /** BOLT11 invoice obtained through LNURL-pay for exactly `amountSats`. */
+  paymentRequest?: string | null;
+  paymentHash?: string | null;
+  invoiceExpiresAt?: string | null;
+  /** Set just before the pay request leaves; from then on only Bitnob can say it failed. */
+  sentAt?: string | null;
+  /** Proof of payment, when Bitnob returns it. */
+  preimage?: string | null;
 }
 
 export interface User {
@@ -130,6 +150,11 @@ export interface User {
 
 export interface PayoutAccount {
   userId: string;
+  /**
+   * B6: where payouts go, a Lightning Address (`user@domain`, LUD-16). The mobile money
+   * fields below are the legacy rail (B3) and are no longer needed to get paid.
+   */
+  lightningAddress?: string | null;
   country: string;
   provider: PayoutProvider;
   phoneE164: string;

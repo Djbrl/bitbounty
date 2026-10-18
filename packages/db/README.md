@@ -15,6 +15,7 @@ Postgres schema (Drizzle), SQL migrations and demo seed. Tables follow [docs/pla
 Rules the database enforces:
 - `events`: one row per `(source, external_id)` (unique index `events_source_external_id_uq`). Webhook dedupe = `insert ... on conflict do nothing`. Columns follow the server's `DrizzleEventStore` (F6): serial `id`, `type`/`action`/`repo`/`installation_id`, `payload`, `status` `received|processed|failed`, `error`, `received_at`, `processed_at`; `bounty_id` (nullable) makes it the bounty timeline.
 - **One payout per bounty** (`payouts.bounty_id` unique, `reference` = `pay-<bountyId>` unique): retries update the row, they never add one.
+- **B6 Lightning payouts** (migration `0002_b6_lightning_payouts`): `payouts.rail` (`mobile_money` for older rows, `lightning`), and the current attempt's `lightning_address`, `amount_sats` (> 0), `xof_per_btc` (the rate, for the receipt), `payment_request`, `payment_hash`, `invoice_expires_at`, `sent_at`, `preimage`. `payout_accounts.lightning_address` (lower-case `user@domain`); the mobile money columns are now optional, but an account needs a Lightning Address or a phone.
 - **One active claim per bounty** (partial unique index): two `/claim` at the same time can't both win.
 - One bounty per `(repo, issue_number)`. One payout account per phone number (E.164, e.g. `+221770000001`).
 - `bounties.status` only accepts the contract's statuses.

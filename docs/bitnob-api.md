@@ -21,10 +21,10 @@ LLM-friendly index: https://bitnob.dev/llms.txt. Every reference page has "Copy 
 **Lightning** (sats, 1 to 20M per invoice, default expiry 24h)
 - `POST /api/lightning/invoices` {customer_id, amount, description, expiry, reference}, **all required** per the v2 OpenAPI spec (so create a Bitnob customer per funder first), which returns a BOLT11 `request` and a `payment_hash`
 - `GET /api/lightning/invoices[/:id]`: **no Lightning webhook.** Poll until `status=paid`. The `preimage` is the proof of payment.
-- `POST /api/lightning/decode`: inspect an invoice
-- `POST /api/lightning/pay` {request, reference, max_fee?}, which returns a `preimage`. Payments are final. Pay without a fee cap only on purpose.
+- `POST /api/lightning/decode` {request}: inspect an invoice. Seen live: `{payment_hash, destination, amount_sat, amount_msat, description, expires_at (unix s, string), is_expired}`
+- `POST /api/lightning/pay` {customer_id, request, reference, max_fee}, all four **required** per the v2 spec, "**idempotent on `reference`**", returns a `preimage`. Payments are final. **Our sandbox account answers `403 FEATURE_NOT_ENABLED` (`feature_key: send_lightning`)**, also for `POST /api/lightning/preview` (2026-10-18). See B6.
 - No `description_hash` field on invoice creation, which matters for LNURL-pay (see ideas).
-- LNURL and Lightning Addresses: documented as **"coming soon"**.
+- LNURL and Lightning Addresses: documented as **"coming soon"**, so B6 resolves them itself (LNURL-pay → BOLT11 → `/lightning/pay`).
 
 **Payouts** (crypto → local fiat): quote → initialize → finalize
 - `POST /api/payouts/quotes` {from_asset BTC|USDT|USDC, to_currency, country, amount | settlement_amount, source offchain|onchain, chain?, reference}. Quotes expire in about 15 min.
@@ -146,16 +146,24 @@ docker compose exec db psql -U postgres -d bitbounty -c \
 ```
 Expect a row with `status = processed`. Server log on a mismatch: `[bitnob] rejected webhook: bad or missing signature`.
 
-## B2: mobile money payouts (dropped)
-B2 built the quote → initialize → finalize pipeline for SN mobile money payouts (`createPayoutQuote`, `initializePayout`, `finalizePayout`, `getPayout`, `getBanks` in `packages/bitnob`). It was never run end to end: the sandbox lists no SN bank codes and Bitnob only answers whitelisted IPs. On Sat 17 Oct, 22:30, a mentor confirmed mobile money payouts wouldn't work even with live keys, so the rail was replaced by Lightning payouts (B6).
+## B6: Lightning payouts (replaces B2's mobile money rail)
+`apps/server/src/payouts/` (see its README). The developer's Lightning Address is resolved by us (LNURL-pay, LUD-06/16): `GET https://<domain>/.well-known/lnurlp/<user>` → `GET <callback>?amount=<msat>` → BOLT11, decoded locally and refused unless the amount is exactly what we asked, the network is ours (`LIGHTNING_NETWORK`, testnet by default = sandbox `lntb…`), it has ≥ 120 s left and its description hash matches. Then `POST /api/lightning/pay {request, reference: "pay-<bountyId>-<attempt>", max_fee, customer_id?}` sent **once** (`{ retries: 0 }`). New client methods: `payLightningInvoice`, `getLightningPayment` (reads `/api/lightning/invoices/:id`, unverified for outgoing payments), `decodeLightningInvoice`.
 
-## B6: Lightning payouts ([#102](https://github.com/Djbrl/bitbounty/pull/102))
-The developer is paid **in sats to their Lightning Address**:
-1. FCFA → sats: `floor(amountXof × 1e8 / (FCFA per USDT × USDT per BTC))`, from `GET /api/exchange-rates` and `GET /api/trading/prices` (the same rates as B1), rate stored on the payout row.
-2. LNURL-pay: `user@domain` → `https://domain/.well-known/lnurlp/user` → callback with the amount in msat → a BOLT11 invoice. The invoice is decoded locally and refused unless the amount is exactly what we asked, the network is ours (`lntb` in the sandbox) and it has enough time left.
-3. `POST /api/lightning/pay {request, reference: pay-<bountyId>-<attempt>, max_fee}`, sent **once** per attempt (no client retry), then the status is polled. Up to 3 attempts, never a new one unless Bitnob confirms the previous one failed.
+Amount: `floor(amountXof × 1e8 / (FCFA per USDT × USDT per BTC))` sats, the same rates as B1, stored on the payout row (`amount_sats`, `xof_per_btc`) for the receipt.
 
-Sandbox (18 Oct): everything up to the pay call works live (rates, LNURL-pay against a local test wallet whose invoices are real Bitnob sandbox invoices, our decoding matches `POST /api/lightning/decode`, a wrong-amount invoice is refused, 3 simultaneous triggers → one pay call). The pay call itself answers `403 FEATURE_NOT_ENABLED` ("The Lightning withdrawals feature is currently not available", `feature_key: send_lightning`): **Bitnob must enable Lightning withdrawals on the sandbox account**. Run: `pnpm --filter @bitbounty/server payout:smoke` (after #102).
+After an unclear answer (timeout, 5xx, 409) the payment may have gone through: we read it by id, or replay the **same reference with the same invoice** (Bitnob: idempotent on `reference`; Lightning: one payment hash settles once). A new attempt (new invoice, new reference) only after Bitnob says the previous one failed.
+
+Sandbox proof (`pnpm --filter @bitbounty/server payout:smoke`, aborts unless `whoami` says sandbox): a local LNURL-pay server plays the developer's wallet and returns **Bitnob sandbox invoices** (`POST /api/lightning/invoices`) for the exact amount asked. Result (2026-10-18):
+- proven live: whoami sandbox, rates → sats rounded down, LNURL-pay against the local receiver, a real Bitnob `lntb` invoice decoded by us exactly like `/lightning/decode` (amount_msat, payment_hash, expires_at), an invoice for 1 sat more refused with nothing paid, the pay call sent once with `pay-<bountyId>-1` even with 3 simultaneous triggers;
+- **blocked: `POST /api/lightning/pay` → `403 FEATURE_NOT_ENABLED` "The Lightning withdrawals feature is currently not available"** (`feature_key: send_lightning`) on our sandbox company. Nothing is debited (BTC balance unchanged). Ask Bitnob to enable `send_lightning` on the sandbox, then rerun the smoke script: it prints the receiving invoice's status (`paid`) and the balance delta.
+
+Production proof (merged in #102, in progress): because the sandbox can't send Lightning, one tiny real payout is being proven on Bitnob production by a human with `pnpm --filter @bitbounty/server live-pay` (dry run by default, refuses unless `whoami` says production, hard cap in sats).
+
+## B2: payout pipeline (mobile money, superseded by B6)
+Payouts no longer use this rail (a mentor confirmed mobile money payouts won't work); B3's test payout still calls these endpoints. `apps/server/src/payouts/rails.ts`: quote → initialize → finalize with retries, idempotency and crash recovery. Client calls added in `packages/bitnob`: `initializePayout(quoteId, {reference, beneficiary, callback_url})` (`callback_url` is required by the spec), `finalizePayout(quoteId, { retries: 0 })` (no body, irreversible, **always sent once**: a replay of a finalize that went through answers 409/422 "already finalized"), `getPayout(id)` (`id` = the payout id returned by the quote, not the quote id).
+
+(Sandbox, aborts unless `whoami` says `environment=sandbox`; Bitnob also whitelists caller IPs, a non-whitelisted IP gets `403 IP address not whitelisted`.)
+The mobile money `payout:smoke` script was replaced by B6's Lightning one. Result: never run (blocked on the SN bank codes, then abandoned).
 
 ## B1: Lightning funding
 `apps/server/src/funding/` (see its README). Calls: `POST /api/customers` (once per funder, invoices need `customer_id`), `POST /api/lightning/invoices` (sats, `reference: fund-<bountyId>-<n>`, expiry 900 s), `GET /api/lightning/invoices/:id` polled (no Lightning webhook). Rates: `GET /api/exchange-rates?from=USDT&to=XOF`, `GET /api/trading/prices?base_currency=BTC&quote_currency=USDT` (new client methods `getExchangeRate`, `getTradingPrice`).

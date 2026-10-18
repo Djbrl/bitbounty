@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { Bounty, BountyStatus, Payout } from "@bitbounty/core";
+import { maskLightningAddress, type Bounty, type BountyStatus, type Payout } from "@bitbounty/core";
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { BountyRepo } from "../bounties/repo.js";
@@ -14,7 +14,6 @@ import {
   claimView,
   fundingView,
   loginOf,
-  MASKED_PHONE,
   median,
   payoutView,
   submissionView,
@@ -225,8 +224,8 @@ export function readApiRoutes(deps: ReadApiDeps) {
       prUrl: `https://github.com/${b.repoFullName}/pull/${sub.prNumber}`,
       recipientLogin: loginOf(p.userId) ?? p.userId,
       amountXof: p.amountXof,
-      provider: "wave" as const,
-      phoneMasked: MASKED_PHONE,
+      // B6: the developer's Lightning Address, masked. Null on legacy (mobile money) rows.
+      lightningAddress: p.lightningAddress ? maskLightningAddress(p.lightningAddress) : null,
       fundedWith: {
         rail: funding?.rail ?? "lightning",
         sourceAmount: funding?.sourceAmount ?? 0,
@@ -237,6 +236,10 @@ export function readApiRoutes(deps: ReadApiDeps) {
       paidAt: p.paidAt,
       minutesMergeToPay: Math.max(0, Math.round((Date.parse(p.paidAt) - Date.parse(sub.mergedAt)) / 60_000)),
       bitnobReference: p.bitnobPayoutId ?? p.reference,
+      // B6: paid in sats over Lightning, at the rate stored on the payout row.
+      ...(p.rail === "lightning"
+        ? { paidWith: { rail: "lightning" as const, amountSats: p.amountSats ?? null, xofPerBtc: p.xofPerBtc ?? null, paymentHash: p.paymentHash ?? null } }
+        : {}),
     };
     // Anyone can recompute it from the fields: same receipt → same digest.
     const signature = `sha256:${createHash("sha256").update(JSON.stringify(receipt)).digest("hex")}`;

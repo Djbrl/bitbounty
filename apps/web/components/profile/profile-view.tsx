@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Amount, Avatar, Card, Eyebrow, Pill, StatCard, Tag, cx, formatXof } from "../ui";
-import { formatDay, formatMinutes, PROVIDER_LABEL, type ProfileView as Data, type WorkItem } from "./data";
+import { formatDay, formatMinutes, payoutLabel, type ProfileView as Data, type WorkItem } from "./data";
 
 /** Proof-of-work profile (build kit screen 8): identity card on the left, numbers + receipts on the right. */
 export function ProfileView({ data }: { data: Data }) {
@@ -132,7 +132,7 @@ function Receipt({ w }: { w: WorkItem }) {
   const repo = w.repoFullName.split("/")[1] ?? w.repoFullName;
   const meta = [
     w.funderLogin && `funded by @${w.funderLogin}`,
-    w.provider && PROVIDER_LABEL[w.provider],
+    payoutLabel(w.sats),
     w.bitnobReference,
     w.signed && "signature ✓",
   ].filter(Boolean);

@@ -2,7 +2,7 @@
 // I1: swap `loadProfile` for `fetch(`${API}/api/users/${login}`)` (+ receipts); the shaping below stays.
 import receipts from "../../../../fixtures/receipts.json";
 import users from "../../../../fixtures/users.json";
-import type { PayoutProvider, Profile, Receipt } from "../../../../fixtures/types";
+import type { Profile, Receipt } from "../../../../fixtures/types";
 import { apiBaseUrl, apiGet } from "../../lib/api";
 import { handleMock, type Fixtures } from "../../lib/mock-api";
 
@@ -21,7 +21,8 @@ export type WorkItem = Profile["work"][number] & {
   receiptHref: string;
   /** From the receipt, when it exists. */
   bitnobReference: string | null;
-  provider: PayoutProvider | null;
+  /** Sats received over Lightning (B6), from the receipt. */
+  sats: number | null;
   funderLogin: string | null;
   signed: boolean;
 };
@@ -33,7 +34,7 @@ export interface ProfileView {
   languages: string[];
   repos: { fullName: string; url: string; count: number }[];
   work: WorkItem[];
-  /** A Wave/Orange payout only lands on an SMS + test-payment verified account, so any paid work proves it.
+  /** A payout only lands on a working Lightning Address, so any paid work proves the payout account works.
    * The users endpoint does not expose the account status yet; I1 can replace this with the real flag. */
   payoutVerified: boolean;
   /** 26 weekly buckets (oldest first) of paid bounties, ending the week of `now`. */
@@ -69,7 +70,7 @@ export function shapeProfile(p: Profile, receiptOf: (id: string) => Receipt | nu
         repoUrl: `https://github.com/${w.repoFullName}`,
         receiptHref: `/r/${w.receiptId}`,
         bitnobReference: r?.bitnobReference ?? null,
-        provider: r?.provider ?? null,
+        sats: r?.paidWith?.amountSats ?? null,
         funderLogin: r?.fundedWith.funderLogin ?? null,
         signed: Boolean(r?.signature),
       };
@@ -115,7 +116,10 @@ export function formatMinutes(m: number): string {
   return r ? `${h} h ${String(r).padStart(2, "0")}` : `${h} h`;
 }
 
-export const PROVIDER_LABEL: Record<PayoutProvider, string> = { wave: "Wave", orange: "Orange Money", free: "Free Money" };
+/** "16 180 sats · Lightning", or "Lightning" when the sats aren't known. */
+export function payoutLabel(sats: number | null): string {
+  return sats ? `${String(sats).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} sats · Lightning` : "Lightning";
+}
 
 /** The page's loader: the real server when configured (profile + one receipt per paid bounty), else fixtures. */
 export async function fetchProfile(login: string, now: Date = new Date()): Promise<ProfileView | null> {

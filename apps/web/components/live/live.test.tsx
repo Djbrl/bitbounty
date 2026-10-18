@@ -55,7 +55,7 @@ describe("live data shaping", () => {
   });
 
   it("follows the Lagos naira bounty for the route panel", () => {
-    expect(getLiveSnapshot().route).toEqual({ bountyId: "b-113", ngn: 29_000, xof: 10_000, provider: "wave" });
+    expect(getLiveSnapshot().route).toEqual({ bountyId: "b-113", ngn: 29_000, xof: 10_000, sats: 16_180 });
     expect(findRoute([], fx.cards)).toBeNull();
     expect([routeStage("funded"), routeStage("paying"), routeStage("paid")]).toEqual([0, 1, 2]);
   });

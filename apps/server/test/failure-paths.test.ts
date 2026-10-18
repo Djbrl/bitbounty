@@ -85,7 +85,7 @@ describe("I3: failure paths (real modules, fake GitHub and Bitnob)", () => {
     }
     const noAccount = render({ attempts: 1, reason: "no_account", final: true });
     expect(noAccount).toMatch(/Last error \(attempt 1\): the developer hasn't set a payout account yet/);
-    expect(noAccount).toMatch(/@awa, set your payout account at https:\/\/x\/me/);
+    expect(noAccount).toMatch(/@awa, check the Lightning Address on your payout account at https:\/\/x\/me/);
     expect(noAccount).toMatch(/No more automatic retries/);
   });
 
@@ -101,6 +101,16 @@ describe("I3: failure paths (real modules, fake GitHub and Bitnob)", () => {
       ["initialize: POST /api/payouts/initialize failed: 422 VALIDATION: account_number invalid", "Bitnob refused the payment"],
       ["Bitnob reported failed", "Bitnob refused the payment"],
       ["something odd", "the payment didn't complete"],
+      // B6: Lightning payouts
+      ["lnurl unreachable: aw***@blink.sv: LNURL server timed out after 10000 ms", "the developer's Lightning wallet didn't answer"],
+      ["lnurl unreachable: aw***@blink.sv: LNURL server answered 502 with non-JSON", "the developer's Lightning wallet didn't answer"],
+      ["lnurl refused: aw***@blink.sv: invoice is for 409000 msat, we asked 408000 msat", "the developer's Lightning Address can't receive this payment"],
+      ["lnurl refused: aw***@blink.sv accepts at least 10000000 msat, the payout is 408000 msat", "the developer's Lightning Address can't receive this payment"],
+      ["payout account: @awa has no Lightning Address (mobile money payouts are gone: add \"lightningAddress\" in PAYOUT_ACCOUNTS)", "the developer hasn't set a payout account yet"],
+      ["pay: POST /api/lightning/pay failed: 403 FEATURE_NOT_ENABLED: The Lightning withdrawals feature is currently not available.", "a payout setup problem on BitBounty's side"],
+      ["pay: POST /api/lightning/pay failed: 422 INSUFFICIENT_BALANCE: not enough sats", "Bitnob refused the payment"],
+      ["pay: POST /api/lightning/pay: timed out (outcome unknown, polling)", "Bitnob didn't answer"],
+      ["invoice expired before it was sent", "Bitnob reported the payment expired"],
     ];
     const b = {
       id: "b1", repoFullName: "a/b", issueNumber: 1, issueTitle: "t", amountXof: 5000, status: "payout_failed" as const,
@@ -114,7 +124,9 @@ describe("I3: failure paths (real modules, fake GitHub and Bitnob)", () => {
       expect(extras.payout).not.toHaveProperty("lastError");
       const comment = renderStatusComment(b, { baseUrl: "https://x", ...extras }, "en");
       expect(comment, lastError).toContain(`Last error (attempt 1): ${shown}`);
-      expect(comment).not.toMatch(/ECONNREFUSED|api\.bitnob|PAYOUT_ACCOUNTS|BITNOB_|bank_code|422|401/);
+      expect(comment).not.toMatch(/ECONNREFUSED|api\.bitnob|PAYOUT_ACCOUNTS|BITNOB_|bank_code|422|401|blink\.sv|msat|FEATURE_NOT_ENABLED|lightning\/pay/);
+      // B6: an address that can't take the payment is the developer's to fix, like a missing account.
+      if (/Lightning Address can|payout account yet/.test(shown)) expect(comment, lastError).toMatch(/check the Lightning Address on your payout account/);
     }
   });
 });
