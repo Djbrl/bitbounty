@@ -80,6 +80,10 @@ export interface PrMerged extends Base<"pr.merged"> {
 /** `/pay [@user] [now]`: the maintainer approves the payout by hand. */
 export interface MaintainerPay extends Base<"maintainer.pay"> {
   actorLogin: string;
+  /**
+   * `/pay @user`: pay this GitHub login instead of the claimant. Validated by the comment parser and
+   * checked for a payout account before the event is built. Absent = pay the active claimant.
+   */
   toLogin?: string;
   /** `/pay now`: skip the objection window. Absent (older events) = wait the window. */
   now?: boolean;

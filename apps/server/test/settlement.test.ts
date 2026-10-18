@@ -5,7 +5,7 @@ import { FakeBitnob } from "../src/e2e/fake-bitnob.js";
 import { InMemoryEventBus } from "../src/github/pr/index.js";
 import { InMemoryPayoutStore, PayoutService, type LightningRails } from "../src/payouts/index.js";
 import type { PayoutRequest } from "../src/payouts/service.js";
-import { payeeFromAccounts, PayoutNotAllowedError, readObjectionWindowMs, readPayoutAccounts, Settlement } from "../src/settlement/index.js";
+import { hasPayoutAccount, payeeFromAccounts, PayoutNotAllowedError, readObjectionWindowMs, readPayoutAccounts, Settlement } from "../src/settlement/index.js";
 
 const AT = "2026-10-17T22:00:00.000Z";
 
@@ -136,6 +136,15 @@ describe("PAYOUT_ACCOUNTS", () => {
   it("a local test address only with allowLocal", () => {
     expect(() => readPayoutAccounts({ PAYOUT_ACCOUNTS: '{"dev":"dev@127.0.0.1:8787"}' })).toThrow("lightningAddress");
     expect(readPayoutAccounts({ PAYOUT_ACCOUNTS: '{"dev":"dev@127.0.0.1:8787"}' }, { allowLocal: true }).get("dev")!.lightningAddress).toBe("dev@127.0.0.1:8787");
+  });
+
+  it("CR3: hasPayoutAccount uses the payout's own lookup; only a missing account is false", async () => {
+    const has = hasPayoutAccount(payeeFromAccounts(readPayoutAccounts({ PAYOUT_ACCOUNTS: '{"Moussa":"moussa@blink.sv","old":{"provider":"wave","phone":"+221771234567","name":"Old"}}' })));
+    expect(await has("moussa")).toBe(true);
+    expect(await has("MOUSSA")).toBe(true);
+    expect(await has("ghost")).toBe(false);
+    expect(await has("old")).toBe(false);
+    await expect(hasPayoutAccount(async () => Promise.reject(new Error("db down")))("x")).rejects.toThrow("db down");
   });
 
   it("empty → no accounts", () => {
@@ -296,6 +305,45 @@ describe("objection window (review #85, finding 1)", () => {
     await s.fireAll();
     expect(s.startPayout).toHaveBeenCalledTimes(1);
     expect(s.finalize).toHaveBeenCalledTimes(1);
+  });
+
+  it("CR3: /pay @moussa pays moussa (not the claimant) after the window", async () => {
+    const s = windowSetup({ status: "on_hold" });
+    await s.move(ev("maintainer.pay", { actorLogin: "fatou", toLogin: "moussa" }));
+    expect(s.timers.map((t) => t.ms)).toEqual([WINDOW_MS]);
+    await s.fireAll();
+    expect(s.startPayout).toHaveBeenCalledTimes(1);
+    expect(s.startPayout).toHaveBeenCalledWith({ bountyId: "b1", userId: "github:moussa", amountXof: 10_000 });
+    expect((await s.store.getByBounty("b1"))!.userId).toBe("github:moussa");
+    expect(s.finalize).toHaveBeenCalledTimes(1);
+  });
+
+  it("CR3: a redelivered merge during a /pay @moussa window keeps the recipient, one payment", async () => {
+    const s = windowSetup({ status: "on_hold" });
+    await s.move(ev("maintainer.pay", { actorLogin: "fatou", toLogin: "moussa" }));
+    await s.bus.publish(ev("pr.merged", { prNumber: 2, ciGreen: true }));
+    await s.fireAll();
+    expect(s.startPayout).toHaveBeenCalledTimes(1);
+    expect(s.startPayout).toHaveBeenCalledWith(expect.objectContaining({ userId: "github:moussa" }));
+  });
+
+  it("CR3: /pay @moussa → /hold → plain /pay → the claimant is paid, once", async () => {
+    const s = windowSetup({ status: "on_hold" });
+    await s.move(ev("maintainer.pay", { actorLogin: "fatou", toLogin: "moussa" }));
+    await s.move(ev("maintainer.hold", { actorLogin: "fatou" }));
+    await s.move(ev("maintainer.pay", { actorLogin: "fatou" }));
+    await s.fireAll();
+    expect(s.startPayout).toHaveBeenCalledTimes(1);
+    expect(s.startPayout).toHaveBeenCalledWith(expect.objectContaining({ userId: "github:awa" }));
+  });
+
+  it("CR3: /pay @moussa → /reject during the window → nothing is paid", async () => {
+    const s = windowSetup({ status: "on_hold" });
+    await s.move(ev("maintainer.pay", { actorLogin: "fatou", toLogin: "moussa" }));
+    await s.move(ev("maintainer.hold", { actorLogin: "fatou" }));
+    await s.move(ev("maintainer.reject", { actorLogin: "fatou", reason: "no" }));
+    await s.fireAll();
+    expect(s.startPayout).not.toHaveBeenCalled();
   });
 
   it("a redelivered merge during the window → one payout, one payment", async () => {

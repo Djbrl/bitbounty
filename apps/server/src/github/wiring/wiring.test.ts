@@ -304,6 +304,97 @@ describe("/pay (CR2: /pay now skips the objection window)", () => {
   });
 });
 
+describe("/pay @user (CR3: pays @user, not the claimant)", () => {
+  const WINDOW_MS = 24 * 60 * 60_000;
+  let asked: string[];
+  async function claimedWithSettlement(accounts: string[] | null = ["moussa"]) {
+    asked = [];
+    if (accounts) {
+      deps.hasPayoutAccount = async (l) => {
+        asked.push(l);
+        return accounts.includes(l.toLowerCase());
+      };
+    }
+    const timers: Array<{ fn: () => void; ms: number }> = [];
+    const started: PayoutRequest[] = [];
+    new Settlement({
+      repo,
+      bus,
+      startPayout: async (req) => void started.push(req),
+      objectionMs: WINDOW_MS,
+      schedule: (fn, ms) => void timers.push({ fn, ms }),
+      log: { info() {}, warn() {}, error() {} },
+    }).register();
+    await run("/bounty 10000");
+    await fund();
+    await run("/claim", { login: "awa" });
+    const fire = async () => {
+      for (const t of timers.splice(0)) t.fn();
+      for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));
+    };
+    return { timers, started, fire };
+  }
+
+  it("/pay @moussa pays moussa, not the claimant awa", async () => {
+    const s = await claimedWithSettlement();
+    expect((await run("/pay @moussa")).kind).toBe("applied");
+    expect(asked).toEqual(["moussa"]);
+    expect(bus.published.at(-1)).toMatchObject({ type: "maintainer.pay", toLogin: "moussa" });
+    expect(s.timers.map((t) => t.ms)).toEqual([WINDOW_MS]);
+    await s.fire();
+    expect(s.started).toEqual([{ bountyId: repo.all()[0]!.id, userId: "github:moussa", amountXof: 10000 }]);
+  });
+
+  it("/pay @moussa now pays moussa at once", async () => {
+    const s = await claimedWithSettlement();
+    await run("/pay @moussa now");
+    expect(s.timers.map((t) => t.ms)).toEqual([0]);
+    await s.fire();
+    expect(s.started.map((r) => r.userId)).toEqual(["github:moussa"]);
+  });
+
+  it("/pay @ghost without a payout account is refused: clear reply, bounty unchanged, no money moves", async () => {
+    const s = await claimedWithSettlement();
+    const out = await run("/pay @ghost");
+    expect(out.kind).toBe("replied");
+    expect(replies().at(-1)!.body).toBe(
+      "@maintainer-demo @ghost has no verified payout account, so I can't pay them. Nothing was paid. " +
+        "They can add a Lightning Address at https://bitbounty.test/me, then run `/pay @ghost` again.",
+    );
+    expect(repo.all()[0]!.status).toBe("claimed");
+    expect(bus.published.some((e) => e.type === "maintainer.pay")).toBe(false);
+    await s.fire();
+    expect(s.started).toHaveLength(0);
+  });
+
+  it("refused when payout accounts can't be checked (no lookup configured, or it throws)", async () => {
+    await claimedWithSettlement(null);
+    expect((await run("/pay @moussa")).kind).toBe("replied");
+    deps.hasPayoutAccount = async () => {
+      throw new Error("db down");
+    };
+    expect((await run("/pay @moussa")).kind).toBe("replied");
+    expect(repo.all()[0]!.status).toBe("claimed");
+  });
+
+  it("plain /pay still pays the claimant and doesn't look up an account", async () => {
+    const s = await claimedWithSettlement();
+    await run("/pay");
+    expect(asked).toEqual([]);
+    expect("toLogin" in bus.published.at(-1)!).toBe(false);
+    await s.fire();
+    expect(s.started.map((r) => r.userId)).toEqual(["github:awa"]);
+  });
+
+  it("an illegal /pay @user gets the transition error, not an account lookup", async () => {
+    await run("/bounty 10000");
+    deps.hasPayoutAccount = async () => true;
+    const out = await run("/pay @moussa");
+    expect(out.kind).toBe("replied");
+    expect(replies().at(-1)!.body).toContain("isn't funded yet");
+  });
+});
+
 describe("silence", () => {
   it("ignores bots (including itself) without any API call", async () => {
     const out = await run("/bounty 10000", { login: "bitbounty-dakar[bot]", type: "Bot" });
