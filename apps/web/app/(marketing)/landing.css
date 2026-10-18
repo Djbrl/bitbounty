@@ -47,25 +47,23 @@
 .bb-landing .pill.green { background: var(--green); color: #fff; }
 .bb-landing .pill.green:hover { background: #0E5A32; color: #fff; }
 .bb-landing .pill.dark { background: var(--ink); color: #fff !important; }
-/* U6: secondary nav CTA ("Se connecter"), hairline pill next to the green "Installer sur GitHub". */
-.bb-landing .pill.line { border: 1px solid rgba(11,31,23,0.16); background: #fff; color: var(--ink); }
-.bb-landing .pill.line:hover { border-color: var(--ink); }
-.bb-landing .nav .pill + .pill { margin-left: -14px; }
 .bb-landing .nav .pill { white-space: nowrap; }
+/* Header CTA: GitHub mark + "Se connecter avec GitHub", white on green. */
+.bb-landing .nav .pill.gh { display: inline-flex; align-items: center; gap: 7px; }
+.bb-landing .nav .pill.gh svg { flex: 0 0 auto; }
 @media (max-width: 560px) {
   .bb-landing .nav-in { padding: 0 16px; gap: 8px; }
   .bb-landing .nav nav { gap: 16px; }
-  .bb-landing .nav .pill + .pill { margin-left: -8px; }
   .bb-landing .nav .pill { padding: 5px 10px; }
 }
 .bb-landing .link { font-weight: 600; padding: 12px 6px; }
 .bb-landing .ctas { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 
 /* hero */
-.bb-landing .hero { padding: 72px 22px 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; overflow: hidden; }
-.bb-landing .product { font-size: 21px; font-weight: 600; color: var(--green); }
-.bb-landing .hero h1 { font-size: clamp(48px, 7.4vw, 96px); line-height: 1.02; letter-spacing: -0.035em; }
-.bb-landing .sub { font-size: clamp(20px, 2.2vw, 28px); color: var(--text-2); font-weight: 500; }
+/* Compact hero: headline, CTAs and the laptop fit high in the first viewport, leaving room below
+   for the start of the story line (laptop width also tracks the viewport height). */
+.bb-landing .hero { padding: 28px 22px 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; overflow: hidden; }
+.bb-landing .hero h1 { font-size: clamp(42px, min(6.4vw, 8.5vh), 84px); line-height: 1.02; letter-spacing: -0.035em; }
 .bb-landing .hero-visual { margin-top: 56px; width: 100%; max-width: 1100px; display: flex; justify-content: center; align-items: flex-end; gap: 22px; flex-wrap: wrap; }
 .bb-landing .card { background: var(--white); color: var(--ink); border-radius: 22px; padding: 22px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
 .bb-landing .card b { font-size: 20px; line-height: 1.2; }
@@ -295,7 +293,7 @@
 }
 
 /* ---------- v6: laptop hero + story visuals ---------- */
-.bb-landing .laptop { margin-top: 56px; width: min(900px, 94vw); display: flex; flex-direction: column; align-items: center; }
+.bb-landing .laptop { margin-top: 12px; width: min(900px, 94vw, max(520px, calc((100svh - 440px) * 1.85)));display: flex; flex-direction: column; align-items: center; }
 .bb-landing .lid { width: 86%; background: #0E1411; border-radius: 20px 20px 0 0; padding: 14px 14px 0; box-shadow: 0 30px 70px rgba(11,31,23,0.18); }
 .bb-landing .screen { background: #FFFFFF; border-radius: 8px 8px 0 0; overflow: hidden; text-align: left; aspect-ratio: 16 / 10; display: flex; flex-direction: column; font-family: -apple-system, "Segoe UI", "Instrument Sans", sans-serif; letter-spacing: 0; color: #1F2328; }
 .bb-landing .base { width: 100%; height: 18px; background: linear-gradient(#D7DBD8, #B9BEBB); border-radius: 0 0 14px 14px; position: relative; }
@@ -416,6 +414,45 @@
 @media (prefers-reduced-motion: reduce) { .bb-landing .af-dots circle.tw, .bb-landing .af-pulse { animation: none; } }
 @media (max-width: 760px) { .bb-landing .v-map { width: calc(100vw - 96px); } }
 .bb-landing .v-checks li.v-integr { display: block; }
+
+/* ---------- story v5: command cards on every stop, PR card, tighter rhythm ---------- */
+.bb-landing .g-stop p.g-note { font-size: 15px; color: var(--muted); max-width: 340px; margin: 0; }
+.bb-landing .g-stop p.g-note b { color: var(--ink); }
+.bb-landing .v-stack { display: flex; flex-direction: column; gap: 14px; width: min(440px, 42vw); align-items: stretch; }
+.bb-landing .v-stack > .v-card, .bb-landing .v-stack > .v-map, .bb-landing .v-stack > .v-flow, .bb-landing .v-stack > .v-merged { width: auto; }
+.bb-landing .v-stack .v-map { padding: 14px; gap: 10px; }
+.bb-landing .v-stack .africa { max-height: 300px; }
+.bb-landing .v-card-sm { padding: 14px 16px; gap: 10px; text-align: left; }
+.bb-landing .v-card-sm .v-code { font-size: 20px; padding: 9px 12px; }
+.bb-landing .v-bot-head { border-top: 0; padding-top: 0; }
+.bb-landing .v-reply { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 15px; color: #59636E; }
+.bb-landing .v-reply b { color: var(--ink); }
+.bb-landing .v-btn { margin-left: auto; background: var(--green); color: #fff; border-radius: 8px; padding: 7px 12px; font-weight: 700; font-size: 14px; }
+.bb-landing .v-pr { width: min(440px, 42vw); background: #fff; border: 1px solid #D1D9E0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; text-align: left; box-shadow: 0 18px 40px rgba(11,31,23,0.08); }
+.bb-landing .v-pr-head { display: flex; align-items: center; gap: 10px; }
+.bb-landing .v-pr-open { display: inline-flex; align-items: center; gap: 6px; background: #1F883D; color: #fff; border-radius: 99px; padding: 5px 12px; font-size: 13px; font-weight: 700; }
+.bb-landing .v-pr-num { color: #59636E; font-size: 15px; }
+.bb-landing .v-pr-title { font-size: 21px; line-height: 1.2; letter-spacing: -0.01em; }
+.bb-landing .v-pr-meta { display: flex; gap: 10px; align-items: center; font-size: 14px; color: #59636E; }
+.bb-landing .v-pr-meta b { color: var(--ink); }
+.bb-landing .v-pr-meta code { font-family: var(--mono); font-size: 12.5px; background: #DDF4FF; color: #0969DA; border-radius: 6px; padding: 1px 6px; }
+.bb-landing .v-pr-body { font-size: 15px; background: #F6F8FA; border: 1px solid #D1D9E0; border-radius: 10px; padding: 10px 12px; color: var(--purple); font-weight: 700; }
+.bb-landing .v-pr-checks { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid #EEF1F4; display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #59636E; }
+.bb-landing .v-pr-checks li { display: flex; gap: 10px; align-items: center; }
+.bb-landing .v-pr-checks b { color: var(--ink); }
+.bb-landing .v-pr-checks i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #E6C35C; border-top-color: transparent; flex: 0 0 auto; }
+.bb-landing .v-pr-checks i.spin { animation: bbl-spin 0.9s linear infinite; }
+@keyframes bbl-spin { to { transform: rotate(360deg); } }
+.bb-landing .v-checks-head { font-size: 15px; font-weight: 500; color: #59636E; border-bottom: 1px solid #EEF1F4; padding-bottom: 10px; }
+.bb-landing .v-checks-head b { color: var(--ink); }
+.bb-landing .v-cmds { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); }
+.bb-landing .v-cmds span { margin-right: 4px; }
+.bb-landing .v-cmds code { font-family: var(--mono); font-size: 14px; background: #F6F8FA; border: 1px solid #D1D9E0; border-radius: 8px; padding: 4px 9px; color: var(--ink); }
+@media (max-width: 760px) {
+  .bb-landing .v-stack, .bb-landing .v-pr { width: calc(100vw - 96px); }
+  .bb-landing .v-stack .africa { max-height: 240px; }
+}
+@media (prefers-reduced-motion: reduce) { .bb-landing .v-pr-checks i.spin { animation: none; } }
 
 /* Undo the app's Tailwind preflight inside the landing so it renders as the standalone page did
    (browser defaults). Zero specificity, so every landing rule above still wins. SVG internals are left
