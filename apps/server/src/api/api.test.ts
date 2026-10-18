@@ -2,6 +2,7 @@ import { createBounty, transition, type Bounty, type InternalEvent } from "@bitb
 import { describe, expect, it } from "vitest";
 import { InMemoryBountyRepo } from "../bounties/repo.js";
 import { FundingError } from "../funding/lightning.js";
+import { InMemoryNgnAccountStore } from "../funding/ngn.js";
 import { InMemoryFundingStore, type FundingRecord } from "../funding/store.js";
 import { InMemoryEventBus } from "../github/pr/fakes.js";
 import { InMemoryPayoutStore } from "../payouts/store.js";
@@ -237,6 +238,84 @@ describe("GET /api/live (SSE)", () => {
     await bus.publish(moved.event);
     await readUntil(/event: transition\ndata: .*\n\n/);
     expect(text).toMatch(/"event":"claim.created","from":"funded","to":"claimed","text":"Claimed by @awa"/);
+    expect(text).toContain('"route":null}'); // Lightning-funded: no Lagos route
+    expect(text.split("event: transition")[1]).not.toContain('"route"');
     await reader.cancel();
+  });
+
+  /** A 10 000 FCFA bounty funded with ₦27 000 from Lagos (B4), its naira sold for 18 000 sats. */
+  async function lagos(n: number) {
+    const ngnAccounts = new InMemoryNgnAccountStore();
+    const ctx = await setup({ ngnAccounts });
+    const b = await ctx.story(n, "chidi", [(x) => ({ ...fund(x), rail: "ngn", fundingId: `f-${n}` })]);
+    await ctx.fundings.create({
+      id: `f-${n}`, bountyId: b.id, funderId: "lagos", rail: "ngn", sourceAmount: 2_700_000, sourceCurrency: "NGN", bitnobRef: "va-1",
+      paymentHash: null, paymentRequest: null, status: "paid", paidAt: at(1), amountXof: 10_000, feeXof: 500, bufferXof: 300, expiresAt: null, createdAt: at(0),
+    });
+    await ngnAccounts.create({
+      fundingId: `f-${n}`, bountyId: b.id, virtualAccountId: "va-1", accountNumber: "9000000001", accountName: "Ada", bankName: "Sandbox",
+      requiredNaira: 27_000, receivedKobo: 2_700_000, depositRefs: ["d1"], state: "converted", claimedKobo: 2_700_000, orderAttempt: 1,
+      orderReference: `ngn-f-${n}-1`, quoteId: "q1", orderId: "o1", btcReceived: "0.00018", lastError: null,
+    });
+    return { ...ctx, b };
+  }
+  const read = async (res: Response) => {
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let text = "";
+    return {
+      reader,
+      until: async (re: RegExp) => {
+        while (!re.test(text)) text += dec.decode((await reader.read()).value);
+        return text;
+      },
+    };
+  };
+
+  it("I4: the snapshot carries the Lagos route of the newest naira-funded bounty (also as JSON for the first paint)", async () => {
+    const { routes, story, b } = await lagos(1);
+    await story(2, "fatou", [fund]); // newer, but funded over Lightning: no route
+    const want = { bountyId: b.id, ngn: 27_000, satsBought: 18_000, xof: 10_000, feeXof: 500, bufferXof: 300, sats: null, xofPerBtc: null };
+
+    const json = (await (await routes.request("/api/live?format=json")).json()) as { cards: { bountyId: string }[]; route: unknown };
+    expect(json.cards.map((c) => c.bountyId)).toEqual([uuid(2), uuid(1)]);
+    expect(json.route).toEqual(want);
+
+    const sse = await read(await routes.request("/api/live"));
+    const text = await sse.until(/event: snapshot\ndata: .*\n\n/);
+    expect(JSON.parse(text.match(/data: (.*)\n/)![1]!).route).toEqual(want);
+    await sse.reader.cancel();
+  });
+
+  it("I4: a naira-funded bounty's transitions carry its route, the payout leg once paid", async () => {
+    const { routes, repo, bus, payouts, b } = await lagos(1);
+    const sse = await read(await routes.request("/api/live"));
+    await sse.until(/event: snapshot\n/);
+    let current = b;
+    const step = async (ev: (x: Bounty) => InternalEvent) => {
+      const res = transition(current, ev(current));
+      if (!res.ok) throw new Error(res.message);
+      await repo.update(res.bounty, current.status);
+      current = res.bounty;
+      await bus.publish(res.event);
+    };
+    await step(claim("awa"));
+    await sse.until(/"event":"claim.created".*\n\n/); // sent before any payout exists
+    for (const ev of [pr, verify, merge, payStart]) await step(ev);
+    await payouts.create({
+      id: "p1", bountyId: b.id, userId: "github:awa", amountXof: 10_000, quoteId: null, bitnobPayoutId: null, reference: `pay-${b.id}`,
+      status: "succeeded", attempts: 1, lastError: null, paidAt: at(11), rail: "lightning", amountSats: 16_666, xofPerBtc: 60_000_000,
+    });
+    await step(paySuccess);
+    const text = await sse.until(/"event":"payout.succeeded".*\n\n/);
+    const transitions = [...text.matchAll(/event: transition\ndata: (.*)\n/g)].map((m) => JSON.parse(m[1]!) as { event: string; route?: { sats: number | null } });
+    expect(transitions.every((t) => t.route)).toBe(true);
+    expect(transitions[0]!.route!.sats).toBeNull();
+    expect(transitions.at(-1)).toMatchObject({
+      event: "payout.succeeded",
+      to: "paid",
+      route: { bountyId: b.id, ngn: 27_000, satsBought: 18_000, xof: 10_000, sats: 16_666, xofPerBtc: 60_000_000 },
+    });
+    await sse.reader.cancel();
   });
 });

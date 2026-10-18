@@ -18,8 +18,11 @@ export class FakeBitnob {
     ngnPerUsdt: async () => 1_500,
   };
 
+  /** Per instance, so runs sharing one database (I4 `readSide`) never get the same account or payment id. */
+  private readonly tag = Math.random().toString(36).slice(2, 8);
+
   private id(prefix: string) {
-    return `${prefix}-${++this.n}`;
+    return `${prefix}-${this.tag}-${++this.n}`;
   }
 
   async createCustomer() {
@@ -70,16 +73,25 @@ export class FakeBitnob {
       new_balance: "0",
     };
   }
+  /** Sells naira at the fake's own rates, so the Lagos route adds up (I4): ₦ ÷ NGN/USDT [÷ USDT/BTC]. */
   async createTradingQuote(input: { quantity: string; quote_currency: string }): Promise<TradingQuote> {
+    const [ngnUsdt, usdtBtc] = await Promise.all([this.rates.ngnPerUsdt(), this.rates.usdtPerBtc()]);
+    const perNaira = input.quote_currency === "BTC" ? 1 / (ngnUsdt * usdtBtc) : 1 / ngnUsdt;
+    const decimals = input.quote_currency === "BTC" ? 8 : 6;
     return {
       id: this.id("q"),
       base_currency: "NGN",
       quote_currency: input.quote_currency,
       side: "SELL",
       quantity: input.quantity,
-      price: "0.0000000067",
+      price: perNaira.toFixed(12),
       expires_at: new Date(Date.now() + 30_000).toISOString(),
-      exchange: { send_quantity: input.quantity, send_currency: "NGN", receive_quantity: "0.0002", receive_currency: input.quote_currency },
+      exchange: {
+        send_quantity: input.quantity,
+        send_currency: "NGN",
+        receive_quantity: (Number(input.quantity) * perNaira).toFixed(decimals),
+        receive_currency: input.quote_currency,
+      },
     };
   }
   async createTradingOrder(input: { quote_id: string; reference: string; quantity: string }) {

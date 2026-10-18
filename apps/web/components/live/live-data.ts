@@ -4,23 +4,35 @@
 import type { BountyStatus, Live, LiveEvent } from "../../../../fixtures/types";
 
 export type LiveCard = Live["cards"][number];
-export type LiveTransition = LiveEvent;
+
+/**
+ * Lagos → Dakar panel (I4): a naira-funded bounty, naira → bitcoin → FCFA. Built by the server
+ * (apps/server/src/api/live-route.ts) from the stored records; legs not known yet are null.
+ */
+export interface LiveRoute {
+  bountyId: string;
+  /** Naira paid for the bounty (whole ₦): the funding record's amount. */
+  ngn: number;
+  /** Sats the naira bought (NGN → BTC order), when known. */
+  satsBought: number | null;
+  /** FCFA the bounty is worth (what the developer receives). */
+  xof: number;
+  /** 5% fee and 3% buffer the naira also paid for, when the funding record has them. */
+  feeXof: number | null;
+  bufferXof: number | null;
+  /** Sats the developer received over Lightning (B6), once the payout exists. */
+  sats: number | null;
+  /** FCFA per BTC the payout used. */
+  xofPerBtc: number | null;
+}
+
+/** A transition; on a naira-funded bounty it carries the route with the legs known so far. */
+export type LiveTransition = LiveEvent & { route?: LiveRoute };
 
 /** What the screen holds: lane order + every card with its current status. */
 export interface LiveState {
   columns: BountyStatus[];
   cards: LiveCard[];
-}
-
-/** Lagos → Dakar panel: an NGN-funded bounty followed across the board. */
-export interface LiveRoute {
-  bountyId: string;
-  /** Naira paid in (whole ₦). */
-  ngn: number;
-  /** FCFA the bounty is worth. */
-  xof: number;
-  /** Sats the developer received over Lightning (B6), when known. */
-  sats: number | null;
 }
 
 export interface LiveSnapshot extends LiveState {
@@ -30,23 +42,61 @@ export interface LiveSnapshot extends LiveState {
 /** Default lane order if a snapshot comes without columns. */
 export const LIVE_COLUMNS: BountyStatus[] = ["funded", "claimed", "submitted", "verified", "paying", "paid"];
 
-export interface RouteBounty {
-  id: string;
-  fundings: { sourceCurrency: string; sourceAmount: number; status: string }[];
-  payout: { amountXof: number; amountSats?: number | null } | null;
+const count = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
+
+/** A route from the wire, or null if it lacks the bounty, the naira or the FCFA. Unknown legs become null. */
+export function parseRoute(raw: unknown): LiveRoute | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const ngn = count(r.ngn);
+  const xof = count(r.xof);
+  if (typeof r.bountyId !== "string" || !r.bountyId || !ngn || !xof) return null;
+  return {
+    bountyId: r.bountyId,
+    ngn,
+    satsBought: count(r.satsBought) || null,
+    xof,
+    feeXof: count(r.feeXof),
+    bufferXof: count(r.bufferXof),
+    sats: count(r.sats) || null,
+    xofPerBtc: count(r.xofPerBtc) || null,
+  };
 }
 
-/** First live card funded in naira (minor units → whole ₦) and paid out in sats over Lightning. */
+/** After a snapshot: the server's names the route (or none); one without `route` (fixture stream) keeps the current one. */
+export function routeAfterSnapshot(current: LiveRoute | null, s: { route?: unknown }): LiveRoute | null {
+  return "route" in s ? parseRoute(s.route) : current;
+}
+
+/** After a transition: a naira-funded bounty's carries its route, with the legs known so far (newest wins). */
+export function routeAfterTransition(current: LiveRoute | null, ev: { route?: unknown }): LiveRoute | null {
+  return parseRoute(ev.route) ?? current;
+}
+
+/** Fixture bounty detail: just what the route needs. */
+export interface RouteBounty {
+  id: string;
+  amountXof: number;
+  fundings: { sourceCurrency: string; sourceAmount: number; status: string; feeXof?: number; bufferXof?: number }[];
+  payout: { amountSats?: number | null; xofPerBtc?: number | null } | null;
+}
+
+/** Fixtures only: first live card funded in naira (kobo → whole ₦), same shape as the server's route. */
 export function findRoute(all: RouteBounty[], cards: LiveCard[]): LiveRoute | null {
   for (const card of cards) {
     const b = all.find((x) => x.id === card.bountyId);
     const f = b?.fundings.find((x) => x.sourceCurrency === "NGN" && x.status === "paid");
     if (!b || !f) continue;
+    const breakdown = (f.feeXof ?? 0) + (f.bufferXof ?? 0) > 0;
     return {
       bountyId: b.id,
-      ngn: Math.round(f.sourceAmount / 100),
-      xof: b.payout?.amountXof ?? card.amountXof,
+      ngn: Math.floor(f.sourceAmount / 100),
+      satsBought: null,
+      xof: b.amountXof,
+      feeXof: breakdown ? (f.feeXof ?? 0) : null,
+      bufferXof: breakdown ? (f.bufferXof ?? 0) : null,
       sats: b.payout?.amountSats ?? null,
+      xofPerBtc: b.payout?.xofPerBtc ?? null,
     };
   }
   return null;
@@ -95,9 +145,11 @@ export function reconnectDelay(attempt: number): number {
   return Math.min(1000 * 2 ** attempt, 10_000);
 }
 
-/** Lagos → Dakar progress for the route card: 0 = naira in, 1 = bitcoin, 2 = sats in the developer's Lightning wallet. */
-export function routeStage(status: BountyStatus | undefined): 0 | 1 | 2 {
-  if (status === "paid") return 2;
-  if (status === "verified" || status === "paying") return 1;
-  return 0;
+/**
+ * Lagos → Dakar progress for the route card: 1 = naira in and sold for bitcoin (a route exists only
+ * once the naira funding is paid, and B4 converts before it marks it paid), 2 = sats in the
+ * developer's Lightning wallet.
+ */
+export function routeStage(status: BountyStatus | undefined): 1 | 2 {
+  return status === "paid" ? 2 : 1;
 }

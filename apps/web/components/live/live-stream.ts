@@ -1,12 +1,16 @@
-// SSE client for `GET /api/live`: one `snapshot` {columns, cards}, then `transition` events.
+// SSE client for `GET /api/live`: one `snapshot` {columns, cards, route?}, then `transition` events
+// (a naira-funded bounty's transition carries its `route`, I4).
 // Reconnects with backoff when the stream drops; every (re)connect starts with a fresh snapshot,
 // so the board resyncs on its own. I1 keeps the same URL and event names.
 import { reconnectDelay, type LiveState, type LiveTransition } from "./live-data";
 
 export type LiveConnection = "connecting" | "live" | "reconnecting";
 
+/** The server's snapshot has `route` (null when no naira-funded bounty is on the board); the fixture stream has none. */
+export type LiveSnapshotMessage = LiveState & { route?: unknown };
+
 export interface LiveHandlers {
-  onSnapshot: (s: LiveState) => void;
+  onSnapshot: (s: LiveSnapshotMessage) => void;
   onTransition: (ev: LiveTransition) => void;
   onConnection: (c: LiveConnection) => void;
 }
@@ -48,7 +52,7 @@ export function connectLive(
     es = make(url);
     es.onopen = () => h.onConnection("live");
     es.addEventListener("snapshot", (e) => {
-      const s = parse<LiveState>(e);
+      const s = parse<LiveSnapshotMessage>(e);
       if (!s) return;
       attempt = 0;
       h.onConnection("live");

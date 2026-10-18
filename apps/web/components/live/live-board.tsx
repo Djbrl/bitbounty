@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { cx, formatSats, formatXof, Mark, statusMeta, TONE_DOT, type BountyStatus } from "../ui";
+import { cx, formatNgn, formatSats, formatXof, Mark, statusMeta, TONE_DOT, type BountyStatus } from "../ui";
 import {
   applyTransition,
   countInFlight,
   countPaid,
   groupByColumn,
+  routeAfterSnapshot,
+  routeAfterTransition,
   routeStage,
   shortRepo,
   totalPaid,
@@ -43,6 +45,7 @@ type CardRef = (el: HTMLElement | null) => void | (() => void);
 /** Full-screen kanban for the projector: cards slide between lanes as transitions arrive. */
 export function LiveBoard({ initial, speed = 1, stream = true }: LiveBoardProps) {
   const [state, setState] = useState<LiveState>({ columns: initial.columns, cards: initial.cards });
+  const [route, setRoute] = useState<LiveRoute | null>(initial.route);
   const [conn, setConn] = useState<LiveConnection>(stream ? "connecting" : "live");
   const [last, setLast] = useState<LiveTransition | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -57,10 +60,12 @@ export function LiveBoard({ initial, speed = 1, stream = true }: LiveBoardProps)
     return connectLive(liveUrl(speed), {
       onSnapshot: (s) => {
         setState({ columns: s.columns?.length ? s.columns : initial.columns, cards: s.cards ?? [] });
+        setRoute((prev) => routeAfterSnapshot(prev, s));
         setLast(null);
       },
       onTransition: (ev) => {
         const card = cardsRef.current.find((c) => c.bountyId === ev.bountyId);
+        setRoute((prev) => routeAfterTransition(prev, ev));
         setState((prev) => applyTransition(prev, ev));
         setLast(ev);
         if (ev.to === "paid" && card) setToast({ key: ++toastSeq.current, card: { ...card, status: "paid" }, text: ev.text });
@@ -79,7 +84,7 @@ export function LiveBoard({ initial, speed = 1, stream = true }: LiveBoardProps)
   const flip = useFlip(state.cards);
   const lanes = groupByColumn(state);
   const paidXof = totalPaid(state.cards);
-  const routeStatus = initial.route ? state.cards.find((c) => c.bountyId === initial.route?.bountyId)?.status : undefined;
+  const routeStatus = route ? state.cards.find((c) => c.bountyId === route.bountyId)?.status : undefined;
 
   return (
     <div data-theme="dark" className="relative flex min-h-dvh flex-col gap-[clamp(14px,1.6vw,28px)] overflow-x-clip bg-forest px-4 py-5 text-ink sm:px-[clamp(16px,2.2vw,44px)] sm:py-[clamp(18px,2vw,36px)]">
@@ -105,7 +110,7 @@ export function LiveBoard({ initial, speed = 1, stream = true }: LiveBoardProps)
       </section>
 
       <footer className="grid gap-[clamp(10px,0.9vw,18px)] lg:grid-cols-[1.2fr_1fr]">
-        {initial.route ? <RoutePanel route={initial.route} stage={routeStage(routeStatus)} /> : <div />}
+        {route ? <RoutePanel route={route} status={routeStatus} /> : <div />}
         <div className="grid grid-cols-3 gap-3 rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(12px,1vw,20px)]">
           <BigCount value={String(countPaid(state.cards))} label="paid" />
           <BigCount value={formatXof(paidXof)} label="paid out in FCFA" bumpKey={paidXof} />
@@ -192,20 +197,50 @@ function LiveCardView({ card, hot, ref }: { card: LiveCard; hot: boolean; ref: C
   );
 }
 
-function RoutePanel({ route, stage }: { route: LiveRoute; stage: 0 | 1 | 2 }) {
+/** The sums behind the route, from the same records (I4): what the naira paid for, and the payout's rate. */
+function routeSums(route: LiveRoute): string[] {
+  const lines: string[] = [];
+  if (route.feeXof !== null && route.bufferXof !== null) {
+    const total = route.xof + route.feeXof + route.bufferXof;
+    lines.push(
+      `${formatNgn(route.ngn)} paid for ${formatXof(total)} = ${formatXof(route.xof)} bounty + ${formatXof(route.feeXof)} fee + ${formatXof(route.bufferXof)} buffer`,
+    );
+  }
+  if (route.sats && route.xofPerBtc) lines.push(`${formatXof(route.xof)} paid as ${formatSats(route.sats)} at ${formatXof(route.xofPerBtc)}/BTC`);
+  return lines;
+}
+
+function RoutePanel({ route, status }: { route: LiveRoute; status: BountyStatus | undefined }) {
+  const stage = routeStage(status);
   const nodes = [
-    { big: `₦${formatXof(route.ngn).replace(/\s*F$/, "")}`, small: "bank transfer · Lagos" },
-    { big: "₿", small: "bitcoin" },
-    { big: formatXof(route.xof), small: `${route.sats ? formatSats(route.sats) : "Lightning"} · Dakar` },
+    { big: formatNgn(route.ngn), small: "bank transfer · Lagos" },
+    { big: route.satsBought ? formatSats(route.satsBought) : "₿", small: "bitcoin · NGN → BTC" },
+    {
+      big: formatXof(route.xof),
+      small: route.sats ? `${formatSats(route.sats)} · Lightning · Dakar` : status === "paying" ? "paying · Dakar" : "FCFA · Dakar",
+    },
   ];
   return (
-    <div className="grid gap-3 rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(12px,1vw,20px)]">
-      <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-2">
+    <section
+      aria-label="Lagos to Dakar route"
+      data-route={route.bountyId}
+      className="grid min-w-0 gap-2 rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(12px,1vw,20px)]"
+    >
+      <h2 className="m-0 flex flex-wrap items-baseline justify-between gap-x-3 text-[clamp(0.8rem,0.85vw,1.1rem)] font-semibold text-muted">
+        <span className="text-ink">Lagos → Dakar</span>
+        <span className="font-normal">naira → bitcoin → FCFA</span>
+      </h2>
+      <div className="grid grid-cols-[minmax(0,auto)_minmax(8px,1fr)_minmax(0,auto)_minmax(8px,1fr)_minmax(0,auto)] items-center gap-1.5 sm:gap-2">
         {nodes.map((n, i) => (
           <RouteNode key={n.small} big={n.big} small={n.small} on={i <= stage} seg={i < nodes.length - 1} segOn={i < stage} />
         ))}
       </div>
-    </div>
+      {routeSums(route).map((line) => (
+        <p key={line} className="m-0 font-mono text-[clamp(0.7rem,0.75vw,0.95rem)] text-muted">
+          {line}
+        </p>
+      ))}
+    </section>
   );
 }
 
