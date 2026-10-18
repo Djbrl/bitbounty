@@ -405,21 +405,34 @@ describe("restart safety (review #85, finding 4)", () => {
     await before.move(ev("maintainer.pay", { actorLogin: "fatou", toLogin: "other" }));
     await flush();
 
+    // Prior to restart: bounty recorded payeeLogin, payout row created for other, status is paying
     expect(await before.status()).toBe("paying");
-    const bounty = await before.repo.findById("b1");
-    expect(bounty?.payeeLogin).toBe("other");
+    const bountyBefore = await before.repo.findById("b1");
+    expect(bountyBefore?.payeeLogin).toBe("other");
 
-    const row = await before.store.getByBounty("b1");
-    expect(row).toBeDefined();
-    expect(row?.userId).toBe("github:other");
+    const rowBefore = await before.store.getByBounty("b1");
+    expect(rowBefore).toBeDefined();
+    expect(rowBefore?.userId).toBe("github:other");
 
-    // Restart: same bounty table and payout store, new server process
+    // Restart: fresh server process with new Bitnob client, sharing DB tables (repo and store)
     const after = windowSetup({ repo: before.repo, store: before.store, objectionMs: 0 });
+    after.fake.lnInitialStatus = "paid";
+
     await after.payouts.resume();
     await flush();
 
+    // Verify other was paid over Lightning
     expect(after.finalize).toHaveBeenCalledTimes(1);
-    expect(await after.status()).toBe("paying");
+    const rowAfter = await after.store.getByBounty("b1");
+    expect(rowAfter?.userId).toBe("github:other");
+    expect(rowAfter?.lightningAddress).toBe("other@blink.sv");
+    expect(rowAfter?.status).toBe("succeeded");
+    expect(await after.status()).toBe("paid");
+
+    // Exactly once: subsequent resume does not trigger duplicate payout
+    await after.payouts.resume();
+    await flush();
+    expect(after.finalize).toHaveBeenCalledTimes(1);
   });
 });
 
