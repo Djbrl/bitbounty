@@ -44,7 +44,8 @@ export const TONE_PILL: Record<Tone, string> = {
   claim: "bg-claim-soft text-claim",
   "claim-solid": "bg-claim text-on-solid",
   danger: "bg-danger-soft text-danger",
-  agent: "bg-agent-soft text-agent-strong",
+  // U8: agent-funded is a neutral ink chip, so it never reads as the purple "claimed" pill.
+  agent: "bg-chip text-ink",
   ink: "bg-ink text-paper",
 };
 
@@ -60,7 +61,7 @@ export const TONE_DOT: Record<Tone, string> = {
   claim: "bg-claim",
   "claim-solid": "bg-claim",
   danger: "bg-danger",
-  agent: "bg-agent",
+  agent: "bg-ink",
   ink: "bg-ink",
 };
 

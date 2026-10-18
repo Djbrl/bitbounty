@@ -77,12 +77,21 @@ export interface PageProps {
 
 const WIDTH = { narrow: "max-w-xl", default: "max-w-[1180px]", wide: "max-w-[1440px]" } as const;
 
-/** Page container: centred column, 16px gutter on phones, optional AppNav on top. */
+/**
+ * Page container: centred column, 16px gutter on phones, optional AppNav on top.
+ * U8: the AppNav always spans the default 1180px row (wide pages keep 1440px), so a narrow form page
+ * like /me gets the same header as /explore instead of a header squeezed into its 576px column.
+ */
 export function Page({ children, nav, width = "default", className }: PageProps) {
+  const column = "mx-auto w-full px-4 sm:px-6";
   return (
-    <div className={cx("mx-auto grid w-full gap-8 px-4 pb-16 pt-6 sm:px-6", WIDTH[width], className)}>
-      {nav && <AppNav right={<HeaderUser />} {...nav} />}
-      <main className="grid min-w-0 gap-12">{children}</main>
+    <div className={cx("grid w-full gap-8 pb-16 pt-6", className)}>
+      {nav && (
+        <div className={cx(column, WIDTH[width === "wide" ? "wide" : "default"])}>
+          <AppNav right={<HeaderUser />} {...nav} />
+        </div>
+      )}
+      <main className={cx(column, "grid min-w-0 gap-12", WIDTH[width])}>{children}</main>
     </div>
   );
 }

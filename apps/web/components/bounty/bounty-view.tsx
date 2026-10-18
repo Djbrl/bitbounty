@@ -71,7 +71,8 @@ export function BountyHeader({ b }: { b: BountyDetail }) {
         <Amount xof={b.amountXof} size="xl" money={b.status === "paid"} />
         <StatusPill status={b.status} />
         {b.funderKind === "agent" ? (
-          <Pill tone="agent" dot>
+          <Pill tone="agent">
+            <span aria-hidden>🤖</span>
             Funded by an agent · @{b.funderLogin}
           </Pill>
         ) : (

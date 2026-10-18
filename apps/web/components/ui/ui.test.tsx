@@ -81,6 +81,12 @@ describe("base components", () => {
     expect(formatSats(120000)).toBe("120 000 sats");
   });
 
+  it("keeps the agent-funded pill distinct from the purple claimed pill (U8)", () => {
+    expect(TONE_PILL.claim).toContain("bg-claim-soft");
+    expect(TONE_PILL.agent).toBe("bg-chip text-ink");
+    expect(TONE_PILL.agent).not.toMatch(/claim|agent/);
+  });
+
   it("renders Pill, Card, StatCard, Button, Table, PhoneFrame", () => {
     const html = renderToStaticMarkup(
       <div>
@@ -98,7 +104,7 @@ describe("base components", () => {
         <PhoneFrame fluid>screen</PhoneFrame>
       </div>,
     );
-    expect(html).toContain("bg-agent-soft text-agent");
+    expect(html).toContain("bg-chip text-ink");
     expect(html).toContain("border-ink");
     expect(html).toContain("text-money");
     expect(html).toContain('type="button"');
