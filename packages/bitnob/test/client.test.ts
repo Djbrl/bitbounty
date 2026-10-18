@@ -310,3 +310,71 @@ describe("review fixes (F5 post-merge)", () => {
     expect(parseRetryAfter("-1", NOW, 30_000)).toBeUndefined();
   });
 });
+
+describe("proxy mode (F7)", () => {
+  const TOKEN = "team-proxy-token";
+
+  it("sends the bearer token and X-Dev-User instead of HMAC headers, and needs no keys", async () => {
+    const { fetch, calls } = fakeFetch(ok({ environment: "sandbox" }));
+    const c = new BitnobClient({
+      clientId: "",
+      clientSecret: "",
+      baseUrl: "https://tunnel.example/dev/bitnob/",
+      proxyToken: TOKEN,
+      proxyUser: "awa",
+      fetch,
+    });
+    expect(c.proxyMode).toBe(true);
+    expect((await c.whoami()).environment).toBe("sandbox");
+    const call = calls[0]!;
+    expect(call.url).toBe("https://tunnel.example/dev/bitnob/api/whoami");
+    expect(header(call, "authorization")).toBe(`Bearer ${TOKEN}`);
+    expect(header(call, "x-dev-user")).toBe("awa");
+    expect(header(call, "x-auth-signature")).toBeUndefined();
+    expect(header(call, "x-auth-client")).toBeUndefined();
+  });
+
+  it("is read from BITNOB_PROXY_TOKEN / BITNOB_BASE_URL / BITNOB_PROXY_USER", () => {
+    expect(
+      readBitnobConfig({
+        BITNOB_PROXY_TOKEN: ` ${TOKEN} `,
+        BITNOB_BASE_URL: "https://tunnel.example/dev/bitnob",
+        BITNOB_PROXY_USER: "awa",
+      }),
+    ).toEqual({
+      clientId: "",
+      clientSecret: "",
+      baseUrl: "https://tunnel.example/dev/bitnob",
+      proxyToken: TOKEN,
+      proxyUser: "awa",
+    });
+    expect(() => readBitnobConfig({ BITNOB_PROXY_TOKEN: TOKEN })).toThrow("BITNOB_BASE_URL");
+  });
+
+  it("never shows the proxy token in inspect() or JSON", () => {
+    const c = new BitnobClient({ clientId: "", clientSecret: "", baseUrl: "https://t.example", proxyToken: TOKEN });
+    expect(inspect(c, { depth: 10, showHidden: true })).not.toContain(TOKEN);
+    expect(JSON.stringify(c)).not.toContain(TOKEN);
+  });
+
+  it("still requires keys without a proxy token", () => {
+    expect(() => new BitnobClient({ clientId: "", clientSecret: "" })).toThrow("required");
+  });
+});
+
+describe("forward (dev proxy upstream)", () => {
+  it("makes one signed attempt and returns status and body unchanged, even on 5xx", async () => {
+    const { fetch, calls } = fakeFetch(new Response("oops", { status: 502, headers: { "content-type": "text/plain" } }));
+    const r = await client(fetch).forward("POST", "/api/customers", '{"a":1}');
+    expect(r).toEqual({ status: 502, contentType: "text/plain", body: "oops" });
+    expect(calls).toHaveLength(1);
+    expect(header(calls[0]!, "x-auth-signature")).toBe(signature(ID, SECRET, "1792249200", "nonce1", '{"a":1}'));
+  });
+
+  it("refuses paths outside /api/ on the configured host", async () => {
+    const { fetch, calls } = fakeFetch();
+    await expect(client(fetch).forward("GET", "/x")).rejects.toThrow(BitnobError);
+    await expect(client(fetch).forward("GET", "@evil.example/api/")).rejects.toThrow(BitnobError);
+    expect(calls).toHaveLength(0);
+  });
+});

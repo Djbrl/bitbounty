@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./session-login", () => ({ sessionLogin: async () => "fatou" }));
 
-import { ApiError, apiBaseUrl, apiGet, errorText, identityHeaders, load } from "./api";
+import { AUTH_ERROR_DIGEST, AUTH_ERROR_TEXT, ApiError, apiBaseUrl, apiGet, errorText, identityHeaders, isAuthError, load } from "./api";
 import { proxy } from "./api-proxy";
 
 const env = { BITBOUNTY_API_URL: "http://api.test/", INTERNAL_API_TOKEN: "tok" };
@@ -35,6 +35,23 @@ describe("apiGet", () => {
   it("404 → null; 5xx → ApiError with the server's code", async () => {
     expect(await apiGet("/api/bounties/x", { env, fetchImpl: fetchReturning(404, { error: "bounty_not_found" }) })).toBeNull();
     await expect(apiGet("/api/board", { env, fetchImpl: fetchReturning(500, { error: "boom" }) })).rejects.toMatchObject({ status: 500, code: "boom" });
+  });
+
+  it("401/403 → auth-specific message, also once production Next.js has stripped the message (digest only)", async () => {
+    for (const status of [401, 403]) {
+      const err = (await apiGet("/api/dashboard", { env, fetchImpl: fetchReturning(status, { error: "unauthorized" }) }).catch((e: unknown) => e)) as ApiError;
+      expect(err).toMatchObject({ status, digest: AUTH_ERROR_DIGEST });
+      expect(isAuthError(err)).toBe(true);
+      expect(errorText(err)).toBe(AUTH_ERROR_TEXT);
+      expect(errorText(err)).not.toMatch(/ne répond pas/);
+    }
+    // What the browser's error boundary receives in production: a generic message and the digest.
+    const prod = Object.assign(new Error("An error occurred in the Server Components render."), { digest: AUTH_ERROR_DIGEST });
+    expect(errorText(prod)).toBe(AUTH_ERROR_TEXT);
+    expect(errorText(Object.assign(new Error("x"), { digest: `${AUTH_ERROR_DIGEST}@E394` }))).toBe(AUTH_ERROR_TEXT);
+    // Other failures keep their generic message and a hashed digest.
+    expect(new ApiError(500, "boom").digest).toBeUndefined();
+    expect(errorText(Object.assign(new Error("x"), { digest: "123456" }))).toMatch(/ne répond pas ou a renvoyé une erreur/);
   });
 
   it("server down or too slow → ApiError the error page can explain", async () => {

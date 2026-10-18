@@ -32,6 +32,12 @@ Each step checks the bounty's status, and the run checks the internal events com
 - funding, PR and payout events → status comment re-rendered.
 Where to pay comes from `PAYOUT_ACCOUNTS` (by GitHub login) until W4/B3 store verified accounts.
 
+### Safety rules (review of #85)
+- **The objection window re-checks.** When the timer fires, the bounty is read again and the payout starts only if it is still `verified`. `/hold` or `/reject` during the window cancel the timer; `/hold` then `/pay` starts a new window and pays once. A redelivered merge replaces the pending timer, it doesn't add one.
+- **`OBJECTION_WINDOW_MINUTES` is checked at boot:** a number of minutes from 0 to 35791 (Node's timer limit), empty = 0. Anything else (`abc`, `-5`, `1e3`) and the server refuses to start, instead of paying at once.
+- **No `PAYOUT_ACCOUNTS` entry for the developer** fails the payout on the first attempt (`PayoutConfigError`, not retried), with the reason in `lastError`. Add the entry, then retry the payout.
+- **Restarts.** The payout store (`InMemoryPayoutStore`) and the window timers are **in memory** in `app.ts`; B6 (#86) persists them. What a restart can't do: pay twice. `payout.started` moves the bounty to `paying` before any Bitnob call, the bounty table is in Postgres, and from `paying` / `paid` / `payout_failed` the state machine refuses `/pay` and settlement ignores a redelivered merge. What a restart can do: leave a bounty `verified` (timer lost) or `paying` (in-flight payout lost). `verified` → a maintainer types `/hold` then `/pay`. `paying` → check the payout in the Bitnob dashboard by its reference `pay-<bountyId>-<attempt>` before doing anything by hand.
+
 Also: A2's `RepoBountyLookup` falls back to the issue's "Done when" criteria when the bounty has none. `/bounty` creates bounties without criteria, so before this the verifier could only answer `unsure` and nothing was ever paid automatically.
 
 ## Failure paths (I3)

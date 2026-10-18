@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { ActivityLog, readApiRoutes } from "./api/index.js";
 import { DrizzleFundingReader, DrizzlePayoutReader, mergeFundings } from "./api/drizzle-read.js";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
+import { bitnobProxyRoutes } from "./dev/bitnob-proxy.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
 import { DrizzleEventStore } from "./github/drizzle-event-store.js";
 import { InMemoryEventStore, type EventStore } from "./github/event-store.js";
@@ -22,6 +23,8 @@ import {
   sweepIntervalMs,
 } from "./github/claims/index.js";
 import { defaultCheckRunDeps, registerCheckRun } from "./ai/check-run/index.js";
+import { backlogRoutes } from "./ai/backlog/index.js";
+import { agentRoutes, agentsFromEnv, AgentService, DrizzleAgentSpending, ListAgentSpending, StaticAgentRegistry } from "./agents/index.js";
 import {
   applyFundingPaid,
   BitnobFunderCustomers,
@@ -30,7 +33,7 @@ import {
   LightningFunding,
 } from "./funding/index.js";
 import { InMemoryPayoutStore, PayoutService, readBankCodeFallback } from "./payouts/index.js";
-import { beneficiaryFromAccounts, readPayoutAccounts, Settlement, statusExtras } from "./settlement/index.js";
+import { beneficiaryFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement, statusExtras } from "./settlement/index.js";
 import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
@@ -38,6 +41,20 @@ export const app = new Hono();
 app.get("/", (c) => c.json({ name: "bitbounty-server", message: "hello" }));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
+
+// A3: "Price my backlog" suggestions for a repo (Claude, or the offline heuristic without ANTHROPIC_API_KEY).
+app.route("/", backlogRoutes());
+
+// DEV ONLY (F7): /dev/bitnob/* forwards teammates' Bitnob sandbox calls, signed with this server's keys.
+// Not mounted (404) unless DEV_PROXY_TOKEN is set. See src/dev/bitnob-proxy.ts and docs/bitnob-api.md.
+const devProxyToken = process.env.DEV_PROXY_TOKEN?.trim();
+if (devProxyToken) {
+  const hasKeys = Boolean(process.env.BITNOB_CLIENT_ID?.trim() && process.env.BITNOB_CLIENT_SECRET?.trim());
+  // The server signs itself: a BITNOB_PROXY_TOKEN in the server's own env is ignored here.
+  const env = { ...process.env, BITNOB_PROXY_TOKEN: "" };
+  app.route("/", bitnobProxyRoutes({ token: devProxyToken, client: hasKeys ? new BitnobClient(readBitnobConfig(env)) : null }));
+  console.log(`[dev-proxy] /dev/bitnob/* enabled${hasKeys ? "" : " (no Bitnob keys: calls answer 503)"}`);
+}
 
 /** G3, G4 and A2 register their handlers here: `githubDispatcher.on("issue_comment", …)`. */
 export const githubDispatcher = new GithubDispatcher();
@@ -63,6 +80,8 @@ registerPrHandlers(githubDispatcher, prDeps);
 
 /** Re-renders a bounty's status comment + label from outside a webhook (set when the GitHub App is configured). */
 let statusSync: ((bounty: Bounty) => Promise<void>) | undefined;
+/** Set once the GitHub App is configured: lets A4 post the bot's status comment for agent bounties. */
+let githubForRepo: ReturnType<typeof appGithubForRepo> | undefined;
 
 // G3: issue_comment.created → command → transition() → status comment edited in place + label.
 // G5: claim timers (assign on /claim, expire after CLAIM_TTL_MINUTES or 72 h, /extend once).
@@ -75,6 +94,7 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
   };
   const claimTtlMs = readClaimTtlMs();
   const github = appGithubForRepo(githubApp);
+  githubForRepo = github;
   const claimTimers: ClaimTimers = new ClaimTimers({
     repo: bountyRepo,
     bus: eventBus,
@@ -103,6 +123,27 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
     app.route("/", devFundRoutes({ token: process.env.DEV_HOOK_TOKEN, repo: bountyRepo, bus: eventBus, github, ...botSettings }));
   }
 }
+
+// A4: agents fund bounties through /v1 (and packages/mcp) with a `bb_` key, inside their owner's budget.
+const agents = agentsFromEnv(process.env.BITBOUNTY_AGENTS);
+app.route(
+  "/",
+  agentRoutes(
+    new StaticAgentRegistry(agents),
+    new AgentService({
+      repo: bountyRepo,
+      bus: eventBus,
+      spending: database
+        ? new DrizzleAgentSpending(database.db)
+        : new ListAgentSpending(() => (bountyRepo instanceof InMemoryBountyRepo ? bountyRepo.all() : [])),
+      baseUrl: process.env.WEB_BASE_URL || "https://bitbounty-app.vercel.app",
+      github: githubForRepo,
+      lang: process.env.BOT_LANG === "fr" ? "fr" : "en",
+      botLogin: process.env.GITHUB_BOT_LOGIN || undefined,
+    }),
+  ),
+);
+if (agents.length) console.log(`[agents] ${agents.length} agent key(s) loaded from BITBOUNTY_AGENTS`);
 
 // A2: pull_request opened/synchronize/reopened on a funded bounty → "BitBounty verification" check run + verify.done.
 const checkRunDeps = defaultCheckRunDeps(prDeps.bounties, eventBus);
@@ -167,7 +208,8 @@ export const settlement = new Settlement({
     return payoutService.start(req);
   },
   sync: (bounty) => statusSync?.(bounty) ?? Promise.resolve(),
-  objectionMs: Number(process.env.OBJECTION_WINDOW_MINUTES ?? 0) * 60_000,
+  // Validated at boot: a bad value refuses to start instead of paying at once.
+  objectionMs: readObjectionWindowMs(),
 }).register();
 
 if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
@@ -185,7 +227,6 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
   void payoutService.resume();
   payoutService.startPolling();
 }
-
 // I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
 // Timelines and the live feed come from the internal events (ActivityLog, in memory).
 export const activityLog = new ActivityLog(bountyRepo).attach(eventBus);
