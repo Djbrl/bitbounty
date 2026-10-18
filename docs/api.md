@@ -20,6 +20,8 @@ The web pages were built on `fixtures/*.json` (F4). The server now serves the sa
 | `GET /api/bounties[?status=]` | `BountySummary[]` | every bounty, newest first, claimant and PR number |
 | `GET /api/bounties/:id` | `BountyDetail` | fundings, active claim, submission, payout, timeline |
 | `GET /api/dashboard` | `Dashboard & { bounties }` | the signed-in maintainer's bounties, needs-action list |
+| `GET /api/maintain` | `MaintainHome` (`apps/server/src/api/maintain.ts`) | U4: money summary, review queue (Claude's per-criterion verdict, CI, developer), repos (funded, installed, or agent-posted), payouts with the public reason only, the user's agents and budgets |
+| `POST /api/maintain/bounties/:id/pay`, `/hold {note?}` | `{bountyId, status}` | U4: needs a session (401 otherwise, even with auth off). Runs `runMaintainerDecision`, the `/pay` / `/hold` comment path (GitHub permission check, issue lock, `transition()`, bus event → settlement). 403 without write access on the repo, 409 when the status doesn't allow it, 503 without the GitHub App |
 | `GET /api/users/:login` | `Profile` | paid work (payouts) and active claims; 404 when none |
 | `GET /api/receipts/:id` | `Receipt` | a succeeded payout (`id` = payout id) with merge and funding; `signature` = SHA-256 of the receipt fields |
 | `GET /api/me` | `Me` | needs the session (above) |

@@ -9,7 +9,7 @@ import {
 } from "@bitbounty/core";
 import type { BountyRepo } from "../../bounties/repo.js";
 import type { EventBus } from "../pr/ports.js";
-import { findCommandLines, parseCommand, type Command, type Role } from "../commands/index.js";
+import { findCommandLines, parseCommand, resolveRole, type Command, type Role } from "../commands/index.js";
 import type { StoredEvent } from "../event-store.js";
 import { formatXof, type Lang } from "../status-comment/index.js";
 import { syncIssue } from "./sync.js";
@@ -115,12 +115,38 @@ interface Ctx {
   issue: Json;
   login: string;
   lang: Lang;
+  /** U4: the decision came from the web app, which shows the answer itself: don't comment it on GitHub. */
+  quiet?: boolean;
 }
 
 async function reply(ctx: Ctx, message: string): Promise<CommentOutcome> {
   const text = `@${ctx.login} ${message}`;
-  await ctx.writer.createComment(ctx.repoName, ctx.issue.number, text);
-  return { kind: "replied", message: text };
+  if (!ctx.quiet) await ctx.writer.createComment(ctx.repoName, ctx.issue.number, text);
+  return { kind: "replied", message: ctx.quiet ? message : text };
+}
+
+/** U4: Pay / Hold from the maintainer home. Same commands as `/pay` and `/hold` on the issue. */
+export type MaintainerDecision = { name: "pay" } | { name: "hold"; note: string | null };
+
+export type DecisionOutcome = CommentOutcome | { kind: "forbidden"; message: string };
+
+/**
+ * U4: runs a maintainer's Pay / Hold from the web app through the **same** path as the GitHub
+ * comment: the repo permission lookup and role check of the parser, the per-issue lock, `run()`
+ * (→ `transition()` → persist → bus event → status comment). Settlement then reacts to the event
+ * exactly as for `/pay`, so there is no second way to start a payout.
+ */
+export async function runMaintainerDecision(
+  deps: WiringDeps,
+  input: { writer: GithubWriter; repoName: string; issueNumber: number; login: string; decision: MaintainerDecision },
+): Promise<DecisionOutcome> {
+  const { writer, repoName, issueNumber, login, decision } = input;
+  const permission = await writer.getPermission(repoName, login);
+  const role = resolveRole({ login, type: "User", permission, botLogin: deps.botLogin });
+  if (role !== "maintainer") return { kind: "forbidden", message: `@${login} needs write access on ${repoName} to /${decision.name}.` };
+  const ctx: Ctx = { deps, writer, repoName, issue: { number: issueNumber, state: "open" }, login, lang: deps.lang ?? "en", quiet: true };
+  const command: Command = decision.name === "pay" ? { name: "pay", user: null, now: false } : { name: "hold", note: decision.note };
+  return withIssueLock(issueLockKey(repoName, issueNumber), () => run(ctx, command, role));
 }
 
 const nowIso = (ctx: Ctx) => (ctx.deps.now?.() ?? new Date()).toISOString();

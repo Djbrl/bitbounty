@@ -1,7 +1,14 @@
 import type { GithubDispatcher } from "../dispatcher.js";
 import { handleIssueComment, type WiringDeps } from "./handle-comment.js";
 
-export { handleIssueComment, type CommentOutcome, type WiringDeps } from "./handle-comment.js";
+export {
+  handleIssueComment,
+  runMaintainerDecision,
+  type CommentOutcome,
+  type DecisionOutcome,
+  type MaintainerDecision,
+  type WiringDeps,
+} from "./handle-comment.js";
 export { syncIssue, type SyncOptions } from "./sync.js";
 export {
   FakeGithubWriter,
