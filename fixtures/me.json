@@ -41,7 +41,8 @@
         "status": "pending",
         "verifiedAt": null,
         "lockedUntil": null,
-        "phoneMasked": "+221 77 ••• •• 42"
+        "phoneMasked": "+221 77 ••• •• 42",
+        "lightningAddress": "aw***@blink.sv"
       },
       "earnings": {
         "totalXof": 0,
@@ -68,7 +69,8 @@
         "status": "sms_ok",
         "verifiedAt": null,
         "lockedUntil": null,
-        "phoneMasked": "+221 77 ••• •• 42"
+        "phoneMasked": "+221 77 ••• •• 42",
+        "lightningAddress": "aw***@blink.sv"
       },
       "earnings": {
         "totalXof": 0,
@@ -95,7 +97,8 @@
         "status": "verified",
         "verifiedAt": "2026-10-17T14:32:00Z",
         "lockedUntil": "2026-10-20T14:32:00Z",
-        "phoneMasked": "+221 77 ••• •• 42"
+        "phoneMasked": "+221 77 ••• •• 42",
+        "lightningAddress": "aw***@blink.sv"
       },
       "earnings": {
         "totalXof": 10000,

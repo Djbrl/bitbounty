@@ -12,6 +12,7 @@ import type {
   FundingSession,
   Live,
   Me,
+  OnboardingState,
   Profile,
   FundingRail,
   Receipt,
@@ -33,6 +34,34 @@ export type MockResult = { status: number; json: unknown } | { status: 200; stre
 
 const ok = (json: unknown) => ({ status: 200, json });
 const err = (status: number, error: string, extra: Record<string, unknown> = {}) => ({ status, json: { error, ...extra } });
+
+// U1: the /welcome answers in fixtures mode. On globalThis so the page (server component) and
+// /api/* (route handler) share it inside one `next` process; reset with resetMockOnboarding().
+const ONBOARDING_KEY = '__bitbountyMockOnboarding';
+type Holder = { [ONBOARDING_KEY]?: OnboardingState };
+
+function mockOnboarding(fx: Fixtures): OnboardingState {
+  const g = globalThis as Holder;
+  if (!g[ONBOARDING_KEY]) {
+    const login = fx.me?.states?.new?.user.login ?? 'awa-ndiaye';
+    g[ONBOARDING_KEY] = {
+      login,
+      defaultMode: null,
+      onboardedAt: null,
+      preferences: { role: null, stack: [], currency: 'xof', language: 'fr', repo: null, step: 1 },
+      lightningAddress: null,
+      githubLanguages: fx.users?.[login]?.languages ?? [],
+      installedRepos: fx.dashboard?.repos.map((r) => r.fullName) ?? [],
+      appInstallUrl: 'https://github.com/apps/bitbounty-dakar',
+    };
+  }
+  return g[ONBOARDING_KEY]!;
+}
+
+/** Forgets the mock's onboarding answers (tests). */
+export function resetMockOnboarding(): void {
+  delete (globalThis as Holder)[ONBOARDING_KEY];
+}
 
 /** Polls per unfunded bounty before the mock reports it as paid (lets /pay show the transition). */
 export const POLLS_BEFORE_PAID = 3;
@@ -143,10 +172,37 @@ export function handleMock(
     return ok({ count: picked.length, suggestions: picked.map((s) => s.id), bountyIds: picked.map((s) => backlogBountyId(s.id)), session: fundingSession(fx, { amountXof: amount }, (body.rail as FundingRail) ?? 'lightning', now) });
   }
 
-  // U2: the app shell's workspace. Stateless here: the web remembers the choice in a cookie too.
+  if (root === 'me' && id === 'onboarding') {
+    const st = mockOnboarding(fx);
+    if (method === 'GET') return ok(st);
+    if (method === 'POST') {
+      if (body.preferences && typeof body.preferences === 'object') st.preferences = { ...st.preferences, ...(body.preferences as Partial<OnboardingState['preferences']>) };
+      if (body.done === true && !st.onboardedAt) st.onboardedAt = now.toISOString();
+      return ok(st);
+    }
+  }
+
+  if (root === 'me' && id === 'lightning-address' && method === 'POST') {
+    // Same checks as the server: user@domain format, then "does it resolve" (mock: *.invalid never does).
+    const raw = typeof body.lightningAddress === 'string' ? body.lightningAddress.trim().toLowerCase() : '';
+    const m = /^([a-z0-9\-_.+]{1,64})@((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63})$/.exec(raw);
+    if (!m) return err(400, 'invalid_lightning_address');
+    if (m[2]!.endsWith('.invalid')) return err(422, 'lightning_address_unreachable', { retryable: false });
+    const masked = `${m[1]!.slice(0, 2)}***@${m[2]}`;
+    mockOnboarding(fx).lightningAddress = masked;
+    return ok({ lightningAddress: masked });
+  }
+
+  // U2: the app shell's workspace (the web also remembers it in the bb_mode cookie).
   if (root === 'me' && id === 'mode') {
-    if (method === 'GET') return ok({ defaultMode: null, installedRepos: (fx.dashboard?.repos ?? []).map((r) => r.fullName) });
-    if (method === 'POST') return body.mode === 'hunt' || body.mode === 'maintain' ? ok({ defaultMode: body.mode }) : err(400, 'invalid_mode');
+    // U1: /welcome saves the mode here too; the mock remembers it with the onboarding answers.
+    const st = (globalThis as Holder)[ONBOARDING_KEY];
+    if (method === 'GET') return ok({ defaultMode: st?.defaultMode ?? null, installedRepos: (fx.dashboard?.repos ?? []).map((r) => r.fullName) });
+    if (method === 'POST') {
+      if (body.mode !== 'hunt' && body.mode !== 'maintain') return err(400, 'invalid_mode');
+      if (st) st.defaultMode = body.mode;
+      return ok({ defaultMode: body.mode });
+    }
   }
 
   if (root === 'me') {
@@ -154,16 +210,6 @@ export function handleMock(
     if (method === 'GET' && !id) {
       const state = (query.get('state') ?? fx.me.mock.defaultState) as MeState;
       return S[state] ? ok(S[state]) : err(400, 'invalid_state', { state });
-    }
-    if (method === 'POST' && id === 'payout-account' && !sub) {
-      if (!body.phone || !body.provider) return err(400, 'phone_and_provider_required');
-      return ok({ ...S.pending, smsSent: true });
-    }
-    if (method === 'POST' && id === 'payout-account' && sub === 'sms') {
-      return String(body.code) === fx.me.mock.smsCode ? ok({ ...S.sms_ok, testPayoutSent: true }) : err(422, 'wrong_code');
-    }
-    if (method === 'POST' && id === 'payout-account' && sub === 'confirm') {
-      return Number(body.amount) === fx.me.mock.testAmountXof ? ok(S.verified) : err(422, 'wrong_amount', { attemptsLeft: 2 });
     }
   }
 
