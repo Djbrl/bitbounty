@@ -1,11 +1,11 @@
 # BitBounty: product definition
 
 ## Final positioning (17 10 2026)
-**"Algora for West Africa, with Bitnob at the core."** A **marketplace** where open-source developers find paid issues, and get paid in local currency (FCFA, naira, cedis) on mobile money the moment the fix is merged.
+**"Algora for West Africa, with Bitnob at the core."** A **marketplace** where open-source developers find paid issues, and get paid in sats over Lightning, to their Lightning Address, the moment the fix is merged (bounties are priced in FCFA).
 - **Front side = developers**: the board of paid issues, search, proof-of-work profiles, payment on Wave.
 - **Money side = maintainers and funders** (Bitcoin projects, African fintechs, funders like Btrust, AI agents): the GitHub App + "Price my backlog" is *how bounties get onto the marketplace*.
 - **Algora proved the model in dollars via Stripe**, which doesn't serve Senegal. We do the same thing where Stripe and PayPal don't pay out: funded in sats / USDT / naira, paid in local currency, all through Bitnob (Lightning, trading, virtual accounts, payouts).
-- Answer to "it's just a clone": we aren't copying the product, we're making it **possible** in a region where it can't work today. Plus what Algora doesn't have: funding in sats and naira, mobile money, proof-of-work profiles, agents as funders.
+- Answer to "it's just a clone": we aren't copying the product, we're making it **possible** in a region where it can't work today. Plus what Algora doesn't have: funding in sats and naira, Lightning payouts in minutes, proof-of-work profiles, agents as funders.
 - Day-one board: optionally list existing public bounties (marked "external, paid in dollars elsewhere") alongside ours ("paid in FCFA on Wave"), so the marketplace doesn't look empty.
 
 
@@ -21,7 +21,7 @@
 **Promise to the maintainer:** *Put a price on your backlog. Pay only when it's merged.*
 - **You only pay for merged work**: the money is held, and refunded if nothing gets merged.
 - **Less review work**: Claude checks the acceptance criteria and filters spam / AI junk before you open the PR.
-- **Zero payout admin**: no invoices, no collecting IDs, no international transfers. We pay in FCFA, cedis, naira or shillings on mobile money, through Bitnob.
+- **Zero payout admin**: no invoices, no collecting IDs, no international transfers. We pay the FCFA bounty in sats over Lightning, to the developer's Lightning Address, through Bitnob.
 - **Fund however suits you**: Lightning, USDT, or a naira bank transfer.
 - **Access to a pool of African developers growing fast** (+3.4M devs in a year in Africa & the Middle East, Octoverse 2025).
 
@@ -37,7 +37,7 @@
 v1, 15 10 2026. Working name. 
 
 ## In one sentence
-**BitBounty is a GitHub App that turns any issue into a paid task, and pays whoever solves it on Wave or Orange Money, through Bitnob.**
+**BitBounty is a GitHub App that turns any issue into a paid task, and pays whoever solves it in sats over Lightning, through Bitnob.**
 
 Everything else (agents, sponsorship, the website) is either a *client* of this primitive or a *window* onto it.
 
@@ -105,7 +105,7 @@ Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST 
 5% on funding. Later: monthly plan for organisations (budgets, invoices).
 
 ## Defensible differences
-- Algora / Opire: pay through Stripe (not Senegal), no mobile money, no agent clients.
+- Algora / Opire: pay through Stripe (not Senegal), no Lightning, no agent clients.
 - GitHub Sponsors: one-off donations, not work; payouts uncertain in Senegal.
 - Us: **payment in FCFA on Wave within minutes of the merge**, agents as clients, built to grow the open-source community in West Africa.
 
@@ -136,7 +136,8 @@ Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST 
 5. Paid → Lightning sats are converted to USDT (trading) to avoid volatility → the ledger reserves 10,000 FCFA for #12 → the bot edits its comment: **✅ Funded: 10,000 FCFA held** · `💰 10 000 FCFA` label · link to the public bounty page (timeline + payment reference).
    **An unfunded bounty can't be claimed.** Developers only ever see real money.
 
-## Flow 3: the developer links their Wave (once, the trust point)
+## Flow 3: the developer links their payout account (once, the trust point)
+> **Update (B6):** payouts now go in sats over Lightning to the developer's **Lightning Address** (e.g. `awa@blink.sv`); Bitnob's mentor confirmed Wave / Orange Money payouts won't work for us. The phone + SMS + test payout flow below is the original plan (B3), kept for reference.
 **Never on GitHub** (comments are public). Everything happens on bitbounty.app/me:
 1. Sign in with GitHub.
 2. Country → provider (Wave / Orange Money / Free Money) → number → **name registered on the account**.
@@ -204,7 +205,7 @@ Funding: `POST /api/lightning/invoices` → polling until paid · or USDT `POST 
 Context: an AI-friendly hackathon. Everyone will ship a pretty app in 23 h with AI help. What sets us apart is no longer "it works": it's **proof** that nobody else will have.
 
 ## New thesis
-> **BitBounty is the payroll of the AI-era open-source economy in Africa.** Any human *or agent* can put money on a GitHub issue. African developers are paid in their local currency on mobile money minutes after the merge, and every payment becomes a verifiable proof of work.
+> **BitBounty is the payroll of the AI-era open-source economy in Africa.** Any human *or agent* can put money on a GitHub issue. African developers are paid in sats over Lightning minutes after the merge, and every payment becomes a verifiable proof of work.
 
 Why now: Octoverse 2025, **+3.4M new developers in Africa & the Middle East in one year**, Nigeria >1.6M ([GitHub](https://github.blog/news-insights/octoverse/octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1/)). Meanwhile, agents produce more and more work that needs humans to finish it.
 
@@ -243,7 +244,7 @@ Not a simulation: **real bounties, real Senegalese developers, real money**, in 
 ## Jury objections and answers
 | Objection | Answer |
 |---|---|
-| "Algora already exists" | Algora pays through Stripe → not Senegal, no mobile money, no agent clients, no proof-of-work CV. And we have local traction. |
+| "Algora already exists" | Algora pays through Stripe → not Senegal, no Lightning, no agent clients, no proof-of-work CV. And we have local traction. |
 | "Isn't this just a crypto off-ramp?" | Money is only released on a **merge verified** by an independent maintainer + criteria + checks; funder ≠ developer; limits; patterns. |
 | "AI will flood repos with junk PRs" | One claim at a time, spam score, the maintainer decides, measured verifier (upgrade 2). |
 | "Who pays for a Senegalese developer's work?" | Diaspora, foreign companies looking for cheap and verified talent, African companies (NGN today, FCFA through a partner), and agents. |
@@ -264,7 +265,7 @@ Not a simulation: **real bounties, real Senegalese developers, real money**, in 
 
 ## Làkk: the Wolof data market ("làkk" = language, to check)
 AI labs and agents need data in Wolof, Pulaar and Serer (speech, text, translation) and can't find any. Senegalese speakers record and validate, **paid per accepted sample on Wave**. A model checks quality (audio quality, transcription consistency, cross-validation by other speakers). Buyers (labs, agents) pay per sample over Lightning (L402).
-- AI essential (quality, cross-validation, pricing), Bitnob essential (Lightning in, mobile money out by the thousand, bulk payouts).
+- AI essential (quality, cross-validation, pricing), Bitnob essential (Lightning in, Lightning out by the thousand, bulk payouts).
 - Demo: a judge records a sentence in Wolof → validated → paid in seconds; a counter of hours of Wolof collected during the hackathon.
 - It's **the same rails as BitBounty** (verified work → instant payment) for data instead of code. Pitch both as a platform: "BitBounty for code, Làkk for language".
 - Risks: consent, licensing, fair pay (to design upfront).
@@ -306,7 +307,7 @@ Btrust's mission, as on its site: *"Locating, educating, and remunerating Bitcoi
 **BitBounty is the infrastructure for those three verbs**, built on Bitnob:
 - **Locate** → the public board + **proof-of-work profiles** (paid, merged, verifiable work). That's exactly the signal Btrust uses to award its grants.
 - **Educate** → the ladder of "good first paid issues" + **Claude's review on every PR** (criterion by criterion, with evidence). Every bounty is a paid exercise with feedback.
-- **Remunerate** → payment in local currency on mobile money, minutes after the merge, through Bitnob. No PayPal, no Stripe, no wire transfer.
+- **Remunerate** → payment in sats over Lightning, minutes after the merge, through Bitnob. No PayPal, no Stripe, no wire transfer.
 **Use case to say on stage:** a funder like Btrust (or a Bitcoin project) puts sats over Lightning on issues in Bitcoin open-source repos → developers in Dakar, Lagos or Nairobi get paid in FCFA, naira or shillings. Sats in, local currency out.
 **Line:** "Btrust locates, educates and remunerates Bitcoin engineers in the Global South. BitBounty turns that into a GitHub button: an issue, a price in sats, and a payment on Wave as soon as it merges."
 Careful: quote their wording exactly, and don't imply a partnership that doesn't exist.

@@ -677,9 +677,12 @@
       "attempts": 1,
       "lastError": null,
       "paidAt": null,
+      "rail": "lightning",
+      "lightningAddress": "se***@blink.sv",
+      "amountSats": 12135,
+      "xofPerBtc": 61804697,
+      "paymentHash": "26d271f87c3948815a4c977d4042bde446111e23ddaa9a554b979f84eb2ca619",
       "userLogin": "seynabou-gueye",
-      "provider": "wave",
-      "phoneMasked": "+221 77 ••• •• 88",
       "createdAt": "2026-10-17T22:31:00Z"
     },
     "timeline": [
@@ -729,7 +732,7 @@
         "occurredAt": "2026-10-17T22:31:00Z",
         "type": "payout.started",
         "actor": "bitbounty",
-        "text": "Payout to Wave +221 77 ••• •• 88 — processing",
+        "text": "Payout to se***@blink.sv over Lightning: 12 135 sats — processing",
         "to": "paying"
       }
     ]
@@ -841,9 +844,12 @@
       "attempts": 1,
       "lastError": null,
       "paidAt": "2026-10-17T18:26:00Z",
+      "rail": "lightning",
+      "lightningAddress": "aw***@blink.sv",
+      "amountSats": 16180,
+      "xofPerBtc": 61804697,
+      "paymentHash": "c73298d9362b748793e6f50d6d72a2db5cb04569c19df4d58f7a28a4d9cb36e1",
       "userLogin": "awa-ndiaye",
-      "provider": "wave",
-      "phoneMasked": "+221 77 ••• •• 42",
       "createdAt": "2026-10-17T18:21:00Z"
     },
     "timeline": [
@@ -893,14 +899,14 @@
         "occurredAt": "2026-10-17T18:21:00Z",
         "type": "payout.started",
         "actor": "bitbounty",
-        "text": "Payout to Wave +221 77 ••• •• 42",
+        "text": "Payout to aw***@blink.sv over Lightning: 16 180 sats",
         "to": "paying"
       },
       {
         "occurredAt": "2026-10-17T18:26:00Z",
         "type": "payout.succeeded",
         "actor": "bitnob",
-        "text": "💸 Paid 10 000 FCFA to @awa-ndiaye on Wave · 6 min after the merge",
+        "text": "💸 Paid 10 000 FCFA (16 180 sats) to @awa-ndiaye over Lightning · 6 min after the merge",
         "to": "paid"
       }
     ]
@@ -1004,11 +1010,14 @@
       "reference": "pay-b-108",
       "status": "failed",
       "attempts": 3,
-      "lastError": "withdrawal.expired: recipient account not reachable (Orange Money)",
+      "lastError": "lnurl unreachable: mo***@walletofsatoshi.com: LNURL server timed out after 10000 ms",
       "paidAt": null,
+      "rail": "lightning",
+      "lightningAddress": "mo***@walletofsatoshi.com",
+      "amountSats": 4854,
+      "xofPerBtc": 61804697,
+      "paymentHash": "c4dabc836d5a8b3ad27a03d268e3512acec1417e2caabde4ac1a89076ddc14f3",
       "userLogin": "moussa-diop",
-      "provider": "orange",
-      "phoneMasked": "+221 78 ••• •• 19",
       "createdAt": "2026-10-17T19:01:00Z"
     },
     "timeline": [
@@ -1065,14 +1074,14 @@
         "occurredAt": "2026-10-17T19:01:00Z",
         "type": "payout.started",
         "actor": "bitbounty",
-        "text": "Payout to Orange Money +221 78 ••• •• 19 (attempt 1)",
+        "text": "Payout to mo***@walletofsatoshi.com over Lightning: 4 854 sats (attempt 1)",
         "to": "paying"
       },
       {
         "occurredAt": "2026-10-17T19:02:00Z",
         "type": "payout.failed",
         "actor": "bitnob",
-        "text": "Attempt 1/3 failed: withdrawal.expired",
+        "text": "Attempt 1/3 failed: the developer's Lightning wallet didn't answer",
         "to": "payout_failed"
       },
       {
@@ -1086,7 +1095,7 @@
         "occurredAt": "2026-10-17T19:04:00Z",
         "type": "payout.failed",
         "actor": "bitnob",
-        "text": "Attempt 2/3 failed: withdrawal.expired",
+        "text": "Attempt 2/3 failed: the developer's Lightning wallet didn't answer",
         "to": "payout_failed"
       },
       {
@@ -1100,7 +1109,7 @@
         "occurredAt": "2026-10-17T19:09:00Z",
         "type": "payout.failed",
         "actor": "bitnob",
-        "text": "Attempt 3/3 failed — @moussa-diop asked to update their account. The 3 000 FCFA stay reserved for them.",
+        "text": "Attempt 3/3 failed — @moussa-diop asked to check their Lightning Address. The 3 000 FCFA stay reserved for them.",
         "to": "payout_failed"
       }
     ]
@@ -1566,9 +1575,12 @@
       "attempts": 1,
       "lastError": null,
       "paidAt": "2026-10-18T01:35:00Z",
+      "rail": "lightning",
+      "lightningAddress": "fa***@blink.sv",
+      "amountSats": 16180,
+      "xofPerBtc": 61804697,
+      "paymentHash": "e9da5c6c8172b7e08c0102b4a74edf13a891ab00f5f937170e4bb1800c3f9fdb",
       "userLogin": "fatou-sall",
-      "provider": "wave",
-      "phoneMasked": "+221 76 ••• •• 07",
       "createdAt": "2026-10-18T01:31:00Z"
     },
     "timeline": [
@@ -1618,14 +1630,14 @@
         "occurredAt": "2026-10-18T01:31:00Z",
         "type": "payout.started",
         "actor": "bitbounty",
-        "text": "BTC → XOF payout to Wave +221 76 ••• •• 07",
+        "text": "Payout to fa***@blink.sv over Lightning: 16 180 sats",
         "to": "paying"
       },
       {
         "occurredAt": "2026-10-18T01:35:00Z",
         "type": "payout.succeeded",
         "actor": "bitnob",
-        "text": "💸 Paid 10 000 FCFA to @fatou-sall on Wave · Lagos → Dakar in 5 min",
+        "text": "💸 Paid 10 000 FCFA (16 180 sats) to @fatou-sall over Lightning · Lagos → Dakar in 5 min",
         "to": "paid"
       }
     ]

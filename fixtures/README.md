@@ -2,7 +2,7 @@
 
 Fake but realistic data for every page, served by a mock `/api/*` route in `apps/web`, so the W tasks never wait for the back end. I1 swaps the mock for the real API; pages only depend on the URLs and shapes below.
 
-Shapes and names follow the F2 contract (`@bitbounty/core`, PR #44): camelCase fields, core statuses, events and `TRANSITIONS`. Rules: money is always an **integer** in the smallest unit (FCFA, sats, USDT base units where 1 USDT = 1 000 000, NGN kobo). Phone numbers are always masked (`+221 77 ••• •• 42`). Timestamps are UTC (= Dakar time), 17–18 Oct 2026.
+Shapes and names follow the F2 contract (`@bitbounty/core`, PR #44): camelCase fields, core statuses, events and `TRANSITIONS`. Rules: money is always an **integer** in the smallest unit (FCFA, sats, USDT base units where 1 USDT = 1 000 000, NGN kobo). Lightning Addresses are always masked (`aw***@blink.sv`); the onboarding (`/me`, B3) still shows masked phone numbers (`+221 77 ••• •• 42`). Timestamps are UTC (= Dakar time), 17–18 Oct 2026.
 
 ## Which file feeds which page
 
@@ -32,14 +32,14 @@ Unknown ids return `404 {error}`; bad input returns `400`/`409`/`422 {error}`.
 | b-103 | `claimed` | active claim by @awa-ndiaye, 72 h timer |
 | b-104 | `submitted` | PR #31, Claude verdict **fail** (2/3 criteria), USDT-funded |
 | b-105 | `verified` | merged, verdict **pass**, 24 h objection window running |
-| b-106 | `paying` | Wolof translation, payout `processing` on Wave |
-| b-107 | `paid` | **headline happy path**: 10 000 FCFA to @awa-ndiaye on Wave, 6 min after merge, receipt `r-107` |
-| b-108 | `payout_failed` | verdict **unsure** → merge puts it `on_hold` → maintainer `/pay`; Orange Money, 3 attempts (`payout.started`/`payout.failed` ×3), `withdrawal.expired`, money stays reserved |
+| b-106 | `paying` | Wolof translation, payout `processing` over Lightning to `se***@blink.sv` |
+| b-107 | `paid` | **headline happy path**: 10 000 FCFA (16 180 sats over Lightning) to @awa-ndiaye, 6 min after merge, receipt `r-107` |
+| b-108 | `payout_failed` | verdict **unsure** → merge puts it `on_hold` → maintainer `/pay`; 3 attempts (`payout.started`/`payout.failed` ×3), the developer's Lightning wallet never answers (`lnurl unreachable`), money stays reserved |
 | b-109 | `on_hold` | verdict **unsure**, maintainer `/hold` before merging (`maintainer.hold`) |
 | b-110 | `refunded` | closed "not planned" before any claim (`bounty.cancelled` from `funded`) |
 | b-111 | `cancelled` | `/cancel` before funding |
 | b-112 | `funded` | **claim expired** (5-min demo timer), open again |
-| b-113 | `paid` | **Lagos route**: ₦29 000 bank transfer (NGN → BTC) → 10 000 FCFA on Wave, receipt `r-113` |
+| b-113 | `paid` | **Lagos route**: ₦29 000 bank transfer (NGN → BTC) → 10 000 FCFA paid in sats over Lightning, receipt `r-113` |
 | b-114 | `claimed` | **agent-funded** (Claude Code via MCP), Wolof SMS task |
 
 Every timeline uses only F2's 15 `EVENT_TYPES` and is a legal path through F2's `TRANSITIONS` (each entry carries the `to` status it led to); every event type appears at least once. `bounties.json` entities are the core types (`Bounty`, `Funding`, `Claim`, `Submission`, `Payout`, `User`) plus a few view-only fields (`issueUrl`, `criteriaConfirmed`, `funderLogin`, `labels`, `updatedAt`, `userLogin`, `prUrl`, `ci`, `phoneMasked`…). `/api/me` returns `PayoutAccount` without `phoneE164`/`testAmountXof` (never sent to the browser) and with `phoneMasked`.

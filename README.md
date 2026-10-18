@@ -1,8 +1,8 @@
 # BitBounty
 
-**Algora for West Africa, with Bitnob at the core.** The marketplace where open-source developers find paid issues and get paid in local currency on mobile money the moment their fix merges.
+**Algora for West Africa, with Bitnob at the core.** The marketplace where open-source developers find paid issues and get paid in sats over Lightning the moment their fix merges (bounties are priced in FCFA).
 
-BitBounty is a GitHub App for maintainers. Claude reads your open issues and suggests which ones to put a bounty on, with acceptance criteria and a price. You fund them in one payment, over Lightning, USDT or a naira bank transfer. African developers pick them up, and whoever gets their fix merged is paid in local currency to Wave or Orange Money through [Bitnob](https://bitnob.dev), minutes after the merge.
+BitBounty is a GitHub App for maintainers. Claude reads your open issues and suggests which ones to put a bounty on, with acceptance criteria and a price. You fund them in one payment, over Lightning, USDT or a naira bank transfer. African developers pick them up, and whoever gets their fix merged is paid in sats over Lightning, to their Lightning Address (e.g. `awa@blink.sv`), through [Bitnob](https://bitnob.dev), minutes after the merge. Bounties stay priced in FCFA; the sats are converted at payout time.
 
 Built at **Code & Chain Dakar 2026** (Bitnob), 17–18 Oct 2026. Hacking starts Sat 15:00, submission Sun 14:00, demo Sun 15:00.
 
@@ -42,7 +42,7 @@ Status: **monorepo scaffolded** (`apps/web`, `apps/server`). Run it with `pnpm i
 - **08:00–13:00:** polish, demo repo, pitch, 3 rehearsals, backup video, README.
 - **13:00 code freeze. 14:00 submitted. 15:00 demo.**
 
-**The 3 things that can block everything.** Paying out to Wave from Bitnob's sandbox (check it at their 11:00 demo). The GitHub bot receiving notifications (set up in the first hour). Venue Wi-Fi (deploy online right away, keep a phone hotspot, record a backup video). If one breaks, the rest can still be built, because every block runs on fake notes.
+**The 3 things that can block everything.** Paying out from Bitnob's sandbox (Wave was the plan; payouts now go in sats over Lightning, see [apps/server/src/payouts/README.md](apps/server/src/payouts/README.md)). The GitHub bot receiving notifications (set up in the first hour). Venue Wi-Fi (deploy online right away, keep a phone hotspot, record a backup video). If one breaks, the rest can still be built, because every block runs on fake notes.
 
 The full technical plan is in [docs/plan.md](docs/plan.md).
 

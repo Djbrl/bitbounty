@@ -28,6 +28,9 @@ export async function statusExtras(
           attempts: payout.attempts,
           reason: bounty.status === "payout_failed" && payout.lastError ? publicPayoutReason(payout.lastError) : null,
           receiptId: payout.status === "succeeded" ? payout.id : null,
+          // B6: shown as "16 180 sats … over Lightning (`aw***@blink.sv`)"; render masks the address.
+          sats: payout.amountSats ?? null,
+          lightningAddress: payout.lightningAddress ?? null,
           // B2 marks the row `failed` only when it won't retry by itself.
           final: payout.status === "failed",
         }

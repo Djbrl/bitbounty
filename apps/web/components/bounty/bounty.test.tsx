@@ -72,10 +72,11 @@ describe("shape", () => {
     expect(wasRejected(await must("b-104"))).toBe(false);
   });
 
-  it("builds receipt rows with amount source, phone and speed", async () => {
+  it("builds receipt rows with amount source, Lightning Address, sats and speed", async () => {
     const r = await getReceipt("r-113");
     const rows = Object.fromEntries(receiptRows(r!).map((x) => [x.key, x.value]));
-    expect(rows.to).toBe("Wave +221 76 ••• •• 07");
+    expect(rows.to).toBe("Lightning · fa***@blink.sv");
+    expect(rows.sats).toBe("16 180 sats");
     expect(rows.speed).toBe("5 min");
     expect(rows.funded).toContain("₦29 000");
   });
@@ -99,15 +100,17 @@ describe("render", () => {
 
   it("shows the payout error on b-108", async () => {
     const html = renderToStaticMarkup(<BountyView b={await must("b-108")} receiptId={null} />);
-    expect(html).toContain("withdrawal.expired");
-    expect(html).toContain("Orange Money");
+    expect(html).toContain("lnurl unreachable");
+    expect(html).toContain("mo***@walletofsatoshi.com");
   });
 
-  it("renders a receipt with FCFA, sats, provider, masked phone and PR link", async () => {
+  it("renders a receipt with FCFA, sats, masked Lightning Address and PR link", async () => {
     const html = renderToStaticMarkup(<ReceiptView r={(await getReceipt("r-107"))!} />);
     expect(html).toContain("FCFA");
     expect(html).toContain("17 474 sats");
-    expect(html).toContain("Wave +221 77 ••• •• 42");
+    expect(html).toContain("Lightning · aw***@blink.sv");
+    expect(html).toContain("16 180 sats");
+    expect(html).not.toMatch(/Wave|Orange Money|\+221/);
     expect(html).toContain("https://github.com/teranga-labs/bitnob-js/pull/34");
     expect(html).toContain("6 min");
   });

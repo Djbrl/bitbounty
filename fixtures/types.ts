@@ -13,6 +13,8 @@
 // Replace with import from @bitbounty/core once #44 merges.
 
 export type Xof = number;
+/** Satoshis (integer). */
+export type Sats = number;
 export type Currency = 'XOF' | 'BTC' | 'USDT' | 'NGN';
 
 export const BOUNTY_STATUSES = [
@@ -234,7 +236,19 @@ export type BountyView = Bounty & {
 export type FundingView = Funding & { feeXof: Xof; bufferXof: Xof; createdAt: ISODate };
 export type ClaimView = Claim & { userLogin: string; extended: boolean; createdAt: ISODate };
 export type SubmissionView = Submission & { prUrl: string; ci: 'pending' | 'success' | 'failure'; createdAt: ISODate };
-export type PayoutView = Payout & { userLogin: string; provider: PayoutProvider; phoneMasked: string; createdAt: ISODate };
+/**
+ * B6: developers are paid in sats over Lightning, to their Lightning Address. `lightningAddress`
+ * is always masked (`aw***@blink.sv`); the BOLT11 and preimage never reach the pages.
+ */
+export type PayoutView = Payout & {
+  userLogin: string;
+  rail?: 'lightning' | 'mobile_money';
+  lightningAddress?: string;
+  amountSats?: Sats;
+  xofPerBtc?: number;
+  paymentHash?: string;
+  createdAt: ISODate;
+};
 
 /** One applied event, with the status it led to (`to` must be allowed by TRANSITIONS). */
 export interface TimelineEvent {
@@ -349,13 +363,15 @@ export interface Receipt {
   prUrl: string;
   recipientLogin: string;
   amountXof: Xof;
-  provider: PayoutProvider;
-  phoneMasked: string;
+  /** The developer's Lightning Address, masked (`aw***@blink.sv`); null on legacy rows. */
+  lightningAddress: string | null;
   fundedWith: { rail: FundingRail; sourceAmount: number; sourceCurrency: Exclude<Currency, 'XOF'>; funderLogin: string };
   mergedAt: ISODate;
   paidAt: ISODate;
   minutesMergeToPay: number;
   bitnobReference: string;
+  /** B6: how the developer was paid. Sats at the rate stored on the payout. */
+  paidWith?: { rail: 'lightning'; amountSats: Sats | null; xofPerBtc: number | null; paymentHash: string | null };
   signature: string;
 }
 

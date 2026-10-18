@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { Bounty, BountyStatus, Payout } from "@bitbounty/core";
+import { maskLightningAddress, type Bounty, type BountyStatus, type Payout } from "@bitbounty/core";
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { BountyRepo } from "../bounties/repo.js";
@@ -14,7 +14,6 @@ import {
   claimView,
   fundingView,
   loginOf,
-  MASKED_PHONE,
   median,
   payoutView,
   submissionView,
@@ -225,8 +224,8 @@ export function readApiRoutes(deps: ReadApiDeps) {
       prUrl: `https://github.com/${b.repoFullName}/pull/${sub.prNumber}`,
       recipientLogin: loginOf(p.userId) ?? p.userId,
       amountXof: p.amountXof,
-      provider: "wave" as const,
-      phoneMasked: MASKED_PHONE,
+      // B6: the developer's Lightning Address, masked. Null on legacy (mobile money) rows.
+      lightningAddress: p.lightningAddress ? maskLightningAddress(p.lightningAddress) : null,
       fundedWith: {
         rail: funding?.rail ?? "lightning",
         sourceAmount: funding?.sourceAmount ?? 0,

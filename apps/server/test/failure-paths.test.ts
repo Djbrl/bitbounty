@@ -85,7 +85,7 @@ describe("I3: failure paths (real modules, fake GitHub and Bitnob)", () => {
     }
     const noAccount = render({ attempts: 1, reason: "no_account", final: true });
     expect(noAccount).toMatch(/Last error \(attempt 1\): the developer hasn't set a payout account yet/);
-    expect(noAccount).toMatch(/@awa, set your payout account at https:\/\/x\/me/);
+    expect(noAccount).toMatch(/@awa, check the Lightning Address on your payout account at https:\/\/x\/me/);
     expect(noAccount).toMatch(/No more automatic retries/);
   });
 
@@ -126,7 +126,7 @@ describe("I3: failure paths (real modules, fake GitHub and Bitnob)", () => {
       expect(comment, lastError).toContain(`Last error (attempt 1): ${shown}`);
       expect(comment).not.toMatch(/ECONNREFUSED|api\.bitnob|PAYOUT_ACCOUNTS|BITNOB_|bank_code|422|401|blink\.sv|msat|FEATURE_NOT_ENABLED|lightning\/pay/);
       // B6: an address that can't take the payment is the developer's to fix, like a missing account.
-      if (/Lightning Address can|payout account yet/.test(shown)) expect(comment, lastError).toMatch(/set your payout account/);
+      if (/Lightning Address can|payout account yet/.test(shown)) expect(comment, lastError).toMatch(/check the Lightning Address on your payout account/);
     }
   });
 });

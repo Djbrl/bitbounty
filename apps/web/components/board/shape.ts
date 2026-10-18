@@ -4,7 +4,6 @@ import type {
   BountySummary,
   Live,
   LiveEvent,
-  PayoutProvider,
 } from "../../../../fixtures/types";
 
 export type { Board, BountySummary, ExternalBounty, Live, LiveEvent } from "../../../../fixtures/types";
@@ -13,7 +12,8 @@ export type { Board, BountySummary, ExternalBounty, Live, LiveEvent } from "../.
 export interface PayoutRow {
   bountyId: string;
   login: string;
-  provider: string;
+  /** How it was paid: "16 180 sats" when known, else "Lightning" (B6). */
+  via: string;
   repoFullName: string;
   issueNumber: number | null;
   amountXof: number;
@@ -23,11 +23,12 @@ export interface PayoutRow {
   fresh?: boolean;
 }
 
-export const PROVIDER_LABEL: Record<PayoutProvider, string> = {
-  wave: "Wave",
-  orange: "Orange Money",
-  free: "Free Money",
-};
+const group = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+/** "16 180 sats" when the sats are known, else "Lightning". */
+export function payoutVia(sats: number | null | undefined): string {
+  return typeof sats === "number" && sats > 0 ? `${group(sats)} sats` : "Lightning";
+}
 
 /** id -> issue number, so live rows (which only carry repo + title) can show "repo #n". */
 export function issueIndex(rows: { id: string; issueNumber: number }[]): Record<string, number> {
@@ -100,7 +101,7 @@ export function initialLiveState(payouts: PayoutRow[]): LiveState {
   return { cards: {}, payouts };
 }
 
-const PROVIDER_RE = /\bon (Wave|Orange Money|Free Money)\b/;
+const SATS_RE = /\((\d[\d\s]*) sats\)/;
 const LOGIN_RE = /@([A-Za-z0-9-]+)/;
 
 export function onSnapshot(state: LiveState, snap: Pick<Live, "cards">): LiveState {
@@ -131,7 +132,7 @@ export function onTransition(
   const row: PayoutRow = {
     bountyId: ev.bountyId,
     login: who,
-    provider: ev.text.match(PROVIDER_RE)?.[1] ?? "mobile money",
+    via: payoutVia(Number(ev.text.match(SATS_RE)?.[1]?.replace(/\s/g, "")) || null),
     repoFullName: card.repoFullName,
     issueNumber: issues[ev.bountyId] ?? null,
     amountXof: card.amountXof,

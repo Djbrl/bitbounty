@@ -42,14 +42,19 @@ const userObj = (login) => {
     city: u.city,
   };
 };
-const phones = {
-  'awa-ndiaye': ['wave', '+221 77 ••• •• 42'],
-  'moussa-diop': ['orange', '+221 78 ••• •• 19'],
-  'fatou-sall': ['wave', '+221 76 ••• •• 07'],
-  'ibou-fall': ['wave', '+221 70 ••• •• 63'],
-  'seynabou-gueye': ['wave', '+221 77 ••• •• 88'],
-  'cheikh-ba': ['free', '+221 76 ••• •• 31'],
+// B6: developers are paid in sats over Lightning, to their Lightning Address (always masked in the API).
+const wallets = {
+  'awa-ndiaye': 'aw***@blink.sv',
+  'moussa-diop': 'mo***@walletofsatoshi.com',
+  'fatou-sall': 'fa***@blink.sv',
+  'ibou-fall': 'ib***@getalby.com',
+  'seynabou-gueye': 'se***@blink.sv',
+  'cheikh-ba': 'ch***@blink.sv',
 };
+const XOF_PER_BTC = Math.round(1e8 / SATS_PER_XOF);
+/** Sats a payout sends: rounded down, as B6 does. */
+const payoutSats = (xof) => Math.floor((xof * 1e8) / XOF_PER_BTC);
+const groupSats = (n) => `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} sats`;
 
 // ---------------- bounties ----------------
 const REPO = 'teranga-labs/bitnob-js';
@@ -133,7 +138,6 @@ const report = (b, mets, verdict, summary, flags = []) => ({
   riskFlags: flags,
 });
 function payout(b, login, at, status, attempts, lastError = null, paidAt = null) {
-  const [provider, phone] = phones[login];
   return {
     id: `pyt_${b.id.slice(2)}`,
     bountyId: b.id,
@@ -146,9 +150,12 @@ function payout(b, login, at, status, attempts, lastError = null, paidAt = null)
     attempts,
     lastError,
     paidAt,
+    rail: 'lightning',
+    lightningAddress: wallets[login],
+    amountSats: payoutSats(b.amountXof),
+    xofPerBtc: XOF_PER_BTC,
+    paymentHash: hex(`ph-${b.id}`),
     userLogin: login,
-    provider,
-    phoneMasked: phone,
     createdAt: at,
   };
 }
@@ -312,7 +319,7 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
       ev(T(17, 20, 15), 'pr.linked', 'seynabou-gueye', 'PR #6 "Fixes #4"'),
       ev(T(17, 20, 17), 'verify.done', 'bitbounty', 'Claude: ✅ 3/3 criteria met'),
       ev(T(17, 22, 30), 'pr.merged', 'Djbrl', 'PR #6 merged (/pay now)'),
-      ev(T(17, 22, 31), 'payout.started', 'bitbounty', 'Payout to Wave +221 77 ••• •• 88 — processing'),
+      ev(T(17, 22, 31), 'payout.started', 'bitbounty', `Payout to se***@blink.sv over Lightning: ${groupSats(payoutSats(7500))} — processing`),
     ],
   });
 }
@@ -340,12 +347,12 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
       ev(T(17, 17, 48), 'pr.linked', 'awa-ndiaye', 'PR #34 "Fixes #12"'),
       ev(T(17, 17, 51), 'verify.done', 'bitbounty', 'Claude: ✅ 3/3 criteria met'),
       ev(T(17, 18, 20), 'pr.merged', 'Djbrl', 'PR #34 merged'),
-      ev(T(17, 18, 21), 'payout.started', 'bitbounty', 'Payout to Wave +221 77 ••• •• 42'),
-      ev(T(17, 18, 26), 'payout.succeeded', 'bitnob', '💸 Paid 10 000 FCFA to @awa-ndiaye on Wave · 6 min after the merge'),
+      ev(T(17, 18, 21), 'payout.started', 'bitbounty', `Payout to aw***@blink.sv over Lightning: ${groupSats(payoutSats(10000))}`),
+      ev(T(17, 18, 26), 'payout.succeeded', 'bitnob', `💸 Paid 10 000 FCFA (${groupSats(payoutSats(10000))}) to @awa-ndiaye over Lightning · 6 min after the merge`),
     ],
   });
 }
-// b-108 payout_failed — 3 attempts, Orange Money number rejected
+// b-108 payout_failed — 3 attempts, the developer's Lightning wallet never answered
 {
   const b = base('b-108', REPO, 19, 'README: quick start in French', 3000, 'payout_failed', [
     'README.fr.md covers install, auth and one payout example',
@@ -359,7 +366,7 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
     fundings: [funding(b, 'lightning', T(17, 15, 48))],
     claims: [claim(b, 'moussa-diop', T(17, 16, 20), 'done')],
     submission: submission(b, 32, 'moussa-diop', T(17, 17, 30), 'success', 'unsure', r, T(17, 18, 58)),
-    payout: payout(b, 'moussa-diop', T(17, 19, 1), 'failed', 3, 'withdrawal.expired: recipient account not reachable (Orange Money)'),
+    payout: payout(b, 'moussa-diop', T(17, 19, 1), 'failed', 3, 'lnurl unreachable: mo***@walletofsatoshi.com: LNURL server timed out after 10000 ms'),
     timeline: [
       ev(T(17, 15, 45), 'bounty.created', 'Djbrl', '/bounty 3000'),
       ev(T(17, 15, 48), 'funding.paid', 'bitnob', 'Funded over Lightning'),
@@ -368,12 +375,12 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
       ev(T(17, 17, 33), 'verify.done', 'bitbounty', 'Claude: ⚠️ unsure — 2/2 criteria met, prose quality not checkable'),
       ev(T(17, 18, 58), 'pr.merged', 'Djbrl', 'PR #32 merged — verdict unsure, on hold for the maintainer'),
       ev(T(17, 19, 0), 'maintainer.pay', 'Djbrl', '/pay — French reviewed by hand'),
-      ev(T(17, 19, 1), 'payout.started', 'bitbounty', 'Payout to Orange Money +221 78 ••• •• 19 (attempt 1)'),
-      ev(T(17, 19, 2), 'payout.failed', 'bitnob', 'Attempt 1/3 failed: withdrawal.expired'),
+      ev(T(17, 19, 1), 'payout.started', 'bitbounty', `Payout to mo***@walletofsatoshi.com over Lightning: ${groupSats(payoutSats(3000))} (attempt 1)`),
+      ev(T(17, 19, 2), 'payout.failed', 'bitnob', "Attempt 1/3 failed: the developer's Lightning wallet didn't answer"),
       ev(T(17, 19, 3), 'payout.started', 'bitbounty', 'Retry (attempt 2)'),
-      ev(T(17, 19, 4), 'payout.failed', 'bitnob', 'Attempt 2/3 failed: withdrawal.expired'),
+      ev(T(17, 19, 4), 'payout.failed', 'bitnob', "Attempt 2/3 failed: the developer's Lightning wallet didn't answer"),
       ev(T(17, 19, 8), 'payout.started', 'bitbounty', 'Retry (attempt 3)'),
-      ev(T(17, 19, 9), 'payout.failed', 'bitnob', 'Attempt 3/3 failed — @moussa-diop asked to update their account. The 3 000 FCFA stay reserved for them.'),
+      ev(T(17, 19, 9), 'payout.failed', 'bitnob', 'Attempt 3/3 failed — @moussa-diop asked to check their Lightning Address. The 3 000 FCFA stay reserved for them.'),
     ],
   });
 }
@@ -451,7 +458,7 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
     ],
   });
 }
-// b-113 Lagos route: funded in naira by a Lagos maintainer, paid in FCFA on Wave
+// b-113 Lagos route: funded in naira by a Lagos maintainer, paid in sats over Lightning in Dakar
 {
   const b = base('b-113', 'naija-rails/ngn-kit', 41, 'Validate NUBAN account numbers (check digit)', 10000, 'paid', [
     'isValidNuban(bankCode, account) implements the CBN check-digit algorithm',
@@ -475,8 +482,8 @@ function detail(b, { fundings = [], claims = [], submission = null, payout = nul
       ev(T(18, 1, 5), 'pr.linked', 'fatou-sall', 'PR #44 "Fixes #41"'),
       ev(T(18, 1, 8), 'verify.done', 'bitbounty', 'Claude: ✅ 3/3 criteria met'),
       ev(T(18, 1, 30), 'pr.merged', 'chidi-okafor', 'PR #44 merged'),
-      ev(T(18, 1, 31), 'payout.started', 'bitbounty', 'BTC → XOF payout to Wave +221 76 ••• •• 07'),
-      ev(T(18, 1, 35), 'payout.succeeded', 'bitnob', '💸 Paid 10 000 FCFA to @fatou-sall on Wave · Lagos → Dakar in 5 min'),
+      ev(T(18, 1, 31), 'payout.started', 'bitbounty', `Payout to fa***@blink.sv over Lightning: ${groupSats(payoutSats(10000))}`),
+      ev(T(18, 1, 35), 'payout.succeeded', 'bitnob', `💸 Paid 10 000 FCFA (${groupSats(payoutSats(10000))}) to @fatou-sall over Lightning · Lagos → Dakar in 5 min`),
     ],
   });
 }
@@ -521,13 +528,13 @@ const receipts = Object.fromEntries(
       prUrl: d.submission.prUrl,
       recipientLogin: d.payout.userLogin,
       amountXof: d.amountXof,
-      provider: d.payout.provider,
-      phoneMasked: d.payout.phoneMasked,
+      lightningAddress: d.payout.lightningAddress,
       fundedWith: { rail: f.rail, sourceAmount: f.sourceAmount, sourceCurrency: f.sourceCurrency, funderLogin: d.funderLogin },
       mergedAt: d.submission.mergedAt,
       paidAt: d.payout.paidAt,
       minutesMergeToPay: minutes(d.submission.mergedAt, d.payout.paidAt),
       bitnobReference: d.payout.bitnobPayoutId,
+      paidWith: { rail: 'lightning', amountSats: d.payout.amountSats, xofPerBtc: d.payout.xofPerBtc, paymentHash: d.payout.paymentHash },
       signature: `ed25519:${hex(`sig-${d.id}`, 64)}`,
     };
     return [r.id, r];
@@ -658,11 +665,11 @@ const live = {
   ],
   events: [
     { delayMs: 2500, bountyId: 'b-113', event: 'claim.created', from: 'funded', to: 'claimed', text: '@fatou-sall claimed naija-rails/ngn-kit#41 (funded in naira from Lagos)' },
-    { delayMs: 3000, bountyId: 'b-106', event: 'payout.succeeded', from: 'paying', to: 'paid', text: '💸 7 500 FCFA paid to @seynabou-gueye on Wave' },
+    { delayMs: 3000, bountyId: 'b-106', event: 'payout.succeeded', from: 'paying', to: 'paid', text: `💸 7 500 FCFA (${groupSats(payoutSats(7500))}) paid to @seynabou-gueye over Lightning` },
     { delayMs: 3000, bountyId: 'b-113', event: 'pr.linked', from: 'claimed', to: 'submitted', text: 'PR #44 opened on naija-rails/ngn-kit' },
     { delayMs: 2500, bountyId: 'b-113', event: 'pr.merged', from: 'submitted', to: 'verified', text: 'Claude: ✅ 3/3 criteria met · merged' },
-    { delayMs: 2000, bountyId: 'b-113', event: 'payout.started', from: 'verified', to: 'paying', text: 'Payout started: BTC → XOF, Wave' },
-    { delayMs: 3500, bountyId: 'b-113', event: 'payout.succeeded', from: 'paying', to: 'paid', text: '💸 Lagos → Dakar: ₦29 000 in, 10 000 FCFA out on Wave' },
+    { delayMs: 2000, bountyId: 'b-113', event: 'payout.started', from: 'verified', to: 'paying', text: `Payout started: ${groupSats(payoutSats(10000))} over Lightning` },
+    { delayMs: 3500, bountyId: 'b-113', event: 'payout.succeeded', from: 'paying', to: 'paid', text: `💸 Lagos → Dakar: ₦29 000 in, 10 000 FCFA (${groupSats(payoutSats(10000))}) out over Lightning` },
   ],
 };
 

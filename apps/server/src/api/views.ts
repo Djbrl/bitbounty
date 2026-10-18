@@ -31,13 +31,11 @@ export type BountyDetail = BountyView & {
   })[];
   claims: (ClaimRecordView & { userLogin: string; extended: boolean; createdAt: string })[];
   submission: (Submission & { prUrl: string; ci: "pending" | "success" | "failure"; createdAt: string }) | null;
-  payout: (Payout & { userLogin: string; provider: "wave" | "orange" | "free"; phoneMasked: string; createdAt: string }) | null;
+  /** B6: paid in sats over Lightning; `lightningAddress` is masked (`aw***@blink.sv`). */
+  payout: (Payout & { userLogin: string; createdAt: string }) | null;
   timeline: TimelineEvent[];
 };
 type ClaimRecordView = Omit<ClaimRecord, "login" | "extensions">;
-
-/** Shown wherever the real number isn't known to this module (the payout account lives with B3). */
-export const MASKED_PHONE = "+221 •• ••• •• ••";
 
 export const loginOf = (id: string): string | null => (id.startsWith("github:") ? id.slice(7) : null);
 
@@ -128,8 +126,6 @@ export function payoutView(p: Payout, createdAt: string): NonNullable<BountyDeta
     ...(p.xofPerBtc != null ? { xofPerBtc: p.xofPerBtc } : {}),
     ...(p.paymentHash ? { paymentHash: p.paymentHash } : {}),
     userLogin: loginOf(p.userId) ?? p.userId,
-    provider: "wave",
-    phoneMasked: MASKED_PHONE,
     createdAt,
   };
 }

@@ -1,10 +1,4 @@
-import type {
-  Bounty,
-  BountyStatus,
-  CriterionResult,
-  FundingRail,
-  PayoutProvider,
-} from "@bitbounty/core";
+import { maskLightningAddress, type Bounty, type BountyStatus, type CriterionResult, type FundingRail } from "@bitbounty/core";
 import { COPY, type Copy } from "./copy.js";
 import { encodeSegment, escapeInline, markerSafe, mention } from "./escape.js";
 import { formatDate, formatSats, formatXof, type Lang } from "./format.js";
@@ -30,7 +24,10 @@ export interface StatusCommentExtras {
   payout?: {
     /** Receipt page id, links to /r/[receiptId]. */
     receiptId?: string | null;
-    provider?: PayoutProvider | null;
+    /** B6: sats sent over Lightning for this attempt. */
+    sats?: number | null;
+    /** B6: the developer's Lightning Address; masked here before it's shown (`aw***@blink.sv`). */
+    lightningAddress?: string | null;
     reference?: string | null;
     /** Raw error text, shown as is. Prefer `reason` for anything public (I3). */
     lastError?: string | null;
@@ -151,7 +148,8 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
   const author = extras.pr?.authorLogin ? mention(extras.pr.authorLogin) : null;
   const dev = claimant ?? author ?? "—";
   const pr = isCount(extras.pr?.number) ? prLink(bounty.repoFullName, extras.pr.number) : null;
-  const provider = extras.payout?.provider ? c.provider[extras.payout.provider] : "Mobile Money";
+  const sats = isCount(extras.payout?.sats) ? formatSats(extras.payout.sats) : null;
+  const address = lightningAddressSpan(extras.payout?.lightningAddress);
 
   const out: string[] = [statusMarker(bounty.id)];
   out.push(`### 💰 ${amount} · ${c.pill[status]}`);
@@ -207,10 +205,10 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
       body.push(c.validated(extras.objectionEndsAt ? formatDate(extras.objectionEndsAt, lang) : null));
       break;
     case "paying":
-      body.push(c.paying(amount, dev, provider));
+      body.push(c.paying(amount, sats, dev, address));
       break;
     case "paid": {
-      const parts = [c.paid(amount, dev, provider)];
+      const parts = [c.paid(amount, sats, dev, address)];
       if (extras.payout?.reference) {
         // Shown in a code span, where escapes don't work: keep only reference-safe chars.
         const ref = extras.payout.reference.replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, 64);
@@ -241,6 +239,13 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
 
   out.push(`<sub>${c.footer} · [${c.bountyPage}](${base}/b/${id})</sub>`);
   return out.join("\n\n") + "\n";
+}
+
+/** Masked Lightning Address in a code span (the `***` would otherwise turn into emphasis). */
+function lightningAddressSpan(value: string | null | undefined): string | null {
+  if (typeof value !== "string" || !value.includes("@")) return null;
+  const masked = maskLightningAddress(value.trim()).replace(/[^A-Za-z0-9_.+*@:-]/g, "").slice(0, 80);
+  return masked.includes("@") ? `\`${masked}\`` : null;
 }
 
 function nextAction(

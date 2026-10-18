@@ -68,7 +68,7 @@ function PayoutItem({ p }: { p: PayoutRow }) {
     >
       <Avatar initials={p.login.slice(0, 1)} size="sm" />
       <span className="min-w-0">
-        <b className="font-semibold">@{p.login}</b> · {p.provider}
+        <b className="font-semibold">@{p.login}</b> · {p.via}
         <br />
         <span className="text-muted">
           {repo}
