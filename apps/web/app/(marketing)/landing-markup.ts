@@ -7,7 +7,7 @@ import { LANDING_TEMPLATE } from "./landing-template";
 
 export const LANDING_CONFIG = {
   /** YouTube id of the trailer; empty keeps the "coming soon" slot. */
-  trailerYoutubeId: "",
+  trailerYoutubeId: "KAIDUnbRafo",
   githubAppUrl: "https://github.com/apps/bitbounty-dakar",
   repoUrl: "https://github.com/Djbrl/bitbounty",
 };
