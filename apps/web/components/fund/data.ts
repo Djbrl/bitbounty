@@ -8,7 +8,7 @@ import type { BountyDetail, BountyStatus, FundingRail, FundingSession } from "..
 import { apiBaseUrl, apiGet } from "../../lib/api";
 import { handleMock, type Fixtures } from "../../lib/mock-api";
 
-export type { FundingRail, FundingSession };
+export type { BountyStatus, FundingRail, FundingSession };
 
 /** What the fund page needs to know about the bounty (summary card + "already funded"). */
 export interface FundBounty {
