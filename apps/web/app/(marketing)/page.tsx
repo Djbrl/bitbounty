@@ -8,10 +8,10 @@ import { LandingScroll } from "./landing-scroll";
 export const metadata: Metadata = {
   title: "BitBounty · Faites-vous payer pour contribuer.",
   description:
-    "Des issues GitHub payées pour les développeurs d'Afrique de l'Ouest. Les mainteneurs financent en sats, les développeurs sont payés en sats sur leur Lightning Address quelques minutes après le merge. Propulsé par Bitnob.",
+    "Les mainteneurs financent leurs issues GitHub. Votre PR est mergée : vous êtes payé en sats sur votre Lightning Address, en quelques minutes. Propulsé par Bitnob.",
   openGraph: {
     title: "BitBounty · Faites-vous payer pour contribuer.",
-    description: "Des issues GitHub payées en sats, sur Lightning. Propulsé par Bitnob.",
+    description: "Des PRs qui paient, en sats sur Lightning. Propulsé par Bitnob.",
   },
 };
 

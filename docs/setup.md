@@ -135,6 +135,7 @@ docker compose logs tunnel | grep trycloudflare   # the public API URL
 | `smee` | Forwards GitHub App webhooks from the smee channel to the server. The smee URL is stable, so the app settings never change. It reads the channel from `WEBHOOK_PROXY_URL` in `.env` and refuses to start if it is unset. **Never commit the channel URL: smee has no auth, anyone with it can read every webhook.** For your own app, put your own channel there |
 | `tunnel` | Cloudflare quick tunnel: a public `https://….trycloudflare.com` URL for the web app and Bitnob webhooks, no account needed |
 
+- The `server` container runs as the unprivileged `node` user (`docker compose exec server whoami` → `node`); the app files stay owned by root, read-only for it.
 - **Check:** `curl <tunnel-url>/health` → `{"status":"ok"}`; an unsigned `POST <tunnel-url>/webhooks/github` → 401.
 - **After a code change:** `docker compose up -d --build server`.
 - **Venue / restrictive Wi-Fi:** the tunnel uses `--protocol http2` (TCP 443) because some networks block QUIC (UDP), which silently kills the default quick tunnel.

@@ -170,13 +170,14 @@ Status at Sun 18 Oct, 11:30, with rule 11 applied to every merged PR (per-PR aud
 
 | Member | Earned | Lost to the pool (done-when not met at push) | Halved (bad break) | Reviews | Points |
 | --- | --- | --- | --- | --- | --- |
-| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (29) · F7 (2) · A5 (2) · L1 (3), U1, U2 (2), U3, U4, U5 (12) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 12 (+5, capped by rule 6) | **57.5** |
+| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (30) · F7 (2) · A5 (2) · L1 (3), U1, U2 (2), U3, U4, U5 (12) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 12 (+5, capped by rule 6) | **58.5** |
 | Rabatou | F2 (3), B4 (3) | F5 (2), B5 (2), B1 (3), B2 (5), B3 (1), I2 (3) | – | ½ credit #91 (+0.25) | **6.25** |
 | Kml221-bot | I1 (3), A4 (3), A3 (3), I3 (2), U0 (3) | F1 (3), F3 (2) | – | – | **14** |
 | cheikhteej | – | – | – | – | **0** |
 | **Shared pool** | | **28 pts → +7 each** | | | |
 
 Update (Sun 18 Oct): Djbrl's 4 rule 11 reviews at 23:23 (#90, #76, #75, #85, logged in #77) add +2, capped at 5 by rule 6 → +1.5, Djbrl 35 → **36.5**.
+Update (Sun 18 Oct): the W1, W3–W8, G1–G3, G5, A1, A2 subtotal is 30, not 29 (2+3+3+2+2+2+2 + 2+2+3+2 + 3+2, matches the issues' `pts:` labels; flagged by CodeRabbit, #92). Djbrl 57.5 → **58.5**.
 
 Changes since 22:15: I1, A4, A3 merged with full points (fixes #99, #96, #97), I3 merged with full points (#93, fixes #101), I2 merged with done-when not met (fixes #98, 3 pts to the pool), F7 (#89) sized at 2 by the captain, Djbrl's reviews capped at 5 (rule 6). B2/B3 closed as not planned (replaced by B6/B7).
 
