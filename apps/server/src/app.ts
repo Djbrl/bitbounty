@@ -13,7 +13,8 @@ import { InMemoryEventBus, defaultPrDeps, registerPrHandlers } from "./github/pr
 import { InMemoryBountyRepo, type BountyRepo } from "./bounties/repo.js";
 import { DrizzleBountyRepo } from "./bounties/drizzle-repo.js";
 import { createGithubApp } from "./github/app-client.js";
-import { installationWriterFactory, registerCommentWiring, syncIssue } from "./github/wiring/index.js";
+import { installationWriterFactory, registerCommentWiring, syncIssue, type WiringDeps } from "./github/wiring/index.js";
+import { maintainRoutes, type MaintainDeps } from "./api/maintain.js";
 import {
   appGithubForRepo,
   ClaimTimers,
@@ -90,6 +91,8 @@ registerPrHandlers(githubDispatcher, prDeps);
 let statusSync: ((bounty: Bounty) => Promise<void>) | undefined;
 /** Set once the GitHub App is configured: lets A4 post the bot's status comment for agent bounties. */
 let githubForRepo: ReturnType<typeof appGithubForRepo> | undefined;
+/** U4: Pay / Hold from /app/maintain (set when the GitHub App is configured). */
+let maintainerDecisions: MaintainDeps["decide"];
 
 // G3: issue_comment.created → command → transition() → status comment edited in place + label.
 // G5: claim timers (assign on /claim, expire after CLAIM_TTL_MINUTES or 72 h, /extend once).
@@ -111,14 +114,17 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
     ttlMs: claimTtlMs,
     ...botSettings,
   });
-  registerCommentWiring(githubDispatcher, {
+  const wiring: WiringDeps = {
     repo: bountyRepo,
     bus: eventBus,
     writerFor: installationWriterFactory(githubApp),
     claimTtlMs,
     claims: claimTimers,
     ...botSettings,
-  });
+  };
+  registerCommentWiring(githubDispatcher, wiring);
+  // U4: the web's Pay / Hold run the same /pay / /hold path, with the repo's installation writer.
+  maintainerDecisions = { wiring, writerForRepo: async (repoFullName) => (await github(repoFullName)).writer };
   void claimTimers.start();
   statusSync = async (bounty) => {
     const { writer } = await github(bounty.repoFullName);
@@ -134,11 +140,7 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
 
 // A4: agents fund bounties through /v1 (and packages/mcp) with a `bb_` key, inside their owner's budget.
 const agents = agentsFromEnv(process.env.BITBOUNTY_AGENTS);
-app.route(
-  "/",
-  agentRoutes(
-    new StaticAgentRegistry(agents),
-    new AgentService({
+const agentService = new AgentService({
       repo: bountyRepo,
       bus: eventBus,
       spending: database
@@ -148,9 +150,8 @@ app.route(
       github: githubForRepo,
       lang: process.env.BOT_LANG === "fr" ? "fr" : "en",
       botLogin: process.env.GITHUB_BOT_LOGIN || undefined,
-    }),
-  ),
-);
+});
+app.route("/", agentRoutes(new StaticAgentRegistry(agents), agentService));
 if (agents.length) console.log(`[agents] ${agents.length} agent key(s) loaded from BITBOUNTY_AGENTS`);
 
 // A2: pull_request opened/synchronize/reopened on a funded bounty → "BitBounty verification" check run + verify.done.
@@ -262,11 +263,25 @@ export function startPayouts(): void {
   payoutService.startPolling();
 }
 // U2: the user's workspace (Maintainer / Hunter) for the web app shell, users.default_mode (L1).
+const modeStore = database ? new DrizzleModeStore(database.db) : new InMemoryModeStore();
 app.route(
   "/",
   modeRoutes({
-    store: database ? new DrizzleModeStore(database.db) : new InMemoryModeStore(),
+    store: modeStore,
     repo: bountyRepo,
+    internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
+  }),
+);
+// U4: the maintainer home. Pay / Hold go through runMaintainerDecision, the /pay and /hold path.
+app.route(
+  "/",
+  maintainRoutes({
+    repo: bountyRepo,
+    fundings: database ? mergeFundings(fundingStore, new DrizzleFundingReader(database.db)) : fundingStore,
+    payouts: payoutStore,
+    installedRepos: (login) => modeStore.installedRepos(login),
+    agents: { list: () => agents, budget: (a) => agentService.budget(a) },
+    decide: maintainerDecisions,
     internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
   }),
 );
