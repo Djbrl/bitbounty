@@ -14,10 +14,31 @@ export interface ApiResult {
   body: unknown;
 }
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * The agent key travels as a bearer token, so it must never go over plain HTTP on a network:
+ * `https` is allowed everywhere, `http` only for a loopback host (local dev). Throws otherwise.
+ */
+export function assertSafeBaseUrl(baseUrl: string): void {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    throw new Error(`BITBOUNTY_API_URL is not a valid URL: ${JSON.stringify(baseUrl)}`);
+  }
+  if (url.protocol === "https:") return;
+  if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) return;
+  throw new Error(
+    `BITBOUNTY_API_URL must use https (http is only allowed for localhost, 127.0.0.1 or ::1), got ${url.protocol}//${url.host}`,
+  );
+}
+
 export class BitbountyApi {
   private readonly baseUrl: string;
 
   constructor(private readonly config: ApiConfig) {
+    assertSafeBaseUrl(config.baseUrl);
     this.baseUrl = config.baseUrl.replace(/\/+$/, "");
   }
 
