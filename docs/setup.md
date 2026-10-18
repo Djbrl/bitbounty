@@ -26,7 +26,7 @@ pnpm dev          # web on http://localhost:3000, server on http://localhost:878
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm build` | builds every app |
 | `pnpm db:migrate` | applies the database migrations (`DATABASE_URL`) |
-| `pnpm db:seed` | empties the database and fills it with demo data (one bounty per status) |
+| `pnpm db:seed` | replaces the demo rows (9 bounties on 3 repos) and leaves everything else; safe to run again |
 | `pnpm db:generate` | writes a new migration after a schema change |
 
 ## Database
@@ -36,7 +36,7 @@ Postgres 16 with Drizzle; schema, migrations and seed live in [`packages/db`](..
 docker compose up -d db     # Postgres on localhost:5432 (or any Postgres)
 export DATABASE_URL=postgres://postgres:postgres@localhost:5432/bitbounty   # the .env.example default
 pnpm db:migrate             # creates the 12 tables (safe to run again)
-pnpm db:seed                # EMPTIES every table, then one bounty in each of the 11 statuses
+pnpm db:seed                # replaces the demo rows only (9 bounties on 3 Djbrl/* repos), safe to run again
 docker exec bitbounty-db-1 psql -U postgres -d bitbounty -c 'select status, count(*) from bounties group by 1'
 ```
 
