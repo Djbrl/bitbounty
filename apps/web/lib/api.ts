@@ -85,6 +85,19 @@ export async function apiGet<T>(path: string, opts: ApiOptions = {}): Promise<T 
   return (await res.json()) as T;
 }
 
+/**
+ * For secondary data: a failed call (5xx, timeout, unreachable) logs a warning and yields `fallback`
+ * instead of taking the whole page down. The page's main loader should NOT use this.
+ */
+export async function orFallback<T>(call: Promise<T>, fallback: T, label: string): Promise<T> {
+  try {
+    return await call;
+  } catch (err) {
+    console.warn(`[bitbounty] ${label} failed, continuing without it:`, err instanceof Error ? err.message : err);
+    return fallback;
+  }
+}
+
 /** Real server when configured, otherwise the fixture mock. */
 export async function load<T>(path: string, mock: () => T | null | Promise<T | null>, opts: ApiOptions = {}): Promise<T | null> {
   return apiBaseUrl(opts.env) ? apiGet<T>(path, opts) : mock();

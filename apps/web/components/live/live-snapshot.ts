@@ -3,7 +3,7 @@
 import type { Live } from "../../../../fixtures/types";
 import bounties from "../../../../fixtures/bounties.json";
 import live from "../../../../fixtures/live.json";
-import { apiBaseUrl, apiGet } from "../../lib/api";
+import { apiBaseUrl, apiGet, orFallback } from "../../lib/api";
 import { findRoute, LIVE_COLUMNS, type LiveSnapshot, type RouteBounty } from "./live-data";
 
 export function getLiveSnapshot(): LiveSnapshot {
@@ -35,6 +35,8 @@ export async function fetchLiveSnapshot(): Promise<LiveSnapshot> {
   }));
   // The Lagos route needs fundings and payouts: look at the most advanced cards only.
   const late = list.filter((b) => b.status === "paid" || b.status === "paying" || b.status === "verified").slice(0, 10);
-  const details = await Promise.all(late.map((b) => apiGet<RouteBounty>(`/api/bounties/${encodeURIComponent(b.id)}`)));
+  const details = await Promise.all(
+    late.map((b) => orFallback(apiGet<RouteBounty>(`/api/bounties/${encodeURIComponent(b.id)}`), null, `bounty ${b.id} detail`)),
+  );
   return { columns: LIVE_COLUMNS, cards, route: findRoute(details.filter((d): d is RouteBounty => d !== null), cards) };
 }
