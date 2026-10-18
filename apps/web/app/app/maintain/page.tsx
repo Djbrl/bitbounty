@@ -1,29 +1,13 @@
-// U2: Maintainer home inside the app shell. Placeholder that reuses the /dashboard view; U4 redesigns it.
+// U4: Maintainer home inside the app shell: what needs a decision now, money in play, repos, payouts.
 import type { Metadata } from "next";
-import Link from "next/link";
-import { getDashboard } from "@/components/dashboard/data";
-import { DashboardContent } from "@/components/dashboard/dashboard-view";
-import { EmptyState, buttonClass } from "@/components/ui";
-import { INSTALL_URL } from "@/components/app-shell/mode";
+import { decideBounty, suggestBacklog } from "@/components/maintain/actions";
+import { getLang, getMaintainHome } from "@/components/maintain/data";
+import { MaintainView } from "@/components/maintain/maintain-view";
 
 export const metadata: Metadata = { title: "Maintainer · BitBounty" };
 export const dynamic = "force-dynamic";
 
 export default async function MaintainHome() {
-  const data = await getDashboard();
-  if (!data.repos.length && !data.bounties.length) {
-    return (
-      <EmptyState
-        title="No repo yet"
-        action={
-          <Link href={INSTALL_URL} className={buttonClass({ variant: "dark" })}>
-            Install on GitHub
-          </Link>
-        }
-      >
-        Install the BitBounty app on a repo, then price your backlog and fund an issue.
-      </EmptyState>
-    );
-  }
-  return <DashboardContent data={data} />;
+  const [data, lang] = await Promise.all([getMaintainHome(), getLang()]);
+  return <MaintainView data={data} lang={lang} decide={decideBounty} suggest={suggestBacklog} />;
 }
