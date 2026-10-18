@@ -34,6 +34,7 @@ Lines marked **[check in rehearsal]** depend on something not yet proven live; r
 | Claude check slow | Show the check run of a rehearsal PR (keep one open, unmerged). |
 | Payout doesn't arrive | Show the seeded paid bounty's receipt (`/r/<id>`), mention the sats amount and the Lightning Address. |
 | Claude Code / MCP not available | Run `pnpm --filter @bitbounty/server agent:demo` (scripted fallback, same calls). |
+| No naira-funded bounty on `/live` for the "Funding from Lagos" line | Run `pnpm --filter @bitbounty/server e2e -- --fund=ngn --runs=2 --serve=8794 --pace=1500` and point a web at it (`BITBOUNTY_API_URL=http://localhost:8794`): `/live` plays two Lagos bounties and shows the **Lagos → Dakar** route (₦27 000 → 18 000 sats → 10 000 F, paid as 16 666 sats) with the sums under it (I4, [e2e README](../../apps/server/src/e2e/README.md#lagos-route-on-live-i4)). |
 
 ## Questions to prepare (30 s answers)
 - **Why sats, not mobile money?** Bitnob pays Lightning instantly and everywhere; mobile-money payouts weren't available to us. The developer can cash out locally if they want.

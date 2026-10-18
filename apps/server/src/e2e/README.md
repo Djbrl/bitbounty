@@ -10,7 +10,7 @@ pnpm --filter @bitbounty/server e2e -- --sandbox       # real Bitnob sandbox (ke
 pnpm --filter @bitbounty/server e2e -- --sandbox --fund=lightning   # prints an invoice to pay from a sandbox wallet
 # options: --runs=3 --address=awa@blink.sv --amount=300   (the payout goes to that Lightning Address, B6)
 ```
-It's also a test (`test/e2e.test.ts`, 3 runs + the Lagos route), so `pnpm test` guards the full path on every change.
+It's also a test (`test/e2e.test.ts`, 3 runs + the Lagos route, run twice with its amounts checked), so `pnpm test` guards the full path on every change.
 
 ## What's real and what's simulated
 | Part | In the run |
@@ -19,10 +19,28 @@ It's also a test (`test/e2e.test.ts`, 3 runs + the Lagos route), so `pnpm test` 
 | GitHub | simulated: **signed** `issue_comment` / `pull_request` webhooks into the real receiver; comments, labels and check runs go to an in-memory fake API |
 | The verifier's model | a scripted answer (both criteria met), so the run doesn't depend on Claude |
 | Bitnob | `FakeBitnob` offline, or the **real sandbox** with `--sandbox` (invoice or naira account + simulated deposits + NGN→BTC order, payout: LNURL-pay → `/lightning/pay`, polled until paid; needs `send_lightning` enabled on the sandbox account) |
-| Database | a fresh in-memory repo per run, and a unique repo name (`bitbounty-e2e/demo-<id>`) |
+| Database | a fresh in-memory repo per run (one shared by all runs with `--serve`), and a unique repo name (`bitbounty-e2e/demo-<id>`) |
 
 Each step checks the bounty's status, and the run checks the internal events come in this order:
 `bounty.created → funding.paid → claim.created → pr.linked → verify.done → pr.merged → payout.started → payout.succeeded`, and that the issue ends with the `bounty: paid` label.
+
+## Lagos route on /live (I4)
+Every run also mounts I1's read API over its stores, so the report carries the **route** `/live` shows (`GET /api/live?format=json`). Watch it on the projector screen:
+
+```bash
+pnpm --filter @bitbounty/server e2e -- --fund=ngn --runs=2 --serve=8794 --pace=1500
+BITBOUNTY_API_URL=http://localhost:8794 pnpm --filter @bitbounty/web dev -- -p 3204   # open http://localhost:3204/live
+```
+- `--serve=PORT` keeps the read API up after the runs; the runs then share one database (`createReadSide()`), so both bounties stay on the board. `--pace=MS` waits after each step so the cards move visibly.
+- Each naira run prints the route and its checks, and goes RED if the route is missing or a sum is off:
+  ```
+  Lagos route on /live: {"ngn":27000,"satsBought":18000,"xof":10000,"feeXof":500,"bufferXof":300,"sats":16666,"xofPerBtc":60000000,…}
+    ✓ ₦27000 paid for 10800 FCFA = 10000 bounty + 500 fee (5%) + 300 buffer (3%)
+    ✓ payout: floor(10000 × 1e8 ÷ 60000000 FCFA/BTC) = 16666 sats, paid 16666 sats
+    ✓ bought 18000 sats with the naira ≥ 16666 sats paid out (1334 sats kept as fee + buffer)
+  ```
+- Offline, `FakeBitnob` sells naira at its own rates (₦1 500/USDT, 100 000 USDT/BTC, 600 F/USDT), so the order and the payout agree; its ids carry a per-instance tag so runs sharing a database never collide. With `--sandbox`, the order amount and rates are Bitnob's.
+- Formulas and sources: [docs/api.md](../../../../docs/api.md#lagos-route-on-live-i4).
 
 ## Settlement (the glue it needed)
 `src/settlement/`: nobody was listening after the PR. `Settlement` now does it, in the harness and in `app.ts`:
