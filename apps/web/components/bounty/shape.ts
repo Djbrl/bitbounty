@@ -3,7 +3,6 @@ import type {
   BountyDetail,
   EventType,
   FundingRail,
-  PayoutProvider,
   PayoutStatus,
   Receipt,
   Verdict,
@@ -55,11 +54,15 @@ export const RAIL_LABEL: Record<FundingRail, string> = {
   ngn: "Naira bank transfer",
 };
 
-export const PROVIDER_LABEL: Record<PayoutProvider, string> = {
-  wave: "Wave",
-  orange: "Orange Money",
-  free: "Free Money",
-};
+/** B6: where a payout goes, "Lightning · aw***@blink.sv" (the API sends the address masked). */
+export function payoutDestination(p: { lightningAddress?: string | null }): string {
+  return p.lightningAddress ? `Lightning · ${p.lightningAddress}` : "Lightning";
+}
+
+/** 16180 -> "16 180 sats". */
+export function formatSatsAmount(sats: number): string {
+  return `${group(sats)} sats`;
+}
 
 /** FCFA is pegged to the euro: 1 EUR = 655.957 XOF. 10 000 -> "≈ €15.24". */
 export function xofToEur(xof: number): string {
@@ -177,7 +180,8 @@ export function wasRejected(b: BountyDetail): boolean {
 export function receiptRows(r: Receipt): Array<{ key: string; label: string; value: string }> {
   return [
     { key: "for", label: "Pour", value: `${r.issueTitle} · PR #${r.prNumber}` },
-    { key: "to", label: "Vers", value: `${PROVIDER_LABEL[r.provider]} ${r.phoneMasked}` },
+    { key: "to", label: "Vers", value: payoutDestination(r) },
+    ...(r.paidWith?.amountSats != null ? [{ key: "sats", label: "Envoyé", value: formatSatsAmount(r.paidWith.amountSats) }] : []),
     { key: "dev", label: "Développeur", value: `@${r.recipientLogin}` },
     { key: "merged", label: "Merge", value: formatDateTime(r.mergedAt, "fr") },
     { key: "paid", label: "Payé le", value: formatDateTime(r.paidAt, "fr") },

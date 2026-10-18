@@ -27,8 +27,8 @@ export function BoardView({ board, payouts, issues }: BoardViewProps) {
             Fix an issue. Get paid on your phone.
           </h1>
           <p className="max-w-[60ch] text-muted">
-            Every issue below is already funded. Merge your pull request and the bounty lands on Wave, Orange Money or
-            Free Money, in FCFA, minutes later.
+            Every issue below is already funded in FCFA. Merge your pull request and the bounty lands in your Lightning
+            wallet, in sats, minutes later.
           </p>
         </div>
         <HeroStats stats={board.stats} />

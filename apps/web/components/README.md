@@ -64,7 +64,8 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | `Section` | `eyebrow?`, `title?`, `description?`, `actions?`, `id?` | Heading block + content |
 | `Eyebrow` | children | Mono uppercase label |
 | `Table`, `THead`, `TBody`, `Tr`, `Th`, `Td` | `Tr selected?`, `Td numeric?`, `Td mono?` | Bordered table, scrolls inside its border on phones |
-| `PhoneFrame`, `PhoneNotification`, `BrowserFrame` | see source | Mockups (landing phone colours) |
+| `PhoneFrame`, `BrowserFrame` | see source | Mockups (landing phone colours) |
+| `PhoneNotification` | `title`, `body`, `icon?` | Wallet payout push notification (e.g. Lightning sats received) |
 | `cx()` | class parts | Tiny class joiner |
 
 `Tone` = `neutral | outline | money | money-solid | bright | pending | amber | claim | claim-solid | danger | agent | ink`.

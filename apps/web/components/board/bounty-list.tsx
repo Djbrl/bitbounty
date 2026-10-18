@@ -16,7 +16,7 @@ export function BountyList({ bounties }: { bounties: BountySummary[] }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid gap-0.5">
           <h2 className="text-[1.6rem] font-extrabold tracking-tight">Paid issues</h2>
-          <p className="text-[13px] text-muted">Funded and waiting for a developer. Paid to mobile money.</p>
+          <p className="text-[13px] text-muted">Funded and waiting for a developer. Paid in sats over Lightning.</p>
         </div>
         {bounties.length > 0 && (
           <div role="group" aria-label="Filter bounties" className="flex flex-wrap gap-1.5">

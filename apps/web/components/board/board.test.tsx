@@ -73,15 +73,15 @@ describe("live payouts", () => {
   it("seeds from succeeded payouts, newest first", async () => {
     const rows = await getRecentPayouts();
     expect(rows.map((r) => r.bountyId)).toEqual(["b-113", "b-107"]);
-    expect(rows[1]).toMatchObject({ login: "awa-ndiaye", provider: "Wave", amountXof: 10000, issueNumber: expect.any(Number) });
+    expect(rows[1]).toMatchObject({ login: "awa-ndiaye", via: "16 180 sats", amountXof: 10000, issueNumber: expect.any(Number) });
   });
 
-  it("adds a payout.succeeded once per bounty, with the claimer and provider", async () => {
+  it("adds a payout.succeeded once per bounty, with the claimer and the sats", async () => {
     const issues = await getIssueIndex();
     let s = onSnapshot(initialLiveState([]), live);
     for (const ev of live.events) s = onTransition(s, ev, issues);
     expect(s.payouts.map((p) => p.bountyId)).toEqual(["b-113", "b-106"]);
-    expect(s.payouts[0]).toMatchObject({ login: "fatou-sall", provider: "Wave", amountXof: 10000, fresh: true });
+    expect(s.payouts[0]).toMatchObject({ login: "fatou-sall", via: "16 180 sats", amountXof: 10000, fresh: true });
     expect(s.payouts[0]!.note).toContain("Lagos");
     expect(s.payouts[1]).toMatchObject({ login: "seynabou-gueye", fresh: false });
     // the stream loops: replaying the events must not duplicate rows
@@ -99,7 +99,7 @@ describe("live payouts", () => {
 
 describe("BoardView", () => {
   const payouts: PayoutRow[] = [
-    { bountyId: "b-107", login: "awa-ndiaye", provider: "Wave", repoFullName: "teranga-labs/bitnob-js", issueNumber: 11, amountXof: 10000 },
+    { bountyId: "b-107", login: "awa-ndiaye", via: "16 180 sats", repoFullName: "teranga-labs/bitnob-js", issueNumber: 11, amountXof: 10000 },
   ];
 
   it("renders hero stats, funded rows, external rows and the live column", async () => {

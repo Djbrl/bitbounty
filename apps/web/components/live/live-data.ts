@@ -17,9 +17,10 @@ export interface LiveRoute {
   bountyId: string;
   /** Naira paid in (whole ₦). */
   ngn: number;
-  /** FCFA paid out. */
+  /** FCFA the bounty is worth. */
   xof: number;
-  provider: string;
+  /** Sats the developer received over Lightning (B6), when known. */
+  sats: number | null;
 }
 
 export interface LiveSnapshot extends LiveState {
@@ -32,10 +33,10 @@ export const LIVE_COLUMNS: BountyStatus[] = ["funded", "claimed", "submitted", "
 export interface RouteBounty {
   id: string;
   fundings: { sourceCurrency: string; sourceAmount: number; status: string }[];
-  payout: { amountXof: number; provider: string } | null;
+  payout: { amountXof: number; amountSats?: number | null } | null;
 }
 
-/** First live card funded in naira (minor units → whole ₦) and paid out to mobile money. */
+/** First live card funded in naira (minor units → whole ₦) and paid out in sats over Lightning. */
 export function findRoute(all: RouteBounty[], cards: LiveCard[]): LiveRoute | null {
   for (const card of cards) {
     const b = all.find((x) => x.id === card.bountyId);
@@ -45,7 +46,7 @@ export function findRoute(all: RouteBounty[], cards: LiveCard[]): LiveRoute | nu
       bountyId: b.id,
       ngn: Math.round(f.sourceAmount / 100),
       xof: b.payout?.amountXof ?? card.amountXof,
-      provider: b.payout?.provider ?? "wave",
+      sats: b.payout?.amountSats ?? null,
     };
   }
   return null;
@@ -94,7 +95,7 @@ export function reconnectDelay(attempt: number): number {
   return Math.min(1000 * 2 ** attempt, 10_000);
 }
 
-/** Lagos → Dakar progress for the route card: 0 = naira in, 1 = bitcoin, 2 = FCFA on mobile money. */
+/** Lagos → Dakar progress for the route card: 0 = naira in, 1 = bitcoin, 2 = sats in the developer's Lightning wallet. */
 export function routeStage(status: BountyStatus | undefined): 0 | 1 | 2 {
   if (status === "paid") return 2;
   if (status === "verified" || status === "paying") return 1;

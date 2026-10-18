@@ -1,0 +1,9 @@
+{
+  "welcome": "Bienvenue, {name} !",
+  "amount": "Montant : {amount}",
+  "paid": "Vous avez reçu {amount} sur {address}.",
+  "invoice_expired": "Cette facture a expiré. Demandez-en une nouvelle.",
+  "rate_unavailable": "Le taux de change n'est pas disponible pour le moment. Réessayez dans une minute.",
+  "address_invalid": "Cette Lightning Address n'est pas valide. Elle ressemble à nom@domaine.com.",
+  "thanks": "Merci pour votre contribution !"
+}

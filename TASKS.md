@@ -54,11 +54,11 @@ Points feed the prize split. The rules are in the [README](README.md#prize-agree
 | [F4](https://github.com/Djbrl/bitbounty/issues/4) | `fixtures/*.json` for every page + Next mock route `/api/*` serving them | 2 | F2 | every page can fetch its data |
 | [F5](https://github.com/Djbrl/bitbounty/issues/5) | Bitnob: account, sandbox keys, HMAC client, `whoami` + test of the **4 key calls** (invoice, SN payout quote, VA simulate, NGN quote), results written in the README | 2 | – | 4 calls documented OK/KO |
 | [F6](https://github.com/Djbrl/bitbounty/issues/6) | GitHub App: registration, permissions, webhook receiver (smee) + signature check + `events` table (dedupe) | 2 | F1 | a test comment shows up in `events` |
-| [F7](https://github.com/Djbrl/bitbounty/issues/88) | **Bitnob sandbox proxy**: `/dev/bitnob/*` on the always-on server re-signs teammates' calls with its keys (IP allowlist + no shared secrets), token-gated, sandbox-only | 2 (proposed) | F5 F1 | whoami + invoice through the tunnel with token; 401/403/404 cases |
+| [F7](https://github.com/Djbrl/bitbounty/issues/88) | **Bitnob sandbox proxy**: `/dev/bitnob/*` on the always-on server re-signs teammates' calls with its keys (IP allowlist + no shared secrets), token-gated, sandbox-only | 2 | F5 F1 | whoami + invoice through the tunnel with token; 401/403/404 cases |
 
 ## Wave 1: parallel building (16:15 → 00:00)
 ### Money (Bitnob)
-> Sat 17 Oct, 22:30: the mentor confirmed Wave / Orange Money payouts are not possible. Developers are paid **in sats over Lightning**: B6 replaces B2's mobile-money rail, B7 replaces B3's test-payout target. B6/B7 points to be sized by 2 members (rule 7).
+> Sat 17 Oct, 22:30: the mentor confirmed Wave / Orange Money payouts are not possible. Developers are paid **in sats over Lightning**: B6 replaces B2's mobile-money rail, B7 replaces B3's test-payout target. B6/B7 points sized by Djbrl as captain (Sun 18 Oct).
 
 | ID | Task | Pts | Depends on | Done when |
 |---|---|---|---|---|
@@ -67,8 +67,8 @@ Points feed the prize split. The rules are in the [README](README.md#prize-agree
 | [B3](https://github.com/Djbrl/bitbounty/issues/9) | Test payout for onboarding (random 100–199 F) + confirmation endpoint | 1 | B2 | amount sent, then validated |
 | [B4](https://github.com/Djbrl/bitbounty/issues/10) | NGN rail: customer + virtual account + simulate-deposit loop + NGN→BTC trade → `funding.paid` | 3 | F5 | NGN balance → BTC → event |
 | [B5](https://github.com/Djbrl/bitbounty/issues/11) | Bitnob webhook receiver (payouts, deposits) + verification + dedupe | 2 | F6 | sandbox webhook recorded |
-| [B6](https://github.com/Djbrl/bitbounty/issues/86) | **Lightning payouts** (replaces B2's Wave/OM rail): Lightning Address → LNURL-pay → BOLT11 → Bitnob `/api/lightning/pay`, never pay twice, `payout.*` events | 5 (proposed) | B1 B2 | sandbox Lightning payout paid, retry never pays twice |
-| [B7](https://github.com/Djbrl/bitbounty/issues/87) | **Test payout in sats** to the developer's Lightning Address (replaces B3's target) + `/me` asks for a Lightning Address | 2 (proposed) | B6 | random sats sent, amount validated, lock holds under parallel guesses |
+| [B6](https://github.com/Djbrl/bitbounty/issues/86) | **Lightning payouts** (replaces B2's Wave/OM rail): Lightning Address → LNURL-pay → BOLT11 → Bitnob `/api/lightning/pay`, never pay twice, `payout.*` events | 5 | B1 B2 | sandbox Lightning payout paid, retry never pays twice |
+| [B7](https://github.com/Djbrl/bitbounty/issues/87) | **Test payout in sats** to the developer's Lightning Address (replaces B3's target) + `/me` asks for a Lightning Address | 2 | B6 | random sats sent, amount validated, lock holds under parallel guesses |
 
 ### GitHub
 | ID | Task | Pts | Depends on | Done when |
@@ -120,7 +120,21 @@ Points feed the prize split. The rules are in the [README](README.md#prize-agree
 | [D6](https://github.com/Djbrl/bitbounty/issues/40) | Submission form + links checked in private browsing | 1 | all | submitted before 14:00 |
 | [D7](https://github.com/Djbrl/bitbounty/issues/41) | Landing page: scrollytelling story, French, live on Vercel ([site](https://bitbounty-nine.vercel.app), [repo](https://github.com/Djbrl/bitbounty-landing)) | 5 | – | live + public; demo link and trailer filled in; adversarial review on the issue |
 
-**Total = 101 pts.** Wave 0 = 14, wave 1 = 60, wave 2 = 10, wave 3 = 17, plus reviews. Average ≈ 25 pts per person.
+
+## Wave 3b: one site and UI redesign (added Sun 18 Oct, sized by Djbrl as captain)
+Today the landing and the app are two sites with two looks. L1 makes it one site (landing → CTA → GitHub → onboarding → workspace); U0–U5 redesign the inside with the landing's look. Maintainers and hunters share the site: one GitHub account, the role is a mode (switch in the header), permissions come from GitHub. Each issue embeds its Mobbin reference screens. **Start with L1 and U0** (in parallel); U1–U5 build on them.
+
+| ID | Task | Pts | Depends on | Done when |
+|---|---|---|---|---|
+| [L1](https://github.com/Djbrl/bitbounty/issues/103) | **Landing inside the app**: port the landing to `/`, board to `/explore`, CTAs → GitHub → `/welcome`, old landing URL redirects | 3 | – | landing → CTA → onboarding on one domain; landing unchanged on desktop and phone |
+| [U0](https://github.com/Djbrl/bitbounty/issues/104) | **Design system** from the landing: tokens, fonts, components, `/dev/ui` | 3 | – | one token set; `/dev/ui` in light and dark; pages still render |
+| [U1](https://github.com/Djbrl/bitbounty/issues/105) | **Onboarding** `/welcome`: what brings you here, stack chips from GitHub, currency/language, Lightning Address or first bounty | 3 | L1 U0 | 3 steps saved and used by the workspace; skip and resume work |
+| [U2](https://github.com/Djbrl/bitbounty/issues/106) | **App shell**: sidebar, greeting, Maintainer ⇄ Hunter switch | 2 | L1 U0 | every `/app/*` page uses it; mode remembered |
+| [U3](https://github.com/Djbrl/bitbounty/issues/107) | **Hunter home**: hunter card, tiers, active claims, bounties for you, explore grid | 3 | U0 U2 | real data with loading/empty/error states |
+| [U4](https://github.com/Djbrl/bitbounty/issues/108) | **Maintainer home**: review queue with Claude's verdicts + Pay/Hold, money summary, repos, payouts | 3 | U0 U2 | real data; Pay/Hold use the same server path as the GitHub commands |
+| [U5](https://github.com/Djbrl/bitbounty/issues/109) | **Public pages restyled**: bounty timeline, pay, profile, receipt, live | 3 | U0 | U0 components only; no raw internal error shown |
+
+**Total = 101 pts** at the start, **+ 9** (F7, B6, B7) **+ 20** (wave 3b) = **130 pts**. Wave 0 = 14, wave 1 = 60, wave 2 = 10, wave 3 = 17, plus reviews. Average ≈ 25 pts per person.
 
 ## Suggested start (people stay free to switch)
 - 15:00 → 16:15: **one of the F's each** (F2 first and fast: everyone reviews it at 15:45).

@@ -3,6 +3,14 @@ import type { BountyRepo } from "../bounties/repo.js";
 import type { EventBus } from "../github/pr/ports.js";
 import type { PayoutRequest } from "../payouts/service.js";
 
+/** `payout.started` couldn't move the bounty to `paying`: the payout must not go out. */
+export class PayoutNotAllowedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PayoutNotAllowedError";
+  }
+}
+
 /**
  * The glue between the blocks that move a bounty after the PR: nobody else listens for these.
  *
@@ -19,11 +27,13 @@ import type { PayoutRequest } from "../payouts/service.js";
  * - only the latest timer per bounty may start a payout: `/hold` and `/reject` cancel the
  *   pending one, and a new `/pay` or a redelivered merge replaces it (one start, not two);
  * - `PayoutService.start()` keeps one payout row per bounty, and `payout.started` moves the bounty
- *   to `paying` before any Bitnob call, so a later merge or `/pay` (also after a restart) finds it
+ *   to `paying` before any Bitnob call (B6: if that save fails, `applyPayoutEvent` throws and the
+ *   payout service sends nothing), so a later merge or `/pay` (also after a restart) finds it
  *   `paying` / `paid` / `payout_failed` and starts nothing (the state machine refuses `/pay` there).
  *
- * Restart: the window timers live in this process (B6 persists them). A bounty whose timer was lost
- * stays `verified`; a maintainer restarts the window with `/hold` then `/pay`.
+ * Restart: payouts are in Postgres when DATABASE_URL is set (B6, `DrizzlePayoutStore`) and resume
+ * on boot. The window timers still live in this process: a bounty whose timer was lost stays
+ * `verified`; a maintainer restarts the window with `/hold` then `/pay`.
  */
 export interface SettlementDeps {
   repo: Pick<BountyRepo, "findById" | "update" | "activeClaimant">;
@@ -67,8 +77,15 @@ export class Settlement {
   }
 
   /**
-   * B2's `emit`: applies its payout events to the bounty, then publishes them.
-   * A payout event the bounty can't take (e.g. a replay after `paid`) is logged and dropped.
+   * The payout service's `emit`: applies its payout events to the bounty, then publishes them.
+   *
+   * `payout.started` is the gate before any money moves: if the bounty can't be moved to `paying`
+   * (on hold, gone, or the compare-and-set kept failing), this **throws** `PayoutNotAllowedError`
+   * and the payout service sends nothing to Bitnob. A bounty already `paying` (the same attempt
+   * resumed after a restart) is accepted without publishing the event again.
+   *
+   * `payout.succeeded` / `payout.failed` the bounty can't take (e.g. a replay after `paid`) are
+   * logged and dropped: they report money that already moved, they don't gate it.
    */
   readonly applyPayoutEvent = async (event: InternalEvent): Promise<void> => {
     if (event.type !== "payout.started" && event.type !== "payout.succeeded" && event.type !== "payout.failed") {
@@ -76,7 +93,15 @@ export class Settlement {
       return;
     }
     const applied = await this.apply(event);
-    if (applied) await this.deps.bus.publish(event);
+    if (applied) {
+      await this.deps.bus.publish(event);
+      return;
+    }
+    if (event.type === "payout.started") {
+      const now = await this.deps.repo.findById(event.bountyId);
+      if (now?.status === "paying") return;
+      throw new PayoutNotAllowedError(`bounty ${event.bountyId} is ${now?.status ?? "missing"}, not moved to paying`);
+    }
   };
 
   private async onVerifyDone(event: Extract<InternalEvent, { type: "verify.done" }>) {

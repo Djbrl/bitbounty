@@ -105,7 +105,7 @@
       "event": "payout.succeeded",
       "from": "paying",
       "to": "paid",
-      "text": "💸 7 500 FCFA paid to @seynabou-gueye on Wave"
+      "text": "💸 7 500 FCFA (12 135 sats) paid to @seynabou-gueye over Lightning"
     },
     {
       "delayMs": 3000,
@@ -129,7 +129,7 @@
       "event": "payout.started",
       "from": "verified",
       "to": "paying",
-      "text": "Payout started: BTC → XOF, Wave"
+      "text": "Payout started: 16 180 sats over Lightning"
     },
     {
       "delayMs": 3500,
@@ -137,7 +137,7 @@
       "event": "payout.succeeded",
       "from": "paying",
       "to": "paid",
-      "text": "💸 Lagos → Dakar: ₦29 000 in, 10 000 FCFA out on Wave"
+      "text": "💸 Lagos → Dakar: ₦29 000 in, 10 000 FCFA (16 180 sats) out over Lightning"
     }
   ]
 }

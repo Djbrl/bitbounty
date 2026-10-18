@@ -11,7 +11,7 @@ This bounty was cancelled before it was funded.
 
 **Next:** nothing. This bounty is closed.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -26,7 +26,7 @@ Cette prime a été annulée avant d'être financée.
 
 **Prochaine étape :** rien. Cette prime est close.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -47,7 +47,7 @@ Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 **Next:** @awa-sow, open a PR with \`Fixes #12\` before the deadline. Need more time? \`/extend\` (once). Giving up? \`/unclaim\`.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -68,7 +68,7 @@ Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 **Prochaine étape :** @awa-sow, ouvrez une PR avec \`Fixes #12\` avant l'échéance. Besoin de plus de temps ? \`/extend\` (une fois). Vous abandonnez ? \`/unclaim\`.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -87,9 +87,9 @@ Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 **10 000 FCFA** held in escrow (27 140 sats) · paid via Lightning · Sat 17 Oct, 18:42 UTC.
 
-**Next:** comment \`/claim\` to take it. You need a payout account at https://bitbounty.app/me. Paid to Wave, Orange Money or Free Money within minutes of the merge.
+**Next:** comment \`/claim\` to take it. You need a Lightning Address on your payout account at https://bitbounty.app/me. Paid in sats over Lightning within minutes of the merge.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -108,9 +108,9 @@ Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 **10 000 FCFA** bloqués en séquestre (27 140 sats) · payé via Lightning · sam. 17 oct. à 18:42 UTC.
 
-**Prochaine étape :** commentez \`/claim\` pour la prendre. Il faut un compte de paiement sur https://bitbounty.app/me. Payé sur Wave, Orange Money ou Free Money quelques minutes après le merge.
+**Prochaine étape :** commentez \`/claim\` pour la prendre. Il faut une adresse Lightning sur votre compte de paiement (https://bitbounty.app/me). Payé en sats via Lightning quelques minutes après le merge.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -141,7 +141,7 @@ Reason: CI is red on main
 
 **Next:** maintainer, \`/pay\` to release the money or \`/reject <reason>\` to reopen the bounty for claims.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -172,7 +172,7 @@ Motif : CI is red on main
 
 **Prochaine étape :** mainteneur, \`/pay\` pour débloquer l'argent ou \`/reject <motif>\` pour rouvrir la prime aux réservations.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -189,11 +189,11 @@ Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 - ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
 - ☐ A test covers a 5xx followed by success
 
-**10 000 FCFA** paid to @awa-sow on Wave · Ref \`pay-bb_7Hc2\` · **[Receipt →](https://bitbounty.app/r/rc_9Q1)**
+**10 000 FCFA** (16 180 sats) paid to @awa-sow over Lightning (\`aw***@blink.sv\`) · Ref \`pay-bb_7Hc2\` · **[Receipt →](https://bitbounty.app/r/rc_9Q1)**
 
 **Next:** nothing. Done, thank you @awa-sow!
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -210,11 +210,11 @@ Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 - ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
 - ☐ A test covers a 5xx followed by success
 
-**10 000 FCFA** payés à @awa-sow sur Wave · Réf. \`pay-bb_7Hc2\` · **[Reçu →](https://bitbounty.app/r/rc_9Q1)**
+**10 000 FCFA** (16 180 sats) payés à @awa-sow via Lightning (\`aw***@blink.sv\`) · Réf. \`pay-bb_7Hc2\` · **[Reçu →](https://bitbounty.app/r/rc_9Q1)**
 
 **Prochaine étape :** rien. C'est fini, merci @awa-sow !
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -231,11 +231,11 @@ Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 - ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
 - ☐ A test covers a 5xx followed by success
 
-Sending **10 000 FCFA** to @awa-sow on Wave…
+Sending **10 000 FCFA** (16 180 sats) to @awa-sow over Lightning (\`aw***@blink.sv\`)…
 
 **Next:** nothing to do. This comment updates when the money lands.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -252,11 +252,11 @@ Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 - ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
 - ☐ A test covers a 5xx followed by success
 
-Envoi de **10 000 FCFA** à @awa-sow sur Wave…
+Envoi de **10 000 FCFA** (16 180 sats) à @awa-sow via Lightning (\`aw***@blink.sv\`)…
 
 **Prochaine étape :** rien à faire. Ce commentaire se met à jour dès que l'argent arrive.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -279,7 +279,7 @@ Last error (attempt 3): Invalid account number
 
 **Next:** nothing to do. We retry automatically.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -302,7 +302,7 @@ Dernière erreur (tentative 3) : Invalid account number
 
 **Prochaine étape :** rien à faire. Nous réessayons automatiquement.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -317,7 +317,7 @@ Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 **Next:** nothing. This bounty is closed.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -332,7 +332,7 @@ Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 **Prochaine étape :** rien. Cette prime est close.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -359,7 +359,7 @@ _Claude's verdict is a signal only. The maintainer decides._
 
 **Next:** maintainer, merge [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) to pay automatically (needs Claude ✅ and CI green), or decide yourself: \`/pay\`, \`/hold\` or \`/reject <reason>\`.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -386,7 +386,7 @@ _L'avis de Claude n'est qu'un signal. C'est le mainteneur qui décide._
 
 **Prochaine étape :** mainteneur, mergez [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) pour payer automatiquement (Claude ✅ et CI verte), ou décidez vous-même : \`/pay\`, \`/hold\` ou \`/reject <motif>\`.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -415,7 +415,7 @@ _Claude's verdict is a signal only. The maintainer decides._
 
 **Next:** maintainer, merge [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) to pay automatically (needs Claude ✅ and CI green), or decide yourself: \`/pay\`, \`/hold\` or \`/reject <reason>\`.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -444,7 +444,7 @@ _L'avis de Claude n'est qu'un signal. C'est le mainteneur qui décide._
 
 **Prochaine étape :** mainteneur, mergez [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) pour payer automatiquement (Claude ✅ et CI verte), ou décidez vous-même : \`/pay\`, \`/hold\` ou \`/reject <motif>\`.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -469,7 +469,7 @@ _Claude's verdict is a signal only. The maintainer decides._
 
 **Next:** maintainer, review [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34). Merging it pays automatically if Claude says ✅ and CI is green. Otherwise \`/pay\`, \`/hold\` or \`/reject <reason>\`.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -494,7 +494,7 @@ _L'avis de Claude n'est qu'un signal. C'est le mainteneur qui décide._
 
 **Prochaine étape :** mainteneur, relisez [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34). Le merge paie automatiquement si Claude dit ✅ et que la CI est verte. Sinon \`/pay\`, \`/hold\` ou \`/reject <motif>\`.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -513,7 +513,7 @@ _Acceptance criteria: the issue's **Done when** list. Claude checks the PR again
 
 **Next:** fund it with the link above (list the acceptance criteria under **Done when** in the issue). Developers can \`/claim\` once the money is held.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -532,7 +532,7 @@ _Critères d'acceptation : la liste **Done when** de l'issue. Claude vérifie la
 
 **Prochaine étape :** financez-la avec le lien ci-dessus (listez les critères d'acceptation sous **Done when** dans l'issue). Les devs pourront faire \`/claim\` dès que l'argent est bloqué.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -553,7 +553,7 @@ Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 **Next:** fund it with the link above. Developers can \`/claim\` once the money is held.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -574,7 +574,7 @@ Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(
 
 **Prochaine étape :** financez-la avec le lien ci-dessus. Les devs pourront faire \`/claim\` dès que l'argent est bloqué.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -597,7 +597,7 @@ Merged and validated. Objection window until **Tue 20 Oct, 19:00 UTC**.
 
 **Next:** nothing to do, the payout leaves after the window. Maintainer: \`/pay now\` to skip the wait, \`/hold\` to stop it.
 
-<sub>BitBounty · paid in FCFA to Wave, Orange Money or Free Money · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;
 
@@ -620,6 +620,6 @@ Mergée et validée. Délai d'objection jusqu'à **mar. 20 oct. à 19:00 UTC**.
 
 **Prochaine étape :** rien à faire, le paiement part après le délai. Mainteneur : \`/pay now\` pour ne pas attendre, \`/hold\` pour l'arrêter.
 
-<sub>BitBounty · payé en FCFA sur Wave, Orange Money ou Free Money · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
 "
 `;

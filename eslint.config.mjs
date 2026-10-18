@@ -18,6 +18,6 @@ export default tseslint.config(
       "no-irregular-whitespace": ["error", { skipStrings: true, skipTemplates: true, skipComments: true }],
     },
   },
-  // Node scripts (fixtures generator and checker).
-  { files: ["**/*.mjs", "**/*.cjs"], languageOptions: { globals: globals.node } },
+  // Node scripts (fixtures generator and checker, the demo repo template).
+  { files: ["**/*.mjs", "**/*.cjs", "docs/demo/**/*.js"], languageOptions: { globals: globals.node } },
 );

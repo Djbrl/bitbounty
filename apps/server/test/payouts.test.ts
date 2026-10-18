@@ -1,5 +1,5 @@
-import { BitnobError, type Payout as BitnobPayout, type RequestOptions } from "@bitbounty/bitnob";
-import type { InternalEvent } from "@bitbounty/core";
+import { BitnobError, type LightningPayment, type PayLightningInput, type RequestOptions } from "@bitbounty/bitnob";
+import type { InternalEvent, Payout } from "@bitbounty/core";
 import { describe, expect, it, vi } from "vitest";
 import { signBitnobPayload } from "../src/bitnob/signature.js";
 import { bitnobWebhookRoutes } from "../src/bitnob/webhook.js";
@@ -8,745 +8,695 @@ import { InMemoryEventStore } from "../src/github/event-store.js";
 import {
   BankCodes,
   InMemoryPayoutStore,
+  LnurlError,
+  PayoutConfigError,
   PayoutService,
   maskPhone,
+  payoutSats,
   readBankCodeFallback,
-  type Beneficiary,
-  type PayoutRails,
+  toLightningOutcome,
+  type LightningRails,
+  type LnurlResolver,
+  type PayoutStore,
 } from "../src/payouts/index.js";
 
-const NOW = new Date("2026-10-17T20:00:00Z");
-const AWA: Beneficiary = { provider: "wave", phoneE164: "+221771234567", accountName: "Awa Diop", country: "SN" };
+const NOW = new Date("2026-10-18T00:00:00Z");
+/** 600 FCFA/USDT × 100 000 USDT/BTC = 60 000 000 FCFA/BTC → 10 000 FCFA = 16 666.67 sats → 16 666. */
+const RATES = { xofPerUsdt: async () => 600, usdtPerBtc: async () => 100_000 };
+const SATS = 16_666;
 
 /**
- * What one finalize call does at the fake Bitnob:
- * - ok: commits (debit + release), answers `finalizeStatus`;
- * - commit-then-timeout / commit-then-502: commits, but the answer is lost;
- * - timeout: never reached Bitnob (nothing committed);
- * - reject: Bitnob refuses (422), nothing committed, payout stays INITIATED.
+ * What one `POST /api/lightning/pay` does at the fake Bitnob:
+ * - pending / paid / failed: Bitnob takes it and answers with that status;
+ * - paid-then-timeout / pending-then-502: Bitnob takes it, the answer is lost;
+ * - lost: the request never reached Bitnob (timeout), nothing exists;
+ * - 403 / 422 / 409 / 500: Bitnob answers that error; 403/422 create nothing.
  */
-type FinalizeMode = "ok" | "commit-then-timeout" | "commit-then-502" | "timeout" | "reject";
+type PayMode = "pending" | "paid" | "failed" | "paid-then-timeout" | "pending-then-502" | "lost" | "403" | "422" | "409" | "500";
 
-/** A fake Bitnob: one payout per reference, statuses we control, finalize only once per payout. */
-class FakeRails implements PayoutRails {
-  payouts = new Map<string, BitnobPayout>();
-  calls: string[] = [];
-  /** Payout ids whose finalize actually went through (money moved). */
-  committed: string[] = [];
-  finalizeOpts: (RequestOptions | undefined)[] = [];
-  banks: { bank_name: string; bank_code: string }[] | null = [
-    { bank_name: "Orange Money", bank_code: "OM_SN" },
-    { bank_name: "Wave Mobile Money", bank_code: "WAVE_SN" },
-    { bank_name: "Free Money", bank_code: "FREE_SN" },
-  ];
-  quoteError: (() => Error) | null = null;
-  initializeError: (() => Error) | null = null;
-  initializeFailures = 0;
-  /** Consumed one per finalize call; "ok" when empty. */
-  finalizePlan: FinalizeMode[] = [];
-  /** Status returned by a successful finalize. */
-  finalizeStatus = "processing";
-  /** What the quote settles, if not what was asked. */
-  settleOverride: string | null = null;
+/**
+ * A fake Bitnob Lightning wallet with the two guarantees the real one has:
+ * pay is idempotent on `reference` (a replay returns the existing payment), and a BOLT11 settles
+ * at most once. `settlements` counts money that actually left.
+ */
+class FakeLightning implements LightningRails {
+  payments = new Map<string, LightningPayment & { request: string }>();
+  calls: PayLightningInput[] = [];
+  opts: (RequestOptions | undefined)[] = [];
+  /** request (BOLT11) → reference that settled it. */
+  settled = new Map<string, string>();
+  /** Consumed one per pay call that creates a payment; "pending" when empty. Replays of a known reference don't consume. */
+  plan: PayMode[] = [];
+  getError: (() => Error) | null = null;
+  /** false: a known reference is refused (400 duplicate) instead of returning the existing payment. */
+  idempotent = true;
   private n = 0;
 
-  async getBanks() {
-    this.calls.push("banks");
-    return this.banks as unknown as { bank_name: string; bank_code: string }[];
+  get settlements() {
+    return this.settled.size;
   }
 
-  async createPayoutQuote(input: Parameters<PayoutRails["createPayoutQuote"]>[0]) {
-    this.calls.push(`quote:${input.reference}`);
-    if (this.quoteError) throw this.quoteError();
-    // Bitnob is idempotent on reference: same reference → same quote.
-    for (const p of this.payouts.values()) if (p.reference === input.reference) return p;
-    const n = ++this.n;
-    const p = {
-      id: `bp-${n}`,
-      quote_id: `QT-${n}`,
-      status: "QUOTE",
-      reference: input.reference,
-      settlement_amount: this.settleOverride ?? input.settlement_amount,
-      expires_at: new Date(NOW.getTime() + 15 * 60_000).toISOString(),
-    } as unknown as BitnobPayout;
-    this.payouts.set(p.id, p);
-    return p;
+  async payLightningInvoice(input: PayLightningInput, opts?: RequestOptions): Promise<LightningPayment> {
+    this.calls.push(input);
+    this.opts.push(opts);
+    const existing = this.payments.get(input.reference);
+    if (existing && !this.idempotent) throw new BitnobError("POST /api/lightning/pay failed: 400 DUPLICATE_REFERENCE", 400, "DUPLICATE_REFERENCE");
+    if (existing) return { ...existing };
+    const mode = this.plan.shift() ?? "pending";
+    if (mode === "lost") throw new BitnobError("POST /api/lightning/pay: timed out", 0, "TIMEOUT");
+    if (mode === "403") throw new BitnobError("POST /api/lightning/pay failed: 403 FEATURE_NOT_ENABLED", 403, "FEATURE_NOT_ENABLED");
+    if (mode === "422") throw new BitnobError("POST /api/lightning/pay failed: 422 INSUFFICIENT_BALANCE", 422, "INSUFFICIENT_BALANCE");
+    if (mode === "500") throw new BitnobError("POST /api/lightning/pay failed: 500 INTERNAL", 500, "INTERNAL");
+    const p = { id: `lnp-${++this.n}`, status: "pending", reference: input.reference, request: input.request };
+    this.payments.set(input.reference, p);
+    if (mode === "409") throw new BitnobError("POST /api/lightning/pay failed: 409 DUPLICATE_KEY_ERROR", 409, "DUPLICATE_KEY_ERROR");
+    if (mode === "paid" || mode === "paid-then-timeout") this.settle(input.reference);
+    if (mode === "failed") p.status = "failed";
+    if (mode === "paid-then-timeout") throw new BitnobError("POST /api/lightning/pay: timed out", 0, "TIMEOUT");
+    if (mode === "pending-then-502") throw new BitnobError("POST /api/lightning/pay failed: 502 BAD_GATEWAY", 502, "BAD_GATEWAY");
+    return { ...p };
   }
 
-  async initializePayout(quoteId: string, input: Parameters<PayoutRails["initializePayout"]>[1]) {
-    this.calls.push(`initialize:${quoteId}`);
-    if (this.initializeFailures > 0 && this.initializeError) {
-      this.initializeFailures--;
-      throw this.initializeError();
+  async getLightningPayment(id: string): Promise<LightningPayment> {
+    if (this.getError) throw this.getError();
+    for (const p of this.payments.values()) if (p.id === id) return { ...p };
+    throw new BitnobError(`GET /api/lightning/invoices/${id} failed: 404`, 404, "NOT_FOUND");
+  }
+
+  /** The Lightning network delivers the payment (once per invoice). */
+  settle(reference: string) {
+    const p = this.payments.get(reference)!;
+    if (this.settled.has(p.request)) {
+      p.status = "failed";
+      return;
     }
-    const p = this.byQuote(quoteId);
-    p.status = "INITIATED";
-    p.beneficiary = input.beneficiary;
-    return p;
+    this.settled.set(p.request, reference);
+    p.status = "paid";
+    p.preimage = "ab".repeat(32);
   }
 
-  /** Behaves like Bitnob behind the real client: with retries left, a lost answer is replayed. */
-  async finalizePayout(quoteId: string, opts?: RequestOptions) {
-    this.calls.push(`finalize:${quoteId}`);
-    this.finalizeOpts.push(opts);
-    const retries = opts?.retries ?? 2;
-    const mode = this.finalizePlan.shift() ?? "ok";
-    const p = this.byQuote(quoteId);
-    const once = (): BitnobPayout => {
-      if (p.status !== "INITIATED") {
-        throw new BitnobError(`payout already ${p.status}`, 409, "PAYOUT_ALREADY_FINALIZED");
-      }
-      if (mode === "reject") throw new BitnobError("insufficient balance", 422, "INSUFFICIENT_FUNDS");
-      if (mode === "timeout") throw new BitnobError("timed out", 0, "TIMEOUT");
-      p.status = mode === "ok" ? this.finalizeStatus : "processing";
-      this.committed.push(p.id);
-      if (mode === "commit-then-timeout") throw new BitnobError("timed out", 0, "TIMEOUT");
-      if (mode === "commit-then-502") throw new BitnobError("bad gateway", 502, "HTTP_502");
-      return p;
-    };
-    let last: unknown;
-    for (let i = 0; i <= retries; i++) {
-      try {
-        return once();
-      } catch (err) {
-        last = err;
-        const status = err instanceof BitnobError ? err.status : 0;
-        if (!(status === 0 || status >= 500)) throw err;
-      }
-    }
-    throw last;
+  fail(reference: string) {
+    this.payments.get(reference)!.status = "failed";
   }
 
-  async getPayout(id: string) {
-    this.calls.push(`get:${id}`);
-    const p = this.payouts.get(id);
-    if (!p) throw new BitnobError("not found", 404, "NOT_FOUND");
-    return p;
+  pending() {
+    return [...this.payments.values()].filter((p) => p.status === "pending");
   }
 
-  byQuote(quoteId: string) {
-    for (const p of this.payouts.values()) if (p.quote_id === quoteId) return p;
-    throw new BitnobError("quote not found", 404, "NOT_FOUND");
-  }
-
-  /** Bitnob expiring a payout that was never finalized. */
-  expire(id: string) {
-    const p = this.payouts.get(id)!;
-    if (p.status === "QUOTE" || p.status === "INITIATED") p.status = "expired";
-  }
-
-  count(prefix: string) {
-    return this.calls.filter((c) => c.startsWith(prefix)).length;
-  }
-
-  /** Payouts that are or were on their way to the developer. */
-  live() {
-    return [...this.payouts.values()].filter((p) => p.status === "processing" || p.status === "success");
+  references() {
+    return new Set(this.calls.map((c) => c.reference));
   }
 }
 
-function setup(opts: { rails?: FakeRails; store?: InMemoryPayoutStore; beneficiary?: Beneficiary; bankCodes?: Record<string, Record<string, string>> } = {}) {
-  const rails = opts.rails ?? new FakeRails();
-  const store = opts.store ?? new InMemoryPayoutStore();
+/** LNURL-pay fake: a fresh invoice (distinct payment hash) for every call, or the configured error. */
+class FakeResolver implements LnurlResolver {
+  calls: { address: string; msat: number }[] = [];
+  errors: Error[] = [];
+  expiresInMs = 600_000;
+  now = () => NOW;
+  async invoiceFor(address: string, amountMsat: number) {
+    this.calls.push({ address, msat: amountMsat });
+    const err = this.errors.shift();
+    if (err) throw err;
+    const n = this.calls.length;
+    return {
+      bolt11: `lntb-invoice-${n}-${amountMsat}`,
+      paymentHash: n.toString(16).padStart(64, "0"),
+      amountMsat,
+      expiresAt: new Date(this.now().getTime() + this.expiresInMs).toISOString(),
+    };
+  }
+}
+
+function setup(over: { ln?: FakeLightning; resolver?: FakeResolver; store?: PayoutStore; emit?: (e: InternalEvent) => void | Promise<void>; now?: () => Date } = {}) {
+  const ln = over.ln ?? new FakeLightning();
+  const resolver = over.resolver ?? new FakeResolver();
+  const store = over.store ?? new InMemoryPayoutStore();
   const events: InternalEvent[] = [];
-  const timers: { fn: () => void; ms: number }[] = [];
+  const timers: (() => void)[] = [];
   const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-  let id = 0;
   const service = new PayoutService({
-    rails,
+    rails: ln,
+    resolver,
+    rates: RATES,
     store,
-    emit: (e) => {
+    emit: async (e) => {
+      if (over.emit) await over.emit(e);
       events.push(e);
     },
-    getBeneficiary: async () => opts.beneficiary ?? AWA,
-    callbackUrl: "https://bitbounty.test/webhooks/bitnob",
-    bankCodes: opts.bankCodes ?? {},
-    schedule: (fn, ms) => timers.push({ fn, ms }),
-    now: () => NOW,
-    newId: () => `payout-${++id}`,
+    getPayee: async (userId) => {
+      if (userId === "github:nobody") throw new PayoutConfigError("no payout account for @nobody");
+      return { lightningAddress: "awa@blink.sv" };
+    },
+    retryDelaysMs: [5_000, 30_000],
+    schedule: (fn) => void timers.push(fn),
+    now: over.now ?? (() => NOW),
     log,
   });
-  /** Runs the scheduled retries, one by one, until none are left. */
   const flushRetries = async () => {
-    while (timers.length) {
-      timers.shift()!.fn();
-      await new Promise((r) => setTimeout(r, 0));
-    }
+    for (const t of timers.splice(0)) t();
+    await new Promise((r) => setImmediate(r));
   };
-  const types = () => events.map((e) => (e.type === "payout.started" || e.type === "payout.failed" ? `${e.type}#${e.attempt}` : e.type));
-  return { rails, store, service, events, timers, flushRetries, types, log };
+  const types = () => events.map((e) => e.type);
+  return { service, ln, resolver, store, events, timers, log, flushRetries, types };
 }
 
-const success = (p: BitnobPayout) => ({
-  bitnobPayoutId: p.id,
-  quoteId: p.quote_id,
-  reference: p.reference,
-  outcome: "success" as const,
-  rawStatus: "success",
-});
+const START = { bountyId: "b1", userId: "github:awa", amountXof: 10_000 };
 
-const quoteOf = (rails: FakeRails, reference: string) =>
-  rails.createPayoutQuote({ from_asset: "USDT", to_currency: "XOF", country: "SN", source: "offchain", settlement_amount: "10000", payment_reason: "bounty", reference });
+describe("FCFA → sats", () => {
+  it("integer, rounded down, with the rate used", async () => {
+    expect(await payoutSats(RATES, 10_000)).toEqual({ sats: SATS, xofPerBtc: 60_000_000 });
+    expect((await payoutSats(RATES, 599)).sats).toBe(998); // 998.33
+    await expect(payoutSats({ xofPerUsdt: async () => 0, usdtPerBtc: async () => 1 }, 1)).rejects.toThrow("unusable");
+  });
+
+  it("maps Bitnob Lightning statuses; a preimage is proof of payment", () => {
+    expect(toLightningOutcome("PAID")).toBe("success");
+    expect(toLightningOutcome("settled")).toBe("success");
+    expect(toLightningOutcome("expired")).toBe("failed");
+    expect(toLightningOutcome("pending")).toBe("processing");
+    expect(toLightningOutcome(undefined, "ab".repeat(32))).toBe("success");
+    expect(toLightningOutcome("in_flight", "")).toBe("processing");
+  });
+});
 
 describe("happy path", () => {
-  it("quote → initialize → finalize, then the success webhook pays it", async () => {
-    const { service, rails, types } = setup();
-    const row = await service.start({ bountyId: "b1", userId: "u-awa", amountXof: 10_000 });
-    expect(row).toMatchObject({ status: "processing", attempts: 1, reference: "pay-b1", quoteId: "QT-1", bitnobPayoutId: "bp-1" });
-    expect(rails.calls).toEqual(["quote:pay-b1-1", "banks", "initialize:QT-1", "finalize:QT-1"]);
-    const sent = rails.payouts.get("bp-1")!;
-    expect(sent.settlement_amount).toBe("10000");
-    expect(sent.beneficiary).toEqual({
-      destination_type: "mobile_money",
-      country: "SN",
-      account_name: "Awa Diop",
-      account_number: "221771234567",
-      bank_code: "WAVE_SN",
+  it("Lightning Address → invoice for the exact sats → one pay call (pay-<bounty>-1) → paid on poll", async () => {
+    const { service, ln, resolver, store, events, types } = setup();
+    const row = await service.start(START);
+    expect(resolver.calls).toEqual([{ address: "awa@blink.sv", msat: SATS * 1000 }]);
+    expect(ln.calls).toEqual([{ request: `lntb-invoice-1-${SATS * 1000}`, reference: "pay-b1-1", max_fee: 167 }]);
+    expect(ln.opts).toEqual([{ retries: 0 }]);
+    expect(row).toMatchObject({ status: "processing", attempts: 1, rail: "lightning", amountSats: SATS, xofPerBtc: 60_000_000, bitnobPayoutId: "lnp-1" });
+    expect(row.sentAt).toBe(NOW.toISOString());
+
+    ln.settle("pay-b1-1");
+    await service.poll();
+    const done = (await store.getByBounty("b1"))!;
+    expect(done).toMatchObject({ status: "succeeded", paidAt: NOW.toISOString(), preimage: "ab".repeat(32) });
+    expect(types()).toEqual(["payout.started", "payout.succeeded"]);
+    expect(events[1]).toMatchObject({ bitnobPayoutId: "lnp-1" });
+    expect(ln.settlements).toBe(1);
+  });
+
+  it("a pay call that answers paid right away is done without waiting", async () => {
+    const { service, ln, types } = setup();
+    ln.plan = ["paid"];
+    expect(await service.start(START)).toMatchObject({ status: "succeeded" });
+    expect(types()).toEqual(["payout.started", "payout.succeeded"]);
+  });
+
+  it("sends BITNOB_PAYOUT_CUSTOMER_ID when configured, the same on every call", async () => {
+    const ln = new FakeLightning();
+    const service = new PayoutService({
+      rails: ln,
+      resolver: new FakeResolver(),
+      rates: RATES,
+      store: new InMemoryPayoutStore(),
+      emit: () => {},
+      getPayee: async () => ({ lightningAddress: "awa@blink.sv" }),
+      customerId: "cust-1",
+      now: () => NOW,
+      log: { info() {}, warn() {}, error() {} },
     });
-
-    const paid = await service.handleUpdate(success(sent));
-    expect(paid).toMatchObject({ status: "succeeded", paidAt: NOW.toISOString() });
-    expect(types()).toEqual(["payout.started#1", "payout.succeeded"]);
+    await service.start(START);
+    expect(ln.calls[0]).toMatchObject({ customer_id: "cust-1" });
   });
 
-  it("finalize is sent with retries: 0 (no client-level replay)", async () => {
-    const { service, rails } = setup();
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(rails.finalizeOpts).toEqual([{ retries: 0 }]);
-  });
-
-  it("a finalize that answers success right away is paid without waiting", async () => {
-    const rails = new FakeRails();
-    rails.finalizeStatus = "success";
-    const { service, events } = setup({ rails });
-    expect((await service.start({ bountyId: "b1", userId: "u", amountXof: 5_000 })).status).toBe("succeeded");
-    expect(events.at(-1)).toMatchObject({ type: "payout.succeeded", payoutId: "payout-1", bitnobPayoutId: "bp-1" });
-  });
-
-  it("pays an Orange Money account with Orange's bank code", async () => {
-    const { service, rails } = setup({ beneficiary: { ...AWA, provider: "orange" } });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 5_000 });
-    expect(rails.payouts.get("bp-1")!.beneficiary?.bank_code).toBe("OM_SN");
+  it("logs and errors never contain the full Lightning Address", async () => {
+    const { service, log, resolver, store } = setup();
+    resolver.errors = [new LnurlError("aw***@blink.sv: LNURL server unreachable", true)];
+    await service.start(START);
+    const all = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, (await store.getByBounty("b1"))!.lastError]);
+    expect(all).not.toContain("awa@blink.sv");
   });
 });
 
-describe("never pays twice (reviewer checklist)", () => {
+describe("never pays twice", () => {
   it("a duplicate trigger does nothing", async () => {
-    const { service, rails } = setup();
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(rails.count("finalize")).toBe(1);
+    const { service, ln } = setup();
+    await service.start(START);
+    await service.start(START);
+    expect(ln.calls).toHaveLength(1);
   });
 
-  it("two triggers at the same time: only one runs", async () => {
-    const { service, rails } = setup();
-    await Promise.all([
-      service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 }),
-      service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 }),
-      service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 }),
-    ]);
-    expect(rails.count("quote")).toBe(1);
-    expect(rails.count("finalize")).toBe(1);
-  });
-
-  it("the success webhook sent twice pays and emits once", async () => {
-    const { service, rails, types } = setup();
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await service.handleUpdate(success(rails.payouts.get("bp-1")!));
-    await service.handleUpdate(success(rails.payouts.get("bp-1")!));
-    expect(types()).toEqual(["payout.started#1", "payout.succeeded"]);
-  });
-
-  it("a late `processing` after `success` is ignored", async () => {
-    const { service, rails } = setup();
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await service.handleUpdate(success(rails.payouts.get("bp-1")!));
-    const late = await service.handleUpdate({ ...success(rails.payouts.get("bp-1")!), outcome: "processing", rawStatus: "processing" });
-    expect(late?.status).toBe("succeeded");
-  });
-
-  it("a paid bounty can't be started again", async () => {
-    const { service, rails } = setup();
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await service.handleUpdate(success(rails.payouts.get("bp-1")!));
-    expect((await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 })).status).toBe("succeeded");
-    expect(rails.count("quote")).toBe(1);
+  it("two triggers at the same time: one row, one invoice, one payment", async () => {
+    const { service, ln, resolver, types } = setup();
+    await Promise.all([service.start(START), service.start(START), service.start(START)]);
+    expect(resolver.calls).toHaveLength(1);
+    expect(ln.calls).toHaveLength(1);
+    expect(types()).toEqual(["payout.started"]);
   });
 
   it("refuses a second trigger with another recipient or amount", async () => {
     const { service } = setup();
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await expect(service.start({ bountyId: "b1", userId: "someone-else", amountXof: 10_000 })).rejects.toThrow("already has a payout");
-    await expect(service.start({ bountyId: "b1", userId: "u", amountXof: 20_000 })).rejects.toThrow("already has a payout");
+    await service.start(START);
+    await expect(service.start({ ...START, amountXof: 20_000 })).rejects.toThrow("another user or for another amount");
+    await expect(service.start({ ...START, userId: "github:mallory" })).rejects.toThrow("another user or for another amount");
   });
 
-  it.each([0, -5, 99.5, Number.NaN])("refuses amount %s", async (amountXof) => {
-    const { service, rails } = setup();
-    await expect(service.start({ bountyId: "b1", userId: "u", amountXof })).rejects.toThrow("positive integer");
-    expect(rails.calls).toEqual([]);
+  it("Bitnob times out on /lightning/pay but actually paid: no second payment", async () => {
+    const { service, ln, store, types } = setup();
+    ln.plan = ["paid-then-timeout"];
+    const row = await service.start(START);
+    expect(row).toMatchObject({ status: "processing", attempts: 1 });
+    expect(row.lastError).toContain("outcome unknown");
+    expect(types()).toEqual(["payout.started"]); // not failed: maybe paid
+
+    await service.poll();
+    expect((await store.getByBounty("b1"))!.status).toBe("succeeded");
+    // The check replayed the SAME reference with the SAME invoice: Bitnob returned the existing payment.
+    expect(ln.calls).toHaveLength(2);
+    expect(new Set(ln.calls.map((c) => `${c.reference}|${c.request}`)).size).toBe(1);
+    expect(ln.settlements).toBe(1);
+    expect(types()).toEqual(["payout.started", "payout.succeeded"]);
   });
 
-  it("refuses a quote that doesn't settle the bounty amount, without initializing", async () => {
-    const rails = new FakeRails();
-    rails.settleOverride = "9950";
-    const { service, store, timers } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "failed", lastError: expect.stringContaining("settles 9950 XOF, expected 10000") });
-    expect(rails.count("initialize")).toBe(0);
+  it("the request never reached Bitnob (timeout): the replay is the first real send, paid once", async () => {
+    const { service, ln, store } = setup();
+    ln.plan = ["lost", "paid"];
+    await service.start(START);
+    expect(ln.payments.size).toBe(0);
+    await service.poll();
+    expect((await store.getByBounty("b1"))!.status).toBe("succeeded");
+    expect(ln.references()).toEqual(new Set(["pay-b1-1"]));
+    expect(ln.settlements).toBe(1);
+  });
+
+  it("502 after Bitnob took it, then status reads fail: stays processing, never a new reference", async () => {
+    const { service, ln, store, timers } = setup();
+    ln.plan = ["pending-then-502"];
+    await service.start(START);
+    ln.getError = () => new BitnobError("GET … failed: 503", 503, "UNAVAILABLE");
+    for (let i = 0; i < 5; i++) await service.poll();
+    const row = (await store.getByBounty("b1"))!;
+    expect(row).toMatchObject({ status: "processing", attempts: 1 });
     expect(timers).toHaveLength(0);
+    expect(ln.references()).toEqual(new Set(["pay-b1-1"]));
+  });
+
+  it("409 on pay (reference already used) is not a failure: maybe paid, we ask", async () => {
+    const { service, ln, store, timers } = setup();
+    ln.plan = ["409"];
+    expect(await service.start(START)).toMatchObject({ status: "processing" });
+    expect(timers).toHaveLength(0);
+    ln.settle("pay-b1-1");
+    await service.poll();
+    expect((await store.getByBounty("b1"))!.status).toBe("succeeded");
+  });
+
+  it("success reported twice (poll + webhook), and late `pending` after `paid`: one payout.succeeded", async () => {
+    const { service, ln, types } = setup();
+    await service.start(START);
+    ln.settle("pay-b1-1");
+    await service.poll();
+    await service.handleUpdate({ reference: "pay-b1-1", bitnobPaymentId: "lnp-1", status: "paid" });
+    await service.handleUpdate({ reference: "pay-b1-1", bitnobPaymentId: "lnp-1", status: "pending" });
+    expect(types()).toEqual(["payout.started", "payout.succeeded"]);
+  });
+
+  it("a webhook about an earlier attempt doesn't touch the current one", async () => {
+    const { service, ln, store, flushRetries } = setup();
+    ln.plan = ["failed", "pending"];
+    await service.start(START);
+    await flushRetries();
+    expect((await store.getByBounty("b1"))!.attempts).toBe(2);
+    await service.handleUpdate({ reference: "pay-b1-1", bitnobPaymentId: "lnp-1", status: "paid" });
+    expect((await store.getByBounty("b1"))!.status).toBe("processing");
+    expect(await service.handleUpdate({ reference: "pay-zzz-1", bitnobPaymentId: null, status: "paid" })).toBeNull();
   });
 });
 
 describe("retries", () => {
-  it("a forced failure is retried 3 times, then the payout is failed (money stays reserved)", async () => {
-    const rails = new FakeRails();
-    rails.initializeError = () => new BitnobError("invalid account", 400, "VALIDATION");
-    rails.initializeFailures = 99;
-    const { service, store, timers, flushRetries, types } = setup({ rails });
-
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(timers.map((t) => t.ms)).toEqual([5_000]);
+  it("a forced failure is retried with a new invoice and reference, 3 times, then failed (money stays reserved)", async () => {
+    const { service, ln, resolver, store, types, flushRetries } = setup();
+    ln.plan = ["failed", "failed", "failed"];
+    await service.start(START);
     await flushRetries();
-
-    expect(rails.calls.filter((c) => c.startsWith("quote"))).toEqual(["quote:pay-b1-1", "quote:pay-b1-2", "quote:pay-b1-3"]);
-    expect(rails.count("finalize")).toBe(0);
-    expect(types()).toEqual([
-      "payout.started#1",
-      "payout.failed#1",
-      "payout.started#2",
-      "payout.failed#2",
-      "payout.started#3",
-      "payout.failed#3",
-    ]);
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "failed", attempts: 3, lastError: expect.stringContaining("invalid account") });
-    // No 4th attempt, even if triggered again.
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(rails.count("quote")).toBe(3);
+    await flushRetries();
+    await flushRetries();
+    expect((await store.getByBounty("b1"))!).toMatchObject({ status: "failed", attempts: 3 });
+    expect(resolver.calls).toHaveLength(3);
+    expect([...ln.references()]).toEqual(["pay-b1-1", "pay-b1-2", "pay-b1-3"]);
+    expect(ln.settlements).toBe(0);
+    expect(types()).toEqual(["payout.started", "payout.failed", "payout.started", "payout.failed", "payout.started", "payout.failed"]);
   });
 
-  it("uses the configured backoff between attempts", async () => {
-    const rails = new FakeRails();
-    rails.initializeError = () => new BitnobError("down", 400, "X");
-    rails.initializeFailures = 99;
-    const { service, timers } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    const delays = [timers[0]!.ms];
-    timers.shift()!.fn();
-    await new Promise((r) => setTimeout(r, 0));
-    delays.push(timers[0]!.ms);
+  it("uses the configured backoff, and a new attempt starts only after Bitnob said the last one failed", async () => {
+    const delays: number[] = [];
+    const ln = new FakeLightning();
+    const service = new PayoutService({
+      rails: ln,
+      resolver: new FakeResolver(),
+      rates: RATES,
+      store: new InMemoryPayoutStore(),
+      emit: () => {},
+      getPayee: async () => ({ lightningAddress: "awa@blink.sv" }),
+      retryDelaysMs: [5_000, 30_000],
+      schedule: (fn, ms) => {
+        delays.push(ms);
+        // When the retry runs, attempt 1's payment must be failed at Bitnob.
+        expect(ln.payments.get(`pay-b1-${delays.length}`)?.status).toBe("failed");
+        setImmediate(fn);
+      },
+      now: () => NOW,
+      log: { info() {}, warn() {}, error() {} },
+    });
+    ln.plan = ["failed", "failed", "failed"];
+    await service.start(START);
+    for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));
     expect(delays).toEqual([5_000, 30_000]);
   });
 
-  it.each([
-    ["quote", 401],
-    ["quote", 422],
-    ["initialize", 401],
-    ["initialize", 422],
-  ] as const)("%s %i is not retried: failed after one attempt", async (stage, status) => {
-    const rails = new FakeRails();
-    const err = () => new BitnobError(`rejected ${status}`, status, "X");
-    if (stage === "quote") rails.quoteError = err;
-    else {
-      rails.initializeError = err;
-      rails.initializeFailures = 99;
-    }
-    const { service, store, timers, types } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "failed", attempts: 1 });
-    expect(timers).toHaveLength(0);
-    expect(types()).toEqual(["payout.started#1", "payout.failed#1"]);
-  });
-
-  it("fails once, succeeds on attempt 2", async () => {
-    const rails = new FakeRails();
-    rails.initializeError = () => new BitnobError("provider down", 400, "X");
-    rails.initializeFailures = 1;
-    const { service, store, flushRetries } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await flushRetries();
-    const row = (await store.getByBounty("b1"))!;
-    expect(row).toMatchObject({ status: "processing", attempts: 2, quoteId: "QT-2" });
-    await service.handleUpdate(success(rails.payouts.get("bp-2")!));
-    expect((await store.getByBounty("b1"))!.status).toBe("succeeded");
-  });
-
-  it("an expired payout (webhook) is retried with a new quote", async () => {
-    const { service, rails, store, flushRetries } = setup();
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await service.handleUpdate({ ...success(rails.payouts.get("bp-1")!), outcome: "failed", rawStatus: "expired" });
-    await flushRetries();
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 2, quoteId: "QT-2" });
-  });
-
-  it("an invalid phone number fails the attempt cleanly, without leaking the number", async () => {
-    const { service, store } = setup({ beneficiary: { ...AWA, provider: "free" as const, phoneE164: "+22" } });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    const row = (await store.getByBounty("b1"))!;
-    expect(row.lastError).toContain("invalid phone number");
-    expect(row.lastError).not.toContain("+22 ");
-  });
-});
-
-describe("phone numbers stay out of errors and events", () => {
-  it("masks the number Bitnob echoes in an error", async () => {
-    const rails = new FakeRails();
-    rails.initializeError = () => new BitnobError("account 221771234567 is not registered on Wave", 400, "VALIDATION");
-    rails.initializeFailures = 1;
-    const { service, store, events, log } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    const row = (await store.getByBounty("b1"))!;
-    const failed = events.find((e) => e.type === "payout.failed")!;
-    for (const text of [row.lastError!, JSON.stringify(failed), JSON.stringify(log.warn.mock.calls)]) {
-      expect(text).not.toContain("221771234567");
-      expect(text).not.toContain("771234567");
-    }
-    expect(row.lastError).toContain("2217******67");
-  });
-
-  it("maskPhone keeps the prefix and the last two digits", () => {
-    expect(maskPhone("+221771234567")).toBe("+2217******67");
-    expect(maskPhone("221771234567")).toBe("2217******67");
-    expect(maskPhone("+22")).toBe("+**");
-  });
-});
-
-describe("finalize errors: ask Bitnob, never assume (blocking #1)", () => {
-  it("finalize times out after Bitnob committed: one finalize, no retry, poll finds it paid", async () => {
-    const rails = new FakeRails();
-    rails.finalizePlan = ["commit-then-timeout"];
-    const { service, store, timers, types } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect((await store.getByBounty("b1"))!.status).toBe("processing");
-    expect(timers).toHaveLength(0);
-    // The real client would have replayed it; we sent it once.
-    expect(rails.count("finalize")).toBe(1);
-
-    rails.payouts.get("bp-1")!.status = "success";
-    await service.poll();
-    expect((await store.getByBounty("b1"))!.status).toBe("succeeded");
-    expect(rails.count("finalize")).toBe(1);
-    expect(rails.count("quote")).toBe(1);
-    expect(types()).toEqual(["payout.started#1", "payout.succeeded"]);
-  });
-
-  it("reviewer repro: finalize commits then times out; the replay would get 409; pay-b1-2 must never start", async () => {
-    // The fake replays like the real client when retries aren't 0: commit, timeout, replay → 409.
-    const unsafe = new FakeRails();
-    await quoteOf(unsafe, "x");
-    unsafe.byQuote("QT-1").status = "INITIATED";
-    unsafe.finalizePlan = ["commit-then-timeout"];
-    await expect(unsafe.finalizePayout("QT-1")).rejects.toMatchObject({ status: 409 });
-
-    const rails = new FakeRails();
-    rails.finalizePlan = ["commit-then-timeout"];
-    const { service, store, timers, flushRetries } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await flushRetries();
-    await service.poll();
-    expect(timers).toHaveLength(0);
-    expect(rails.count("quote:pay-b1-2")).toBe(0);
-    expect(rails.committed).toEqual(["bp-1"]);
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 1 });
-  });
-
-  it("a finalize that answers 409 while Bitnob is processing stays processing (no 2nd attempt)", async () => {
-    const rails = new FakeRails();
-    const { service, store, timers } = setup({ rails });
-    // Make the first finalize hit a payout someone already finalized.
-    const orig = rails.initializePayout.bind(rails);
-    rails.initializePayout = async (q, input) => {
-      const p = await orig(q, input);
-      p.status = "processing";
-      rails.committed.push(p.id);
-      return p;
-    };
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 1, lastError: expect.stringContaining("already processing (Bitnob: processing, polling)") });
-    expect(timers).toHaveLength(0);
-    expect(rails.count("get:bp-1")).toBe(1);
-  });
-
-  it("finalize 5xx after commit, then Bitnob says success: paid once", async () => {
-    const rails = new FakeRails();
-    rails.finalizePlan = ["commit-then-502"];
-    const { service, store } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    await service.poll();
-    expect((await store.getByBounty("b1"))!.attempts).toBe(1);
-    rails.payouts.get("bp-1")!.status = "success";
-    await service.poll();
-    expect((await store.getByBounty("b1"))!.status).toBe("succeeded");
-    expect(rails.committed).toEqual(["bp-1"]);
-  });
-
-  it("finalize 422 (replaces the old 'finalize 4xx is a definite failure'): stays processing until Bitnob says expired", async () => {
-    const rails = new FakeRails();
-    rails.finalizePlan = ["reject"];
-    const { service, store, timers, flushRetries } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    // Bitnob still shows INITIATED: we don't know enough to start attempt 2.
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 1 });
-    expect(timers).toHaveLength(0);
-    await service.poll();
-    await service.poll();
-    expect(rails.count("finalize")).toBe(1);
-
-    rails.expire("bp-1");
+  it("fails once (Bitnob reports failed later), succeeds on attempt 2: paid once", async () => {
+    const { service, ln, store, flushRetries } = setup();
+    await service.start(START);
+    ln.fail("pay-b1-1");
     await service.poll();
     await flushRetries();
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 2, quoteId: "QT-2" });
-    expect(rails.committed).toEqual(["bp-2"]);
+    ln.settle("pay-b1-2");
+    await service.poll();
+    expect((await store.getByBounty("b1"))!).toMatchObject({ status: "succeeded", attempts: 2 });
+    expect(ln.settlements).toBe(1);
   });
 
-  it("finalize error and Bitnob doesn't know the payout: the attempt fails", async () => {
-    const rails = new FakeRails();
-    rails.finalizePlan = ["timeout"];
-    const orig = rails.getPayout.bind(rails);
-    rails.getPayout = async () => {
-      throw new BitnobError("not found", 404, "NOT_FOUND");
-    };
-    const { service, store, timers } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "pending", attempts: 1, lastError: expect.stringContaining("no payout bp-1") });
+  it("403 FEATURE_NOT_ENABLED (our sandbox today): not retryable, nothing paid", async () => {
+    const { service, ln, timers, types } = setup();
+    ln.plan = ["403"];
+    const row = await service.start(START);
+    expect(row).toMatchObject({ status: "failed", attempts: 1 });
+    expect(row.lastError).toContain("FEATURE_NOT_ENABLED");
+    expect(timers).toHaveLength(0);
+    expect(ln.payments.size).toBe(0);
+    expect(types()).toEqual(["payout.started", "payout.failed"]);
+  });
+
+  it("422 (e.g. balance) is a refusal: nothing paid, retried later", async () => {
+    const { service, ln, timers } = setup();
+    ln.plan = ["422"];
+    expect(await service.start(START)).toMatchObject({ status: "pending", attempts: 1 });
     expect(timers).toHaveLength(1);
-    rails.getPayout = orig;
+    expect(ln.payments.size).toBe(0);
   });
 
-  it("finalize error and the status check fails too: stays processing, no retry", async () => {
-    const rails = new FakeRails();
-    rails.finalizePlan = ["commit-then-timeout"];
-    rails.getPayout = async () => {
-      throw new BitnobError("bad gateway", 502, "HTTP_502");
-    };
-    const { service, store, timers } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 1 });
+  it("5xx on pay is NOT a refusal: maybe paid, stays processing", async () => {
+    const { service, ln, timers } = setup();
+    ln.plan = ["500"];
+    expect(await service.start(START)).toMatchObject({ status: "processing" });
     expect(timers).toHaveLength(0);
+  });
+
+  it("an invoice that expired before it was sent is replaced (new attempt), never sent", async () => {
+    let now = NOW;
+    const resolver = new FakeResolver();
+    const store = new InMemoryPayoutStore();
+    const a = setup({ resolver, store, now: () => now });
+    // Crash right after the invoice was saved.
+    await store.create({ id: "p1", bountyId: "b1", userId: "github:awa", amountXof: 10_000, quoteId: null, bitnobPayoutId: null, reference: "pay-b1", status: "processing", attempts: 1, lastError: null, paidAt: null, rail: "lightning", paymentRequest: "lntb-old", amountSats: SATS, invoiceExpiresAt: new Date(NOW.getTime() + 60_000).toISOString() });
+    now = new Date(NOW.getTime() + 10 * 60_000);
+    await a.service.resume();
+    expect(a.ln.calls).toHaveLength(0);
+    expect((await store.get("p1"))!).toMatchObject({ status: "pending", lastError: "invoice expired before it was sent" });
   });
 });
 
-describe("poll never re-finalizes an initialized payout (blocking #1)", () => {
-  it("poll with INITIATED waits, even across many polls and a restart", async () => {
-    const rails = new FakeRails();
-    rails.finalizePlan = ["timeout"]; // finalize never reached Bitnob, but we can't know that
-    const { service, store } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(rails.payouts.get("bp-1")!.status).toBe("INITIATED");
-    for (let i = 0; i < 3; i++) await service.poll();
-    await setup({ rails, store }).service.resume();
-    expect(rails.count("finalize")).toBe(1);
-    expect(rails.count("initialize")).toBe(1);
-    expect((await store.getByBounty("b1"))!.status).toBe("processing");
-  });
-
-  it("server killed after initialize: restart doesn't finalize; once Bitnob expires it, attempt 2 pays once", async () => {
-    const rails = new FakeRails();
-    const store = new InMemoryPayoutStore();
-    // What the first process left behind: attempt 1 initialized; finalize maybe sent.
-    await store.create({
-      id: "payout-1", bountyId: "b1", userId: "u", amountXof: 10_000, quoteId: null, bitnobPayoutId: null,
-      reference: "pay-b1", status: "processing", attempts: 1, lastError: null, paidAt: null,
-    });
-    const q = await quoteOf(rails, "pay-b1-1");
-    await store.update("payout-1", { status: "processing" }, { quoteId: q.quote_id, bitnobPayoutId: q.id });
-    q.status = "INITIATED";
-
-    const { service, flushRetries } = setup({ rails, store });
-    await service.resume();
-    await service.resume();
-    expect(rails.count("finalize")).toBe(0);
-
-    rails.expire("bp-1");
-    await service.poll();
+describe("LNURL / account errors: nothing reaches Bitnob", () => {
+  it("LNURL server down or slow → attempt failed cleanly, retried later, pay never called", async () => {
+    const { service, ln, resolver, store, timers, flushRetries } = setup();
+    resolver.errors = [new LnurlError("aw***@blink.sv: LNURL server timed out after 10000 ms", true)];
+    const row = await service.start(START);
+    expect(row).toMatchObject({ status: "pending", attempts: 1 });
+    expect(row.lastError).toMatch(/^lnurl unreachable: /);
+    expect(timers).toHaveLength(1);
+    expect(ln.calls).toHaveLength(0);
     await flushRetries();
-    expect(rails.count("finalize:QT-2")).toBe(1);
-    expect(rails.committed).toEqual(["bp-2"]);
+    expect((await store.getByBounty("b1"))!).toMatchObject({ status: "processing", attempts: 2 });
+    expect(ln.calls).toHaveLength(1);
   });
 
-  it("server killed between claiming and saving the quote: restart finds the same quote and pays once", async () => {
-    const rails = new FakeRails();
+  it("invoice for a different amount (or out of min/max) → failed, not retried, nothing paid", async () => {
+    const { service, ln, resolver, timers } = setup();
+    resolver.errors = [new LnurlError("aw***@blink.sv: invoice is for 16667000 msat, we asked 16666000 msat", false)];
+    const row = await service.start(START);
+    expect(row).toMatchObject({ status: "failed", attempts: 1 });
+    expect(row.lastError).toMatch(/^lnurl refused: /);
+    expect(timers).toHaveLength(0);
+    expect(ln.calls).toHaveLength(0);
+  });
+
+  it("no payout account → failed at once, not retried", async () => {
+    const { service, ln, timers } = setup();
+    const row = await service.start({ ...START, userId: "github:nobody" });
+    expect(row).toMatchObject({ status: "failed" });
+    expect(row.lastError).toContain("no payout account for @nobody");
+    expect(timers).toHaveLength(0);
+    expect(ln.calls).toHaveLength(0);
+  });
+
+  it("a rate outage is retryable", async () => {
     const store = new InMemoryPayoutStore();
-    await store.create({
-      id: "payout-1", bountyId: "b1", userId: "u", amountXof: 10_000, quoteId: null, bitnobPayoutId: null,
-      reference: "pay-b1", status: "processing", attempts: 1, lastError: null, paidAt: null,
+    const timers: unknown[] = [];
+    const service = new PayoutService({
+      rails: new FakeLightning(),
+      resolver: new FakeResolver(),
+      rates: { xofPerUsdt: () => Promise.reject(new Error("GET /api/exchange-rates: network error")), usdtPerBtc: RATES.usdtPerBtc },
+      store,
+      emit: () => {},
+      getPayee: async () => ({ lightningAddress: "awa@blink.sv" }),
+      schedule: (fn) => void timers.push(fn),
+      now: () => NOW,
+      log: { info() {}, warn() {}, error() {} },
     });
-    // The quote was created at Bitnob, but the process died before saving its id.
-    await quoteOf(rails, "pay-b1-1");
+    expect(await service.start(START)).toMatchObject({ status: "pending" });
+    expect(timers).toHaveLength(1);
+  });
+});
 
-    const { service } = setup({ rails, store });
-    await service.resume();
-    expect(rails.payouts.size).toBe(1);
-    expect(rails.count("finalize")).toBe(1);
-    expect((await store.getByBounty("b1"))!.quoteId).toBe("QT-1");
+describe("the bounty must be `paying` before any money moves (I2 gap fixed in B6)", () => {
+  it("payout.started refused (save failed / bounty on hold) → no LNURL, no Bitnob call, attempt undone", async () => {
+    let refuse = true;
+    const { service, ln, resolver, store, types } = setup({
+      emit: (e) => {
+        if (e.type === "payout.started" && refuse) throw new Error("bounty b1 is verified, not moved to paying");
+      },
+    });
+    const row = await service.start(START);
+    expect(row).toMatchObject({ status: "pending", attempts: 0 });
+    expect(row.lastError).toContain("wasn't moved to paying");
+    expect(resolver.calls).toHaveLength(0);
+    expect(ln.calls).toHaveLength(0);
+    expect(types()).toEqual([]);
+
+    // Later (bounty saved fine, e.g. after /pay or on boot): the same row pays, attempt 1, once.
+    refuse = false;
+    await service.start(START);
+    expect((await store.getByBounty("b1"))!).toMatchObject({ status: "processing", attempts: 1 });
+    expect(ln.references()).toEqual(new Set(["pay-b1-1"]));
   });
 
-  it("server killed after finalize while Bitnob already paid: restart marks it paid, pays nothing more", async () => {
-    const rails = new FakeRails();
-    rails.finalizePlan = ["commit-then-timeout"];
-    const { service, store } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    rails.payouts.get("bp-1")!.status = "success";
+  it("order is: payout.started (gate) → LNURL → Bitnob", async () => {
+    const order: string[] = [];
+    const ln = new FakeLightning();
+    const pay = ln.payLightningInvoice.bind(ln);
+    ln.payLightningInvoice = async (i, o) => (order.push("bitnob"), pay(i, o));
+    const resolver = new FakeResolver();
+    const inv = resolver.invoiceFor.bind(resolver);
+    resolver.invoiceFor = async (a, m) => (order.push("lnurl"), inv(a, m));
+    const { service } = setup({ ln, resolver, emit: (e) => void order.push(e.type) });
+    await service.start(START);
+    expect(order).toEqual(["payout.started", "lnurl", "bitnob"]);
+  });
+});
 
-    const restarted = setup({ rails, store });
-    await restarted.service.resume();
+describe("kill the server mid-payout and restart → resumes, pays once", () => {
+  const row = (over: Partial<Payout>): Payout => ({
+    id: "p1",
+    bountyId: "b1",
+    userId: "github:awa",
+    amountXof: 10_000,
+    quoteId: null,
+    bitnobPayoutId: null,
+    reference: "pay-b1",
+    status: "processing",
+    attempts: 1,
+    lastError: null,
+    paidAt: null,
+    rail: "lightning",
+    ...over,
+  });
+
+  it("killed after the claim, before payout.started: restart runs the gate again, then pays once", async () => {
+    const store = new InMemoryPayoutStore();
+    await store.create(row({}));
+    const { service, ln, types } = setup({ store });
+    await service.resume();
+    expect(types()).toEqual(["payout.started"]);
+    expect(ln.references()).toEqual(new Set(["pay-b1-1"]));
+  });
+
+  it("killed after the invoice was saved, before sending: restart sends it once", async () => {
+    const store = new InMemoryPayoutStore();
+    await store.create(row({ paymentRequest: "lntb-saved", amountSats: SATS, invoiceExpiresAt: new Date(NOW.getTime() + 600_000).toISOString() }));
+    const { service, ln, resolver } = setup({ store });
+    await service.resume();
+    expect(resolver.calls).toHaveLength(0);
+    expect(ln.calls).toEqual([{ request: "lntb-saved", reference: "pay-b1-1", max_fee: 167 }]);
+  });
+
+  it("killed while the pay call was in flight (Bitnob paid it): restart finds it paid, pays nothing more", async () => {
+    const store = new InMemoryPayoutStore();
+    const ln = new FakeLightning();
+    // Server A: the pay request reaches Bitnob (and settles) but A dies before reading the answer.
+    const a = setup({ ln, store });
+    const pay = ln.payLightningInvoice.bind(ln);
+    ln.payLightningInvoice = async (i, o) => {
+      await pay(i, o);
+      ln.settle(i.reference);
+      return new Promise<never>(() => {}); // never answers: the process is gone
+    };
+    void a.service.start(START);
+    await new Promise((r) => setImmediate(r));
+    expect((await store.getByBounty("b1"))!.sentAt).toBeTruthy();
+
+    // Server B: same database, fresh process.
+    ln.payLightningInvoice = pay;
+    const b = setup({ ln, store });
+    await b.service.resume();
     expect((await store.getByBounty("b1"))!.status).toBe("succeeded");
-    expect(rails.count("finalize")).toBe(1);
-  });
-
-  it("the quote expired before initialize: new attempt with a new quote", async () => {
-    const rails = new FakeRails();
-    const store = new InMemoryPayoutStore();
-    await store.create({
-      id: "payout-1", bountyId: "b1", userId: "u", amountXof: 10_000, quoteId: null, bitnobPayoutId: null,
-      reference: "pay-b1", status: "processing", attempts: 1, lastError: null, paidAt: null,
-    });
-    const q = await quoteOf(rails, "pay-b1-1");
-    q.expires_at = new Date(NOW.getTime() - 1).toISOString();
-    await store.update("payout-1", { status: "processing" }, { quoteId: q.quote_id, bitnobPayoutId: q.id });
-
-    const { service, flushRetries } = setup({ rails, store });
-    await service.resume();
-    await flushRetries();
-    expect(rails.count("initialize:QT-1")).toBe(0);
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 2, quoteId: "QT-2", lastError: null });
+    expect(ln.settlements).toBe(1);
+    expect(ln.references()).toEqual(new Set(["pay-b1-1"]));
+    expect(b.types()).toEqual(["payout.succeeded"]);
   });
 
   it("a lost retry timer is picked up on restart", async () => {
-    const rails = new FakeRails();
-    rails.initializeError = () => new BitnobError("x", 400, "X");
-    rails.initializeFailures = 1;
-    const { service, store } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 }); // timer never fires
-    const restarted = setup({ rails, store });
-    await restarted.service.resume();
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 2 });
-  });
-
-  it("a crash between create and the first claim: resume runs attempt 1", async () => {
-    const rails = new FakeRails();
     const store = new InMemoryPayoutStore();
-    await store.create({
-      id: "payout-1", bountyId: "b1", userId: "u", amountXof: 10_000, quoteId: null, bitnobPayoutId: null,
-      reference: "pay-b1", status: "pending", attempts: 0, lastError: null, paidAt: null,
-    });
-    const { service } = setup({ rails, store });
-    await service.resume();
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "processing", attempts: 1, quoteId: "QT-1" });
-    expect(rails.count("finalize")).toBe(1);
+    const a = setup({ store });
+    a.ln.plan = ["failed"];
+    await a.service.start(START);
+    expect((await store.getByBounty("b1"))!.status).toBe("pending");
+    const b = setup({ store, ln: a.ln });
+    await b.service.resume();
+    expect((await store.getByBounty("b1"))!).toMatchObject({ status: "processing", attempts: 2 });
   });
 
-  it("an update for a payout that isn't ours returns null", async () => {
-    const { service } = setup();
-    expect(await service.handleUpdate({ bitnobPayoutId: "x", quoteId: "y", reference: "z", outcome: "success", rawStatus: "success" })).toBeNull();
+  it("a database error while polling is logged, never an unhandled rejection", async () => {
+    const store = new InMemoryPayoutStore();
+    store.listByStatus = () => Promise.reject(new Error('column "amount_sats" does not exist'));
+    const { service, log } = setup({ store });
+    await expect(service.poll()).resolves.toBeUndefined();
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining("payouts not readable"));
+  });
+
+  it("mobile money rows (seed, B2) are never driven over Lightning", async () => {
+    const store = new InMemoryPayoutStore();
+    await store.create(row({ rail: "mobile_money", quoteId: "q", bitnobPayoutId: "PAYOUT_1" }));
+    await store.create(row({ id: "p2", bountyId: "b2", reference: "pay-b2", status: "pending", attempts: 0, rail: undefined }));
+    const { service, ln, types } = setup({ store });
+    await service.resume();
+    expect(ln.calls).toHaveLength(0);
+    expect(types()).toEqual([]);
   });
 });
 
-describe("invariant: at most one attempt ever reaches processing/success at Bitnob", () => {
-  /** Small deterministic PRNG so failures are reproducible by seed. */
+describe("invariant (fuzzed): at most one payment ever settles per bounty", () => {
   const rng = (seed: number) => () => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
     return seed / 0x7fffffff;
   };
-  const MODES: FinalizeMode[] = ["ok", "commit-then-timeout", "commit-then-502", "timeout", "reject"];
+  const MODES: PayMode[] = ["pending", "paid", "failed", "paid-then-timeout", "pending-then-502", "lost", "409", "422", "500"];
 
-  it.each(Array.from({ length: 200 }, (_, i) => i + 1))("seed %i", async (seed) => {
+  const seeds = Array.from({ length: 200 }, (_, i) => i + 1);
+  it.each([...seeds.map((n) => [n, true] as const), ...seeds.map((n) => [n, false] as const)])("seed %i (idempotent reference: %s)", async (seed, idempotent) => {
     const rand = rng(seed);
     const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rand() * xs.length)]!;
-    const rails = new FakeRails();
-    rails.finalizePlan = Array.from({ length: 10 }, () => pick(MODES));
-    if (rand() < 0.3) {
-      rails.initializeError = () => new BitnobError("provider down", 400, "X");
-      rails.initializeFailures = Math.floor(rand() * 3);
-    }
+    const ln = new FakeLightning();
+    ln.idempotent = idempotent;
+    ln.plan = Array.from({ length: 12 }, () => pick(MODES));
+    const resolver = new FakeResolver();
+    if (rand() < 0.3) resolver.errors = [new LnurlError("down", true)];
     const store = new InMemoryPayoutStore();
-    let s = setup({ rails, store });
-    await s.service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
+    let s = setup({ ln, resolver, store });
+    await Promise.all([s.service.start(START), rand() < 0.5 ? s.service.start(START) : Promise.resolve()]);
 
-    for (let step = 0; step < 25; step++) {
-      const action = pick(["poll", "restart", "retry", "expire", "settle", "webhook"] as const);
-      const current = (await store.getByBounty("b1"))!;
-      const remote = current.bitnobPayoutId ? rails.payouts.get(current.bitnobPayoutId) : undefined;
+    for (let step = 0; step < 30; step++) {
+      const action = pick(["poll", "restart", "retry", "settle", "fail", "webhook", "start"] as const);
+      const pending = ln.pending();
       if (action === "poll") await s.service.poll();
       else if (action === "restart") {
-        s = setup({ rails, store });
+        s = setup({ ln, resolver, store });
         await s.service.resume();
       } else if (action === "retry") await s.flushRetries();
-      else if (action === "expire" && remote) rails.expire(remote.id);
-      else if (action === "settle" && remote?.status === "processing") remote.status = "success";
-      else if (action === "webhook" && remote && (remote.status === "success" || remote.status === "expired")) {
-        await s.service.handleUpdate({ ...success(remote), outcome: remote.status === "success" ? "success" : "failed", rawStatus: remote.status });
+      else if (action === "start") await s.service.start(START);
+      else if (action === "settle" && pending.length) ln.settle(pick(pending).reference!);
+      else if (action === "fail" && pending.length) ln.fail(pick(pending).reference!);
+      else if (action === "webhook" && ln.payments.size) {
+        const p = pick([...ln.payments.values()]);
+        await s.service.handleUpdate({ reference: p.reference!, bitnobPaymentId: p.id!, status: p.status! });
       }
-
-      expect(rails.live().length, `seed ${seed} step ${step} ${action}: ${JSON.stringify([...rails.payouts.values()].map((p) => p.status))}`).toBeLessThanOrEqual(1);
-      expect(rails.committed.length).toBeLessThanOrEqual(1);
+      const paid = [...ln.payments.values()].filter((p) => p.status === "paid");
+      expect(paid.length, `seed ${seed} step ${step} ${action}`).toBeLessThanOrEqual(1);
+      expect(ln.settlements).toBeLessThanOrEqual(1);
+      // A second reference is only ever sent after the first one failed at Bitnob (or never existed there).
+      const refs = [...ln.references()];
+      for (const ref of refs.slice(0, -1)) {
+        const p = ln.payments.get(ref);
+        expect(!p || p.status === "failed", `seed ${seed}: ${ref} is ${p?.status} but a later attempt was sent`).toBe(true);
+      }
       const row = (await store.getByBounty("b1"))!;
-      if (row.status === "succeeded") expect(rails.payouts.get(row.bitnobPayoutId!)!.status).toBe("success");
+      if (row.status === "succeeded") expect(ln.payments.get(`pay-b1-${row.attempts}`)?.status).toBe("paid");
     }
   });
 });
 
 describe("wiring with the B5 receiver", () => {
-  it("a signed success webhook pays the bounty", async () => {
-    const { service, rails, store } = setup();
+  it("a signed Bitnob webhook carrying our reference settles the payout", async () => {
+    const { service, store } = setup();
     const dispatcher = new GithubDispatcher();
     service.register(dispatcher);
     const app = bitnobWebhookRoutes({ secret: "s", store: new InMemoryEventStore(), dispatcher, log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    const p = rails.payouts.get("bp-1")!;
-    const body = JSON.stringify({
-      event: "payouts.withdrawal.success",
-      event_id: "evt-1",
-      data: { id: p.id, quote_id: p.quote_id, reference: p.reference, status: "success" },
-    });
+    await service.start(START);
+    const body = JSON.stringify({ event: "lightning.payment.success", event_id: "evt-1", data: { id: "lnp-1", reference: "pay-b1-1", status: "paid" } });
     const res = await app.request("/webhooks/bitnob", { method: "POST", body, headers: { "x-bitnob-signature": signBitnobPayload("s", body) } });
     expect(res.status).toBe(200);
     expect((await store.getByBounty("b1"))!.status).toBe("succeeded");
   });
+
+  it("ignores mobile money payout webhooks and events that aren't ours", async () => {
+    const { service, store } = setup();
+    const dispatcher = new GithubDispatcher();
+    service.register(dispatcher);
+    const app = bitnobWebhookRoutes({ secret: "s", store: new InMemoryEventStore(), dispatcher, log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } });
+    await service.start(START);
+    for (const [i, payload] of [
+      { event: "payouts.withdrawal.success", event_id: "e1", data: { id: "lnp-1", reference: "pay-b1-1", status: "success" } },
+      { event: "lightning.payment.success", event_id: "e2", data: { reference: "fund-b1-1", status: "paid" } },
+    ].entries()) {
+      const body = JSON.stringify(payload);
+      const res = await app.request("/webhooks/bitnob", { method: "POST", body, headers: { "x-bitnob-signature": signBitnobPayload("s", body) } });
+      expect(res.status, String(i)).toBe(200);
+    }
+    expect((await store.getByBounty("b1"))!.status).toBe("processing");
+  });
 });
 
-describe("BankCodes (blocking #2)", () => {
+// Mobile money helpers kept for B3's test payout (onboarding).
+describe("BankCodes / phone masking (B3)", () => {
   it("caches a non-empty directory per country and errors on an unknown provider", async () => {
     const getBanks = vi.fn(async () => [{ bank_name: "Wave", bank_code: "W" }]);
     const banks = new BankCodes({ getBanks });
     expect(await banks.resolve("sn", "wave")).toBe("W");
     expect(await banks.resolve("SN", "wave")).toBe("W");
     expect(getBanks).toHaveBeenCalledTimes(1);
-    await expect(banks.resolve("SN", "orange")).rejects.toThrow('no Bitnob bank_code for orange in SN');
-  });
-
-  it("{banks: null} (sandbox SN) doesn't crash, isn't cached, and uses the configured fallback", async () => {
-    let answer: { bank_name: string; bank_code: string }[] | null = null;
-    const getBanks = vi.fn(async () => answer as unknown as { bank_name: string; bank_code: string }[]);
-    const banks = new BankCodes({ getBanks }, { SN: { wave: "WAVE_CFG" } });
-    expect(await banks.resolve("SN", "wave")).toBe("WAVE_CFG");
-    await expect(banks.resolve("SN", "orange")).rejects.toThrow(/list is empty and BITNOB_SN_BANK_CODES has no "orange" entry/);
-    answer = [{ bank_name: "Orange Money", bank_code: "OM" }];
-    expect(await banks.resolve("SN", "orange")).toBe("OM");
-    expect(getBanks).toHaveBeenCalledTimes(3);
-  });
-
-  it("a payout with no bank code anywhere fails once with a clear error, no retries", async () => {
-    const rails = new FakeRails();
-    rails.banks = null;
-    const { service, store, timers } = setup({ rails });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(await store.getByBounty("b1")).toMatchObject({ status: "failed", lastError: expect.stringContaining("BITNOB_SN_BANK_CODES") });
-    expect(timers).toHaveLength(0);
-    expect(rails.count("finalize")).toBe(0);
-  });
-
-  it("a payout uses the fallback code when Bitnob lists no banks", async () => {
-    const rails = new FakeRails();
-    rails.banks = null;
-    const { service } = setup({ rails, bankCodes: { SN: { wave: "WAVE_CFG" } } });
-    await service.start({ bountyId: "b1", userId: "u", amountXof: 10_000 });
-    expect(rails.payouts.get("bp-1")!.beneficiary?.bank_code).toBe("WAVE_CFG");
+    await expect(banks.resolve("SN", "orange")).rejects.toThrow("no Bitnob bank_code for orange in SN");
   });
 
   it("readBankCodeFallback parses BITNOB_<CC>_BANK_CODES and rejects bad config", () => {
     expect(readBankCodeFallback({ BITNOB_SN_BANK_CODES: '{"wave":"W1","orange":""}', OTHER: "x" })).toEqual({ SN: { wave: "W1" } });
-    expect(readBankCodeFallback({ BITNOB_SN_BANK_CODES: "" })).toEqual({});
     expect(() => readBankCodeFallback({ BITNOB_SN_BANK_CODES: "nope" })).toThrow("not valid JSON");
-    expect(() => readBankCodeFallback({ BITNOB_SN_BANK_CODES: '{"mtn":"x"}' })).toThrow('unknown provider "mtn"');
+  });
+
+  it("maskPhone keeps the prefix and the last two digits", () => {
+    expect(maskPhone("+221771234567")).toBe("+2217******67");
+    expect(maskPhone("+22")).toBe("+**");
   });
 });

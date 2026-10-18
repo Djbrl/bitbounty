@@ -135,7 +135,7 @@ function Showcase() {
       <Block title="Type" note="Headings and text: Instrument Sans. Amounts: Bricolage Grotesque 800. Hashes, timers: JetBrains Mono.">
         <Card padding="lg" className="grid gap-3">
           <h3 className="text-[clamp(1.8rem,4vw,2.6rem)] tracking-[-0.035em]">Faites-vous payer pour contribuer.</h3>
-          <p className="text-ink-soft">Des issues GitHub financées, payées en FCFA sur Wave dès le merge.</p>
+          <p className="text-ink-soft">Des issues GitHub financées, payées en sats via Lightning dès le merge.</p>
           <span className="font-display text-[2.6rem] font-extrabold leading-none tracking-[-0.03em]">10 000 F</span>
           <p className="font-mono text-[13px] text-muted">/bounty 10000 · pay-bnt_01J9 · 71:59:12</p>
         </Card>
@@ -270,8 +270,8 @@ function Showcase() {
 
       <Block title="Toast" note="useToast() from any client component; Toast renders one inline.">
         <div className="grid gap-2">
-          <Toast tone="success" title="Wave · Paiement reçu" action="View receipt →">
-            Tu as reçu 10 000 F pour bitnob-js #12.
+          <Toast tone="success" title="Blink · Paiement reçu" action="View receipt →">
+            Tu as reçu 16 180 sats (10 000 F) pour bitnob-js #12.
           </Toast>
           <Toast title="Claim extended">You have 24 more hours on #38.</Toast>
           <Toast tone="error" title="Payout failed">The money stays reserved. Retrying in 5 min.</Toast>
@@ -310,7 +310,7 @@ function Showcase() {
           <PhoneFrame lock time="14:32">
             <div className="mt-6 text-center text-[3.4rem] font-light leading-none tracking-[-0.03em]">14:32</div>
             <div className="mb-3 text-center text-[13px] text-mint">samedi 18 octobre</div>
-            <PhoneNotification title="Wave · Paiement reçu" body="Tu as reçu 10 000 F de BitBounty pour bitnob-js #12." />
+            <PhoneNotification icon="⚡" title="Blink · Paiement reçu" body="Tu as reçu 16 180 sats (10 000 F) de BitBounty pour bitnob-js #12." />
           </PhoneFrame>
         </div>
         <BrowserFrame url="bitbounty.app/b/bnt_01J9">

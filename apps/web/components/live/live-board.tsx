@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { cx, formatXof, statusMeta, TONE_DOT, type BountyStatus } from "../ui";
+import { cx, formatSats, formatXof, statusMeta, TONE_DOT, type BountyStatus } from "../ui";
 import {
   applyTransition,
   countInFlight,
@@ -191,11 +191,10 @@ function LiveCardView({ card, hot, ref }: { card: LiveCard; hot: boolean; ref: C
 }
 
 function RoutePanel({ route, stage }: { route: LiveRoute; stage: 0 | 1 | 2 }) {
-  const provider = route.provider === "orange_money" ? "Orange Money" : route.provider.charAt(0).toUpperCase() + route.provider.slice(1);
   const nodes = [
     { big: `₦${formatXof(route.ngn).replace(/\s*F$/, "")}`, small: "bank transfer · Lagos" },
     { big: "₿", small: "bitcoin" },
-    { big: formatXof(route.xof), small: `${provider} · Dakar` },
+    { big: formatXof(route.xof), small: `${route.sats ? formatSats(route.sats) : "Lightning"} · Dakar` },
   ];
   return (
     <div className="grid gap-3 rounded-[var(--radius-card)] border border-white/10 bg-white/[0.04] p-[clamp(12px,1vw,20px)]">

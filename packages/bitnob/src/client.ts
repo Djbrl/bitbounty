@@ -5,9 +5,12 @@ import type {
   CreateLightningInvoiceInput,
   CreateVirtualAccountInput,
   Customer,
+  DecodedLightningInvoice,
   ExchangeRate,
   InitializePayoutInput,
   LightningInvoice,
+  LightningPayment,
+  PayLightningInput,
   Payout,
   PayoutQuote,
   PayoutQuoteInput,
@@ -273,6 +276,65 @@ export class BitnobClient {
     return data.invoice ?? data;
   }
 
+  /**
+   * Pays a BOLT11 invoice from our BTC balance. **Moves money.** Payout code passes
+   * `{ retries: 0 }`: after a timeout the payment may have gone through, and the caller must
+   * find out instead of blindly replaying (see apps/server/src/payouts/README.md).
+   */
+  async payLightningInvoice(input: PayLightningInput, opts?: RequestOptions): Promise<LightningPayment> {
+    const data = await this.request<({ payment?: LightningPayment; transaction?: LightningPayment } & LightningPayment) | undefined>(
+      "POST",
+      "/api/lightning/pay",
+      input,
+      opts,
+    );
+    return data?.payment ?? data?.transaction ?? data ?? {};
+  }
+
+  /**
+   * A Lightning payment or invoice by Bitnob id. Bitnob lists outgoing payments with the
+   * invoices (`direction`), so this reads `/api/lightning/invoices/:id` (unverified for payments:
+   * the sandbox refuses `send_lightning` on our account).
+   */
+  async getLightningPayment(id: string): Promise<LightningPayment> {
+    const data = await this.request<{ invoice?: LightningPayment; payment?: LightningPayment } & LightningPayment>(
+      "GET",
+      `/api/lightning/invoices/${encodeURIComponent(id)}`,
+    );
+    return data.payment ?? data.invoice ?? data;
+  }
+
+  /**
+   * An outgoing Lightning payment by the `reference` we sent or its payment hash, or null when
+   * Bitnob lists none. Reads `GET /api/lightning/invoices?reference=…` (the documented list of
+   * invoices and payments) and filters the answer here, so it stays correct if Bitnob ignores the
+   * query parameter. **Unverified for outgoing payments** (the sandbox refuses `send_lightning`);
+   * only the first page is read. A read: never moves money, safe to call on every status check.
+   */
+  async findLightningPayment(q: { reference?: string; paymentHash?: string }): Promise<LightningPayment | null> {
+    if (!q.reference && !q.paymentHash) return null;
+    const params = new URLSearchParams();
+    if (q.reference) params.set("reference", q.reference);
+    if (q.paymentHash) params.set("payment_hash", q.paymentHash);
+    const data = await this.request<unknown>("GET", `/api/lightning/invoices?${params}`);
+    const list = pickList(data);
+    return (
+      list.find(
+        (p) => (q.reference && p.reference === q.reference) || (q.paymentHash && p.payment_hash === q.paymentHash),
+      ) ?? null
+    );
+  }
+
+  /** Structural decode of a BOLT11 (amount, expiry, payment hash). Pays nothing. */
+  async decodeLightningInvoice(request: string): Promise<DecodedLightningInvoice> {
+    const data = await this.request<{ invoice?: DecodedLightningInvoice } & DecodedLightningInvoice>(
+      "POST",
+      "/api/lightning/decode",
+      { request },
+    );
+    return data.invoice ?? data;
+  }
+
   async createPayoutQuote(input: PayoutQuoteInput): Promise<PayoutQuote> {
     const data = await this.request<{ payout: PayoutQuote }>("POST", "/api/payouts/quotes", input);
     return data.payout;
@@ -362,6 +424,21 @@ export class BitnobClient {
     const data = await this.request<{ price: TradingPrice }>("GET", `/api/trading/prices?${q}`);
     return data.price;
   }
+}
+
+/** The array in a list answer: `[...]`, `{invoices: [...]}`, `{payments: [...]}`, `{items|data|results: [...]}`. */
+function pickList(data: unknown): LightningPayment[] {
+  if (Array.isArray(data)) return data.filter(isObject) as LightningPayment[];
+  if (!isObject(data)) return [];
+  for (const k of ["invoices", "payments", "transactions", "items", "data", "results"]) {
+    const v = data[k];
+    if (Array.isArray(v)) return v.filter(isObject) as LightningPayment[];
+    if (isObject(v)) {
+      const inner = pickList(v);
+      if (inner.length) return inner;
+    }
+  }
+  return [];
 }
 
 function toError(method: string, path: string, status: number, json: unknown, text: string): BitnobError {

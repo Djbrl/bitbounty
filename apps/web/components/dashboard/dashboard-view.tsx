@@ -34,7 +34,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
           value={formatXof(stats.spentXof)}
           sub={`${plural(stats.paidCount, "merged PR")} · budget ${formatXof(stats.budgetXof)}`}
         />
-        <StatCard label="Median merge → paid" value={`${stats.medianMinutesMergeToPay} min`} sub="straight to Wave or Orange Money" />
+        <StatCard label="Median merge → paid" value={`${stats.medianMinutesMergeToPay} min`} sub="in sats, straight to a Lightning Address" />
       </div>
 
       <Section
