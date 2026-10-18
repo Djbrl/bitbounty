@@ -146,7 +146,7 @@ function describe(e: InternalEvent): string {
     case "pr.merged":
       return `PR #${e.prNumber} merged${e.ciGreen ? "" : " (CI not green)"}`;
     case "maintainer.pay":
-      return `@${e.actorLogin} approved the payment`;
+      return `@${e.actorLogin} approved the payment${e.toLogin ? ` to @${e.toLogin}` : ""}`;
     case "maintainer.hold":
       return `@${e.actorLogin} put it on hold`;
     case "maintainer.reject":

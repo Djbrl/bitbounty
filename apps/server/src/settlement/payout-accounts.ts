@@ -79,6 +79,23 @@ export function payeeFromAccounts(accounts: Map<string, EnvPayoutAccount>) {
 }
 
 /**
+ * CR3: "can this GitHub login be paid?" with the same `getPayee` the payout uses, so `/pay @user`
+ * is accepted exactly when the payout will find an account. A missing account (`PayoutConfigError`)
+ * is `false`; any other error (database down) is thrown.
+ */
+export function hasPayoutAccount(getPayee: (userId: string) => Promise<Payee>) {
+  return async (login: string): Promise<boolean> => {
+    try {
+      await getPayee(`github:${login}`);
+      return true;
+    } catch (err) {
+      if (err instanceof PayoutConfigError) return false;
+      throw err;
+    }
+  };
+}
+
+/**
  * U1: `PAYOUT_ACCOUNTS` first (ops override), then the Lightning Address the developer saved at
  * onboarding (`lookup`, by GitHub login). Neither → the primary's PayoutConfigError.
  */

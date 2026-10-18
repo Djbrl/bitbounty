@@ -16,7 +16,7 @@ export class PayoutNotAllowedError extends Error {
  *
  *   verify.done (A2)          → records the verdict on the `submitted` bounty
  *   pr.merged / maintainer.pay → bounty `verified` → starts the payout (B2) after the objection window
- *                                (`/pay now` → no window)
+ *                                (`/pay now` → no window; `/pay @user` → pays @user, not the claimant)
  *   payout.started/succeeded/failed (B2) → `paying` / `paid` / `payout_failed`, published on the bus
  *   funding.paid, pr.linked, verify.done, pr.merged, payout.* → status comment re-rendered (`sync`)
  *
@@ -31,6 +31,10 @@ export class PayoutNotAllowedError extends Error {
  *   to `paying` before any Bitnob call (B6: if that save fails, `applyPayoutEvent` throws and the
  *   payout service sends nothing), so a later merge or `/pay` (also after a restart) finds it
  *   `paying` / `paid` / `payout_failed` and starts nothing (the state machine refuses `/pay` there).
+ *
+ * Who is paid: the active claimant, unless the `/pay @user` that verified the bounty named someone
+ * else (the comment handler only lets that through when @user has a payout account). The recipient
+ * travels with the window timer; a redelivered merge that replaces the timer keeps it.
  *
  * Restart: payouts are in Postgres when DATABASE_URL is set (B6, `DrizzlePayoutStore`) and resume
  * on boot. The window timers still live in this process: a bounty whose timer was lost stays
@@ -55,8 +59,8 @@ const SYNC_ON = ["funding.paid", "pr.linked", "verify.done", "pr.merged", "payou
 export class Settlement {
   private readonly log: Pick<Console, "info" | "warn" | "error">;
   private readonly schedule: (fn: () => void, ms: number) => void;
-  /** The one objection-window timer per bounty allowed to start its payout. */
-  private readonly pending = new Map<string, symbol>();
+  /** The one objection-window timer per bounty allowed to start its payout, and who it pays (`/pay @user`). */
+  private readonly pending = new Map<string, { token: symbol; toLogin?: string }>();
   /** Bounties whose `startPayout` call is running in this process. */
   private readonly starting = new Set<string>();
 
@@ -68,9 +72,10 @@ export class Settlement {
   register(): this {
     const { bus } = this.deps;
     bus.subscribe("verify.done", (e) => this.onVerifyDone(e));
-    bus.subscribe("pr.merged", (e) => this.payIfVerified(e.bountyId));
-    // `/pay now` skips the objection window; plain `/pay` waits it like a merge.
-    bus.subscribe("maintainer.pay", (e) => this.payIfVerified(e.bountyId, { now: e.now === true }));
+    // A (redelivered) merge keeps the recipient of the timer it replaces.
+    bus.subscribe("pr.merged", (e) => this.payIfVerified(e.bountyId, { toLogin: this.pending.get(e.bountyId)?.toLogin }));
+    // `/pay now` skips the objection window; plain `/pay` waits it like a merge. `/pay @user` pays @user.
+    bus.subscribe("maintainer.pay", (e) => this.payIfVerified(e.bountyId, { now: e.now === true, toLogin: e.toLogin }));
     // Leaving `verified` during the window cancels its timer (the timer re-checks the status anyway).
     bus.subscribe("maintainer.hold", (e) => void this.pending.delete(e.bountyId));
     bus.subscribe("maintainer.reject", (e) => void this.pending.delete(e.bountyId));
@@ -113,27 +118,29 @@ export class Settlement {
     await this.apply(event);
   }
 
-  private async payIfVerified(bountyId: string, opts: { now?: boolean } = {}) {
+  private async payIfVerified(bountyId: string, opts: { now?: boolean; toLogin?: string } = {}) {
     const bounty = await this.deps.repo.findById(bountyId);
     if (!bounty || bounty.status !== "verified") return;
     if (!this.deps.startPayout) {
       this.log.warn(`[settlement] bounty ${bountyId} is verified but payouts aren't configured (Bitnob keys)`);
       return;
     }
-    if (!(await this.deps.repo.activeClaimant(bountyId))) {
+    const toLogin = opts.toLogin?.trim() || undefined;
+    if (!toLogin && !(await this.deps.repo.activeClaimant(bountyId))) {
       this.log.error(`[settlement] bounty ${bountyId} is verified but has no claimant to pay`);
       return;
     }
     // A newer timer replaces an older one (redelivered merge, /hold then /pay): only it may pay.
     const token = Symbol(bountyId);
-    this.pending.set(bountyId, token);
+    this.pending.set(bountyId, toLogin ? { token, toLogin } : { token });
     const delay = opts.now ? 0 : (this.deps.objectionMs ?? 0);
     this.schedule(() => void this.payAfterWindow(bountyId, token), delay);
   }
 
   /** The end of the objection window: pays only if this is still the bounty's timer and it is still `verified`. */
   private async payAfterWindow(bountyId: string, token: symbol) {
-    if (this.pending.get(bountyId) !== token) return;
+    const timer = this.pending.get(bountyId);
+    if (timer?.token !== token) return;
     this.pending.delete(bountyId);
     const start = this.deps.startPayout;
     if (!start || this.starting.has(bountyId)) return;
@@ -144,12 +151,18 @@ export class Settlement {
         this.log.info(`[settlement] bounty ${bountyId} is ${bounty?.status ?? "gone"} at the end of the objection window, no payout`);
         return;
       }
-      const claimant = await this.deps.repo.activeClaimant(bountyId);
-      if (!claimant) {
-        this.log.error(`[settlement] bounty ${bountyId} is verified but has no claimant to pay`);
-        return;
+      let userId: string;
+      if (timer.toLogin) {
+        userId = `github:${timer.toLogin}`;
+      } else {
+        const claimant = await this.deps.repo.activeClaimant(bountyId);
+        if (!claimant) {
+          this.log.error(`[settlement] bounty ${bountyId} is verified but has no claimant to pay`);
+          return;
+        }
+        userId = claimant.userId;
       }
-      await start({ bountyId, userId: claimant.userId, amountXof: bounty.amountXof });
+      await start({ bountyId, userId, amountXof: bounty.amountXof });
     } catch (err) {
       this.log.error(`[settlement] payout for ${bountyId} failed to start: ${err instanceof Error ? err.message : err}`);
     } finally {

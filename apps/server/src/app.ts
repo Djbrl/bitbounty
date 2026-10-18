@@ -43,6 +43,7 @@ import {
   type PayoutStore,
 } from "./payouts/index.js";
 import {
+  hasPayoutAccount,
   payeeFromAccounts,
   payeeWithFallback,
   readObjectionWindowMs,
@@ -135,6 +136,8 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
     writerFor: installationWriterFactory(githubApp),
     claimTtlMs,
     claims: claimTimers,
+    // CR3: `/pay @user` only for a user the payout can pay (called after the module has loaded).
+    hasPayoutAccount: (login) => hasPayoutAccount(getPayee)(login),
     ...botSettings,
   };
   registerCommentWiring(githubDispatcher, wiring);
@@ -231,6 +234,8 @@ const payoutAccounts = readPayoutAccounts();
 /** U1: onboarding answers + the developer's Lightning Address (Postgres when DATABASE_URL is set). */
 export const profileStore: ProfileStore = database ? new DrizzleProfileStore(database.db) : new InMemoryProfileStore();
 const savedLightningAddress = async (login: string) => (await profileStore.get(login)).lightningAddress;
+/** Where a payout to `github:<login>` goes: PAYOUT_ACCOUNTS first, then the Lightning Address saved at onboarding (U1). */
+const getPayee = payeeWithFallback(payeeFromAccounts(payoutAccounts), savedLightningAddress);
 let payoutService: PayoutService | null = null;
 export const settlement = new Settlement({
   repo: bountyRepo,
@@ -253,10 +258,12 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
     store: payoutStore,
     emit: settlement.applyPayoutEvent,
     // PAYOUT_ACCOUNTS first, then the Lightning Address saved at onboarding (U1).
-    getPayee: payeeWithFallback(payeeFromAccounts(payoutAccounts), savedLightningAddress),
+    getPayee,
     maxPayoutSats,
     // M1: a row is resumed after a restart only if settlement already started it (bounty past the
     // objection window, `paying` / `payout_failed`) and it still pays the claimant the bounty's amount.
+    // CR3: the `/pay @user` recipient isn't stored on the bounty, so an unsent `/pay @user` payout
+    // interrupted by a restart is not resumed here (nothing is sent; ops finish it by hand).
     isPayable: async (row) => {
       const bounty = await bountyRepo.findById(row.bountyId);
       if (!bounty) return "bounty not found";

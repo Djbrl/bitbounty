@@ -29,6 +29,11 @@ export interface WiringDeps {
   claimTtlMs?: number;
   /** G5: claim timers; `/extend` is delegated to it. Without it `/extend` replies "not available". */
   claims?: Pick<ClaimTimers, "extend">;
+  /**
+   * CR3: does this GitHub login have a payout account settlement can pay (PAYOUT_ACCOUNTS or the
+   * Lightning Address saved at onboarding)? `/pay @user` is refused when it says no, or when it's absent.
+   */
+  hasPayoutAccount?: (login: string) => Promise<boolean>;
   now?: () => Date;
   newId?: () => string;
   log?: Pick<Console, "info" | "warn" | "error">;
@@ -211,19 +216,25 @@ async function run(ctx: Ctx, command: Command, role: Role): Promise<CommentOutco
       }
       return apply(ctx, bounty, transition(bounty, { ...base, type: "claim.released", claimId: claim.id }), command.name);
     }
-    case "pay":
-      return apply(
-        ctx,
-        bounty,
-        transition(bounty, {
-          ...base,
-          type: "maintainer.pay",
-          actorLogin: login,
-          ...(command.user ? { toLogin: command.user } : {}),
-          ...(command.now ? { now: true } : {}),
-        }),
-        command.name,
-      );
+    case "pay": {
+      const result = transition(bounty, {
+        ...base,
+        type: "maintainer.pay",
+        actorLogin: login,
+        ...(command.user ? { toLogin: command.user } : {}),
+        ...(command.now ? { now: true } : {}),
+      });
+      // CR3: `/pay @user` pays @user, so @user must have a payout account before anything moves.
+      if (result.ok && command.user && !(await recipientCanBePaid(ctx, command.user))) {
+        const meUrl = `${deps.baseUrl.replace(/\/+$/, "")}/me`;
+        return reply(
+          ctx,
+          `@${command.user} has no verified payout account, so I can't pay them. Nothing was paid. ` +
+            `They can add a Lightning Address at ${meUrl}, then run \`/pay @${command.user}\` again.`,
+        );
+      }
+      return apply(ctx, bounty, result, command.name);
+    }
     case "hold":
       return apply(
         ctx,
@@ -250,6 +261,17 @@ async function run(ctx: Ctx, command: Command, role: Role): Promise<CommentOutco
         }),
         command.name,
       );
+  }
+}
+
+/** CR3: `/pay @user` only goes through when settlement will be able to pay @user. */
+async function recipientCanBePaid(ctx: Ctx, login: string): Promise<boolean> {
+  if (!ctx.deps.hasPayoutAccount) return false;
+  try {
+    return await ctx.deps.hasPayoutAccount(login);
+  } catch (err) {
+    ctx.deps.log?.error(`[wiring] payout account lookup for @${login} failed: ${err instanceof Error ? err.message : err}`);
+    return false;
   }
 }
 
