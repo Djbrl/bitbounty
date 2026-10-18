@@ -32,7 +32,10 @@ export interface StatusCommentExtras {
     receiptId?: string | null;
     provider?: PayoutProvider | null;
     reference?: string | null;
+    /** Raw error text, shown as is. Prefer `reason` for anything public (I3). */
     lastError?: string | null;
+    /** Why the last attempt failed, as a short public reason (no hosts, env names or account details). */
+    reason?: PayoutFailureReason | null;
     attempts?: number | null;
     /** No automatic retry left (last attempt used, or an error retrying can't fix). */
     final?: boolean | null;
@@ -40,6 +43,9 @@ export interface StatusCommentExtras {
   /** Free text from `/hold <reason>` or the system (e.g. "merged with red CI"). */
   holdReason?: string | null;
 }
+
+/** Public reasons a payout attempt failed (I3). The raw error stays in the server logs and the payout row. */
+export type PayoutFailureReason = "unreachable" | "expired" | "rejected" | "no_account" | "setup" | "other";
 
 /** Limits that keep a hostile issue from producing a 65 KB comment. */
 export const LIMITS = { title: 120, criterion: 280, criteria: 10, summary: 500, reason: 280, error: 200 };
@@ -205,13 +211,14 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
       body.push(parts.join(" · "));
       break;
     }
-    case "payout_failed":
+    case "payout_failed": {
       body.push(c.payoutFailed(dev));
-      if (extras.payout?.lastError) {
-        const attempts = isCount(extras.payout.attempts) ? extras.payout.attempts : null;
-        body.push(c.lastError(escapeInline(extras.payout.lastError, LIMITS.error), attempts));
-      }
+      const p = extras.payout;
+      const attempts = p && isCount(p.attempts) ? p.attempts : null;
+      if (p?.reason && Object.hasOwn(c.payoutReasons, p.reason)) body.push(c.lastError(c.payoutReasons[p.reason], attempts));
+      else if (p?.lastError) body.push(c.lastError(escapeInline(p.lastError, LIMITS.error), attempts));
       break;
+    }
     case "refunded":
       body.push(c.refunded(amount));
       break;
@@ -221,7 +228,7 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
   }
   out.push(...body);
 
-  out.push(`${c.nextLabel} ${nextAction(status, { c, hasCriteria, dev, issue, pr, meUrl, verdict: bounty.verdict, payoutFinal: extras.payout?.final === true })}`);
+  out.push(`${c.nextLabel} ${nextAction(status, { c, hasCriteria, dev, issue, pr, meUrl, verdict: bounty.verdict, payoutFinal: extras.payout?.final === true, payoutAccount: extras.payout?.reason === "no_account" })}`);
 
   out.push(`<sub>${c.footer} · [${c.bountyPage}](${base}/b/${id})</sub>`);
   return out.join("\n\n") + "\n";
@@ -229,7 +236,7 @@ export function renderStatusComment(bounty: Bounty, extras: StatusCommentExtras,
 
 function nextAction(
   status: BountyStatus,
-  ctx: { c: Copy; hasCriteria: boolean; dev: string; issue: string; pr: string | null; meUrl: string; verdict: Bounty["verdict"]; payoutFinal?: boolean },
+  ctx: { c: Copy; hasCriteria: boolean; dev: string; issue: string; pr: string | null; meUrl: string; verdict: Bounty["verdict"]; payoutFinal?: boolean; payoutAccount?: boolean },
 ): string {
   const { c, hasCriteria, dev, issue, meUrl } = ctx;
   const pr = ctx.pr ?? "PR";
@@ -252,7 +259,9 @@ function nextAction(
     case "on_hold":
       return c.next.onHold;
     case "payout_failed":
-      return ctx.payoutFinal ? c.next.payoutFailedFinal(dev, meUrl) : c.next.payoutFailed(dev, meUrl);
+      // Point the developer at their payout account only when that is what failed.
+      if (ctx.payoutAccount) return ctx.payoutFinal ? c.next.payoutAccountFinal(dev, meUrl) : c.next.payoutAccount(dev, meUrl);
+      return ctx.payoutFinal ? c.next.payoutFailedFinal(dev) : c.next.payoutFailed;
     case "refunded":
     case "cancelled":
       return c.next.closed;

@@ -1,5 +1,6 @@
 import type { BountyStatus, FundingRail, PayoutProvider, Verdict } from "@bitbounty/core";
 import type { Lang } from "./format.js";
+import type { PayoutFailureReason } from "./render.js";
 
 /**
  * Every word of the status comment, per language. Arguments arrive already
@@ -28,6 +29,8 @@ export interface Copy {
   onHold: string;
   payoutFailed: (who: string) => string;
   lastError: (err: string, attempts: number | null) => string;
+  /** Short public reasons a payout failed (I3): never the raw error. */
+  payoutReasons: Record<PayoutFailureReason, string>;
   refunded: (amount: string) => string;
   cancelled: string;
   nextLabel: string;
@@ -42,8 +45,12 @@ export interface Copy {
     paying: string;
     paid: (who: string) => string;
     onHold: string;
-    payoutFailed: (who: string, meUrl: string) => string;
-    payoutFailedFinal: (who: string, meUrl: string) => string;
+    /** Failed for a reason the developer can't fix (Bitnob down, expired…): nothing to do. */
+    payoutFailed: string;
+    payoutFailedFinal: (who: string) => string;
+    /** Failed because the developer has no usable payout account. */
+    payoutAccount: (who: string, meUrl: string) => string;
+    payoutAccountFinal: (who: string, meUrl: string) => string;
     closed: string;
   };
   bountyPage: string;
@@ -95,6 +102,14 @@ const en: Copy = {
   onHold: "Payment is paused until the maintainer decides.",
   payoutFailed: (who) => `The payout to ${who} didn't go through. The money stays reserved for them.`,
   lastError: (err, attempts) => `Last error${attempts ? ` (attempt ${attempts})` : ""}: ${err}`,
+  payoutReasons: {
+    unreachable: "Bitnob didn't answer",
+    expired: "Bitnob reported the payment expired",
+    rejected: "Bitnob refused the payment",
+    no_account: "the developer hasn't set a payout account yet",
+    setup: "a payout setup problem on BitBounty's side",
+    other: "the payment didn't complete",
+  },
   refunded: (amount) => `**${amount}** went back to the funder.`,
   cancelled: "This bounty was cancelled before it was funded.",
   nextLabel: "**Next:**",
@@ -114,10 +129,12 @@ const en: Copy = {
     paying: "nothing to do. This comment updates when the money lands.",
     paid: (who) => `nothing. Done, thank you ${who}!`,
     onHold: "maintainer, `/pay` to release the money or `/reject <reason>` to reopen the bounty for claims.",
-    payoutFailed: (who, meUrl) =>
-      `${who}, check your payout account at ${meUrl}. We retry automatically.`,
-    payoutFailedFinal: (who, meUrl) =>
-      `${who}, check your payout account at ${meUrl}. No more automatic retries: the maintainer or BitBounty retries once it's fixed.`,
+    payoutFailed: "nothing to do. We retry automatically.",
+    payoutFailedFinal: (who) =>
+      `no more automatic retries. The money stays reserved for ${who}; maintainer, contact BitBounty to sort out the payout.`,
+    payoutAccount: (who, meUrl) => `${who}, set your payout account at ${meUrl}. We retry automatically.`,
+    payoutAccountFinal: (who, meUrl) =>
+      `${who}, set your payout account at ${meUrl}. No more automatic retries: the money stays reserved for you, ask the maintainer to contact BitBounty once it's set.`,
     closed: "nothing. This bounty is closed.",
   },
   bountyPage: "Bounty page",
@@ -170,6 +187,14 @@ const fr: Copy = {
   payoutFailed: (who) =>
     `Le paiement à ${who} n'est pas passé. L'argent lui reste réservé.`,
   lastError: (err, attempts) => `Dernière erreur${attempts ? ` (tentative ${attempts})` : ""} : ${err}`,
+  payoutReasons: {
+    unreachable: "Bitnob n'a pas répondu",
+    expired: "Bitnob a signalé que le paiement a expiré",
+    rejected: "Bitnob a refusé le paiement",
+    no_account: "le développeur n'a pas encore de compte de paiement",
+    setup: "un problème de configuration des paiements chez BitBounty",
+    other: "le paiement n'a pas abouti",
+  },
   refunded: (amount) => `**${amount}** rendus au financeur.`,
   cancelled: "Cette prime a été annulée avant d'être financée.",
   nextLabel: "**Prochaine étape :**",
@@ -191,10 +216,12 @@ const fr: Copy = {
     paid: (who) => `rien. C'est fini, merci ${who} !`,
     onHold:
       "mainteneur, `/pay` pour débloquer l'argent ou `/reject <motif>` pour rouvrir la prime aux réservations.",
-    payoutFailed: (who, meUrl) =>
-      `${who}, vérifiez votre compte de paiement sur ${meUrl}. Nous réessayons automatiquement.`,
-    payoutFailedFinal: (who, meUrl) =>
-      `${who}, vérifiez votre compte de paiement sur ${meUrl}. Plus de nouvel essai automatique : le mainteneur ou BitBounty relance une fois corrigé.`,
+    payoutFailed: "rien à faire. Nous réessayons automatiquement.",
+    payoutFailedFinal: (who) =>
+      `plus de nouvel essai automatique. L'argent reste réservé à ${who} ; mainteneur, contactez BitBounty pour régler le paiement.`,
+    payoutAccount: (who, meUrl) => `${who}, configurez votre compte de paiement sur ${meUrl}. Nous réessayons automatiquement.`,
+    payoutAccountFinal: (who, meUrl) =>
+      `${who}, configurez votre compte de paiement sur ${meUrl}. Plus de nouvel essai automatique : l'argent vous reste réservé, demandez au mainteneur de contacter BitBounty une fois fait.`,
     closed: "rien. Cette prime est close.",
   },
   bountyPage: "Page de la prime",
