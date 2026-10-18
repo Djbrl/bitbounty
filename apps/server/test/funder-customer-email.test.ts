@@ -16,7 +16,7 @@ describe("funder customer email (Bitnob validates it)", () => {
       expect(c.email).toMatch(/^[A-Za-z0-9._+-]+@bitbounty\.invalid$/);
       expect(c.reference ?? "").not.toContain(":");
     }
-    expect(calls[0].email).toBe("funder-github-Djbrl@bitbounty.invalid");
+    expect(calls[0]?.email).toBe("funder-github-Djbrl@bitbounty.invalid");
   });
 
   it("keeps safe ids unchanged", () => {
