@@ -1,10 +1,10 @@
 # BitBounty: implementation plan
 
-v1, 16 10 2026. Product: [docs/product.md](docs/product.md). Visual mockups: https://claude.ai/artifact/AdaU49nNMoDQN81tvqcXQc (ask Jib for access).
+v1, 16 10 2026, the plan written before the event. Since then, developers are paid **in sats over Lightning to a Lightning Address** (mobile money payouts were dropped on Sat 17 Oct, see [architecture.md](architecture.md)), and the server runs with Docker rather than on Railway ([setup.md](setup.md)). Product: [product.md](product.md). Visual mockups: https://claude.ai/artifact/AdaU49nNMoDQN81tvqcXQc (ask Jib for access).
 **Nothing here gets coded before 17 10, 15:00.** Before that: generic boilerplate only (repo, scaffolds, deploy), allowed by the organisers.
 
 ## 1. Scope
-**P0 (the demo depends on it):** maintainer dashboard + "Price my backlog" (Claude) · GitHub App (commands + status comment) · Lightning funding (Bitnob sandbox) · claim · PR detection · Claude verifier (GitHub check) · merge → Wave payout (sandbox) · developer onboarding (GitHub login + payout account + test payment) · payment page · bounty page · live demo screen.
+**P0 (the demo depends on it):** maintainer dashboard + "Price my backlog" (Claude) · GitHub App (commands + status comment) · Lightning funding (Bitnob sandbox) · claim · PR detection · Claude verifier (GitHub check) · merge → payout in sats over Lightning (sandbox) · developer onboarding (GitHub login + payout account + test payment) · payment page · bounty page · live demo screen.
 **P1 (makes the difference):** NGN funding (virtual account + simulate-deposit + NGN→BTC trade) · client agent (MCP server + Claude Code demo) · proof-of-work profile · public board.
 **P2 (if there's time):** USDT funding · Nemotron/Claude scout that proposes bounties · measured checker (bench) · refunds/cancellations beyond the basic case.
 
@@ -19,7 +19,7 @@ v1, 16 10 2026. Product: [docs/product.md](docs/product.md). Visual mockups: htt
 | Bitnob | `packages/bitnob`: our typed client (HMAC) | **becomes the open-source SDK** (dogfooding) |
 | AI | Anthropic SDK, `claude-sonnet-5` (verifier, criteria), `claude-opus-5-5` if quality is lacking | Jib's key; Nemotron not needed |
 | Agent | `packages/mcp`: MCP server (post_bounty, get_bounty, cancel_bounty) | Claude Code demo |
-| Hosting | Railway (server + Postgres) · Vercel (web) | free, fast deploy |
+| Hosting | Docker Compose (server + Postgres + smee + Cloudflare tunnel) · Vercel (web) | free, fast deploy |
 | Webhook dev | smee.io (GitHub) · ngrok (Bitnob) | local dev |
 
 ```
@@ -42,7 +42,7 @@ Details, the full transition table and the event list: [packages/core/README.md]
 
 ### Tables (Drizzle)
 - `users` (id, github_id, login, avatar_url, created_at)
-- `payout_accounts` (user_id, country, provider `wave|orange|free`, phone_e164, account_name, status `pending|sms_ok|verified`, test_amount_xof, verified_at, locked_until)
+- `payout_accounts` (user_id, lightning_address (B6), status `pending|sms_ok|verified`, verified_at, locked_until; the mobile money columns of the first draft become optional)
 - `installations` (github_installation_id, account_login), `repos` (installation_id, full_name, settings jsonb)
 - `bounties` (id, repo_id, issue_number, issue_title, amount_xof, status, criteria jsonb, funder_kind `human|agent`, funder_id, status_comment_id, created_at, expires_at)
 - `fundings` (bounty_id, rail `lightning|usdt|ngn`, source_amount, source_currency, bitnob_ref, payment_hash, status, paid_at)
@@ -72,8 +72,8 @@ Permissions: `/bounty /criteria /pay /hold /reject /cancel` = write access on th
 Funding over Lightning: `POST /api/lightning/invoices {amount (sats), description:"BitBounty #id", reference:"fund-<bountyId>-<n>", expiry:900}` → polling → `status=paid` → `transition(funded)` → ledger `fund`, `fee`, `reserve`.
 Sats are converted to USDT if we hold in USDT: `POST /api/trading/quotes {base_currency:"BTC", quote_currency:"USDT", side:"sell", quantity}` → `POST /api/trading/orders {quote_id}` (P1; in P0 we can stay in BTC and pay out from BTC).
 NGN funding (P1): `customers` (identity) → `POST /api/virtual-accounts` → (sandbox) `POST /api/virtual-accounts/:id/simulate-deposit` ×N (₦1,000/call) → webhook `virtual_account.deposit.success` → NGN/BTC trade (`quote_id` required, quote valid 30 s in sandbox) → funded.
-Payout: `POST /api/payouts/quotes {from_asset:"BTC"|"USDT", to_currency:"XOF", country:"SN", settlement_amount:"<xof>", source:"offchain", reference:"pay-<bountyId>"}` → `POST /api/payouts/:quoteId/initialize {quote_id, reference, payment_reason:"bounty", beneficiary:{destination_type:"mobile_money", country:"SN", account_name, account_number:"221XXXXXXXXX", bank_code:<from GET /api/payouts/banks/SN>}}` → `POST /api/payouts/:quoteId/finalize` → webhook `payouts.withdrawal.success` (or polling `GET /api/payouts/:id`).
-Test payment (onboarding): same payout with `settlement_amount` = random 100–199 → the user types the amount.
+Payout (B6, [#102](https://github.com/Djbrl/bitbounty/pull/102), replaces the first mobile money plan): FCFA → sats at Bitnob's rate (`GET /api/exchange-rates` + `GET /api/trading/prices`) → LNURL-pay on the developer's Lightning Address for that exact amount, invoice checked (amount, network, expiry) → `POST /api/lightning/pay {request, reference:"pay-<bountyId>-<n>", max_fee}`, sent once per attempt → status polled until paid.
+Test payment (onboarding): planned as a small mobile money payout the developer confirms; dropped with that rail.
 
 ## 5. Claude verifier
 Input: title + body + criteria of the issue, PR diff (cap ~60k tokens, priority to non-test files, then tests), CI status, list of files.
@@ -118,12 +118,12 @@ Backup: a video of the full loop recorded Sunday morning.
 ## 9. Risks → fallbacks
 | Risk | Fallback |
 |---|---|
-| SN/Wave payouts not available in sandbox | GH/KE mobile money in the demo, the UI still shows the country; say so on stage |
+| Bitnob sandbox can't pay out | show every step up to the pay call, say so on stage (it happened: mobile money payouts were dropped, and Lightning withdrawals are not enabled on our sandbox account) |
 | Bitnob webhooks not firing in sandbox | polling `GET /api/payouts/:id` |
 | Lightning: on-the-fly invoice impossible | wallet-funded model (our sandbox balance) |
-| GitHub App webhook flaky on venue Wi-Fi | phone hotspot + server deployed on Railway from day 1 |
+| GitHub App webhook flaky on venue Wi-Fi | phone hotspot + server online from day 1 (Docker + smee + Cloudflare tunnel) |
 | Verifier slow | Sonnet, capped diff, verdict precomputed on synchronize |
 | Live demo crashes | backup video + "replay" mode on /live |
 
 ## 10. Allowed prep before the event (generic boilerplate)
-Empty monorepo + scaffolds (Next.js/Tailwind/shadcn, Hono, Drizzle connected to an empty DB), Railway/Vercel deploy pipeline, `.env.example`. **No product logic** (no commands, no state machine, no Bitnob calls).
+Empty monorepo + scaffolds (Next.js/Tailwind/shadcn, Hono, Drizzle connected to an empty DB), Docker/Vercel deploy pipeline, `.env.example`. **No product logic** (no commands, no state machine, no Bitnob calls).
