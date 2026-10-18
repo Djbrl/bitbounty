@@ -39,6 +39,8 @@ export class InMemoryClaimScheduler implements ClaimScheduler {
   private inFlight = new Set<string>();
   private sweeper: ReturnType<typeof setInterval> | null = null;
   private onDue: DueHandler | null = null;
+  /** After `stop()`, nothing arms a timer until `start()` again (I3: a stopped demo keeps its claims). */
+  private stopped = false;
 
   constructor(private readonly opts: InMemorySchedulerOptions) {}
 
@@ -47,6 +49,7 @@ export class InMemoryClaimScheduler implements ClaimScheduler {
   }
 
   schedule(claim: DueClaim): void {
+    if (this.stopped) return;
     const at = Date.parse(claim.expiresAt);
     if (Number.isNaN(at)) return;
     this.cancel(claim.claimId);
@@ -72,6 +75,7 @@ export class InMemoryClaimScheduler implements ClaimScheduler {
 
   async start(onDue: DueHandler): Promise<void> {
     this.onDue = onDue;
+    this.stopped = false;
     await this.sweep();
     if (!this.sweeper) {
       this.sweeper = setInterval(() => void this.sweep(), this.opts.sweepMs);
@@ -80,6 +84,7 @@ export class InMemoryClaimScheduler implements ClaimScheduler {
   }
 
   stop(): void {
+    this.stopped = true;
     if (this.sweeper) clearInterval(this.sweeper);
     this.sweeper = null;
     for (const id of [...this.timers.keys()]) this.cancel(id);

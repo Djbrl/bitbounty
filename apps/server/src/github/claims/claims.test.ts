@@ -253,6 +253,19 @@ describe("restart", () => {
   });
 });
 
+describe("stop", () => {
+  it("a stopped scheduler arms no new timer, until it is started again", async () => {
+    timers.stop(); // e.g. the I3 demo after its expiry, still serving the web
+    await claimed();
+    expect(scheduler.armed("id-2")).toBe(false);
+    await vi.advanceTimersByTimeAsync(TTL + sweepIntervalMs(TTL));
+    expect((await bounty()).status).toBe("claimed");
+    expect(events("claim.expired")).toHaveLength(0);
+    await timers.start(); // restarted: the sweep expires what ran out
+    expect((await bounty()).status).toBe("funded");
+  });
+});
+
 describe("/extend", () => {
   it("adds one TTL once; the second is refused with the reason", async () => {
     await claimed();
