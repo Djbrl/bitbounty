@@ -277,6 +277,18 @@ export class BitnobClient {
   }
 
   /**
+   * **Sandbox only**: marks one of our own invoices paid (`lntb…` invoices can't be paid by real
+   * wallets). No body. Bitnob then reports the invoice as paid like a real payment.
+   */
+  async simulateLightningPayment(id: string): Promise<LightningInvoice> {
+    const data = await this.request<({ invoice?: LightningInvoice } & LightningInvoice) | undefined>(
+      "POST",
+      `/api/lightning/invoices/${encodeURIComponent(id)}/simulate-payment`,
+    );
+    return data?.invoice ?? data ?? { id };
+  }
+
+  /**
    * Pays a BOLT11 invoice from our BTC balance. **Moves money.** Payout code passes
    * `{ retries: 0 }`: after a timeout the payment may have gone through, and the caller must
    * find out instead of blindly replaying (see apps/server/src/payouts/README.md).

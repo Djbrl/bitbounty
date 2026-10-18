@@ -28,7 +28,12 @@ export interface ReadApiDeps {
   fundings?: Pick<FundingStore, "listByBounty">;
   payouts?: Pick<PayoutStore, "get" | "getByBounty" | "listByStatus">;
   /** B1 Lightning funding (null when Bitnob keys aren't set). */
-  lightning?: { invoice(target: FundingTarget): Promise<FundingRecord>; watch(fundingId: string): void } | null;
+  lightning?: {
+    invoice(target: FundingTarget): Promise<FundingRecord>;
+    watch(fundingId: string): void;
+    /** Sandbox only: settles the open invoice (POST /api/bounties/:id/funding/simulate). */
+    simulatePayment?(bountyId: string): Promise<FundingRecord>;
+  } | null;
   /**
    * Shared secret with the web app. The web proxy sends `Authorization: Bearer <token>` and
    * `X-BitBounty-User: <github login>` from the Auth.js session; without it /api/me is 401.
@@ -308,6 +313,27 @@ export function readApiRoutes(deps: ReadApiDeps) {
       }
       console.error("[api] funding", err);
       return c.json({ error: "funding_failed" }, 502);
+    }
+  });
+
+  // Sandbox only: "Pay (sandbox)" on the fund page. Testnet `lntb…` invoices can't be paid by real
+  // wallets, so Bitnob's simulate-payment settles it; the normal paid flow (funding.paid) follows.
+  api.post("/api/bounties/:id/funding/simulate", async (c) => {
+    const b = await repo.findById(c.req.param("id"));
+    if (!b) return c.json({ error: "bounty_not_found", id: c.req.param("id") }, 404);
+    if (b.status !== "unfunded") return c.json({ status: "paid", bountyStatus: b.status });
+    if (!deps.lightning?.simulatePayment) return c.json({ error: "sandbox_only" }, 403);
+    try {
+      const f = await deps.lightning.simulatePayment(b.id);
+      const after = await repo.findById(b.id);
+      return c.json({ status: f.status === "paid" ? "paid" : "pending", bountyStatus: after?.status ?? b.status });
+    } catch (err) {
+      if (err instanceof FundingError) {
+        const status = err.code === "SANDBOX_ONLY" ? 403 : err.code === "BOUNTY_NOT_FOUND" ? 404 : 409;
+        return c.json({ error: err.code.toLowerCase(), message: err.message }, status);
+      }
+      console.error("[api] simulate funding", err);
+      return c.json({ error: "simulate_failed" }, 502);
     }
   });
 

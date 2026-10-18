@@ -17,7 +17,13 @@ export interface FundingTarget {
 
 export class FundingError extends Error {
   constructor(
-    readonly code: "ALREADY_FUNDED" | "UNLINKED_DEPOSIT" | "BOUNTY_NOT_FOUND" | "NOT_FUNDABLE" | "NO_AMOUNT",
+    readonly code:       | "ALREADY_FUNDED"
+      | "UNLINKED_DEPOSIT"
+      | "BOUNTY_NOT_FOUND"
+      | "NOT_FUNDABLE"
+      | "NO_AMOUNT"
+      | "SANDBOX_ONLY"
+      | "NO_PENDING_INVOICE",
     message: string,
   ) {
     super(message);
@@ -36,7 +42,13 @@ export interface FundingEvents {
 }
 
 export interface LightningFundingOptions extends FundingEvents {
-  client: Pick<BitnobClient, "createLightningInvoice" | "getLightningInvoice">;
+  client: Pick<BitnobClient, "createLightningInvoice" | "getLightningInvoice"> &
+    Partial<Pick<BitnobClient, "simulateLightningPayment">>;
+  /**
+   * Gate for `simulatePayment()` (the fund page's "Pay (sandbox)" button). Must answer true only
+   * for Bitnob **sandbox** keys (app.ts asks `whoami`). Unset = simulation refused.
+   */
+  isSandbox?: () => Promise<boolean>;
   store: FundingStore;
   rates: Rates;
   customers: FunderCustomers;
@@ -193,6 +205,28 @@ export class LightningFunding {
       expiresAt: inv.expires_at ?? new Date(created.getTime() + this.expirySeconds * 1000).toISOString(),
       createdAt: created.toISOString(),
     });
+  }
+
+  /**
+   * Sandbox only: settles the bounty's open Lightning invoice with Bitnob's simulate-payment,
+   * then checks it so the normal paid flow (`funding.paid`) runs at once. Already paid → no call.
+   */
+  async simulatePayment(bountyId: string): Promise<FundingRecord> {
+    const simulate = this.opts.client.simulateLightningPayment?.bind(this.opts.client);
+    if (!simulate || !this.opts.isSandbox || !(await this.opts.isSandbox().catch(() => false))) {
+      throw new FundingError("SANDBOX_ONLY", "simulated payments need Bitnob sandbox keys");
+    }
+    const fundings = (await this.opts.store.listByBounty(bountyId)).filter((f) => f.rail === "lightning");
+    const paid = fundings.find((f) => f.status === "paid");
+    if (paid) return paid;
+    const pending = fundings.filter((f) => f.status === "pending");
+    const target =
+      this.openInvoice(pending) ?? [...pending].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (!target) throw new FundingError("NO_PENDING_INVOICE", `bounty ${bountyId} has no pending Lightning invoice`);
+    await simulate(target.bitnobRef);
+    this.log.info(`[funding] sandbox: simulated payment of invoice ${target.bitnobRef} (bounty ${bountyId})`);
+    this.watch(target.id);
+    return (await this.check(target.id)) ?? target;
   }
 
   /** Marks an invoice as being watched (fund page open): polled every fast tick for 2 minutes. */

@@ -123,7 +123,7 @@ export function handleMock(
   body: Record<string, unknown> = {},
   now: Date = new Date(),
 ): MockResult {
-  const [root, id, sub] = path;
+  const [root, id, sub, action] = path;
   const find = (bid: string) => fx.bounties.find((b) => b.id === bid) ?? backlogBounty(fx, bid);
 
   if (method === 'GET' && root === 'bounties' && !id) {
@@ -142,14 +142,20 @@ export function handleMock(
     const d = find(id);
     if (!d) return err(404, 'bounty_not_found', { id });
     if (method === 'GET' && !sub) return ok(d);
-    if (sub === 'funding' && method === 'POST') {
+    if (sub === 'funding' && action === 'simulate' && method === 'POST') {
+      // Sandbox "Pay" button: the next status poll answers paid.
+      if (d.status !== 'unfunded') return ok({ status: 'paid', bountyStatus: d.status });
+      polls.set(id, POLLS_BEFORE_PAID);
+      return ok({ status: 'paid', bountyStatus: 'funded' });
+    }
+    if (sub === 'funding' && !action && method === 'POST') {
       const rail = (body.rail ?? 'lightning') as FundingRail;
       if (!fx.funding[rail]) return err(400, 'invalid_rail', { rail });
       if (d.status !== 'unfunded') return err(409, 'already_funded', { status: d.status });
       polls.delete(id);
       return ok(fundingSession(fx, d, rail, now));
     }
-    if (sub === 'funding' && method === 'GET') {
+    if (sub === 'funding' && !action && method === 'GET') {
       if (d.status !== 'unfunded') return ok({ status: 'paid', bountyStatus: d.status });
       const n = (polls.get(id) ?? 0) + 1;
       polls.set(id, n);
