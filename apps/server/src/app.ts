@@ -40,7 +40,7 @@ import {
   readLightningNetwork,
   type PayoutStore,
 } from "./payouts/index.js";
-import { payeeFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement } from "./settlement/index.js";
+import { payeeFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement, statusExtras } from "./settlement/index.js";
 import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
@@ -121,7 +121,9 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
   void claimTimers.start();
   statusSync = async (bounty) => {
     const { writer } = await github(bounty.repoFullName);
-    await syncIssue(bounty, { writer, repo: bountyRepo, ...botSettings });
+    // I3: claim, PR and payout attempt / last error / receipt, so failures read cleanly on GitHub.
+    const extras = await statusExtras(bounty, { repo: bountyRepo, payouts: payoutStore });
+    await syncIssue(bounty, { writer, repo: bountyRepo, extras, ...botSettings });
   };
   // DEV ONLY: POST /dev/fund marks a bounty paid until Bitnob funding is wired (see github/claims/dev-fund.ts).
   if (process.env.DEV_HOOK_TOKEN) {
@@ -247,8 +249,8 @@ app.route(
     activity: activityLog,
     // Live fundings from memory, plus whatever is in Postgres (seed, later the Drizzle stores).
     fundings: database ? mergeFundings(fundingStore, new DrizzleFundingReader(database.db)) : fundingStore,
-    // B6: the same store the payout service writes (Postgres), so live payouts and the seed both show.
-    payouts: database ? payoutStore : undefined,
+    // B6: the payout service's store (Postgres when DATABASE_URL is set, so the seed shows too).
+    payouts: database || payoutService ? payoutStore : undefined,
     lightning: lightningFunding,
     internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
   }),

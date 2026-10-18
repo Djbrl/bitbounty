@@ -103,7 +103,7 @@ export function readApiRoutes(deps: ReadApiDeps) {
     return {
       ...bountyView(b, activity.lastAt(b.id)),
       fundings: fundings.map(fundingView),
-      claims: claim ? [claimView(claim, at("claim.created"))] : [],
+      claims: claim ? [claimView(claim, at("claim.created"), b.status)] : [],
       submission: sub ? submissionView(sub, b, at("pr.linked")) : null,
       payout: payout ? payoutView(payout, at("payout.started")) : null,
       timeline: timelineOf(b, entries),

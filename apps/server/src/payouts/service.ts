@@ -344,8 +344,9 @@ export class PayoutService {
     try {
       invoice = await this.resolver.invoiceFor(payee.lightningAddress, quote.sats * 1000);
     } catch (err) {
+      // The prefix is what the public status comment keys on (settlement/status-extras.ts).
       const fatal = err instanceof LnurlError ? !err.retryable : false;
-      return await this.fail(row, `lnurl: ${safe(err)}`, fatal);
+      return await this.fail(row, `${fatal ? "lnurl refused" : "lnurl unreachable"}: ${safe(err)}`, fatal);
     }
     const saved = await this.store.update(
       row.id,

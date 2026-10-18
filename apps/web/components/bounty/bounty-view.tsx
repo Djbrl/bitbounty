@@ -112,7 +112,11 @@ export function CriteriaCard({ b }: { b: BountyDetail }) {
     <Card padding="lg">
       <CardTitle
         right={
-          b.criteriaConfirmed ? (
+          b.criteria.length === 0 ? (
+            <Pill tone="neutral" size="sm">
+              From the issue
+            </Pill>
+          ) : b.criteriaConfirmed ? (
             <Pill tone="money" size="sm">
               Confirmed by the maintainer
             </Pill>
@@ -125,6 +129,15 @@ export function CriteriaCard({ b }: { b: BountyDetail }) {
       >
         Acceptance criteria
       </CardTitle>
+      {b.criteria.length === 0 && (
+        <p className="text-[15px] text-muted">
+          The issue&apos;s <strong>Done when</strong> list on{" "}
+          <a className="underline" href={b.issueUrl}>
+            GitHub
+          </a>
+          . Claude checks the PR against it.
+        </p>
+      )}
       <ul className="grid gap-2">
         {b.criteria.map((c, i) => (
           <li key={i} className="flex gap-2.5 text-[15px]">

@@ -1,5 +1,6 @@
 import type { BountyStatus, FundingRail, PayoutProvider, Verdict } from "@bitbounty/core";
 import type { Lang } from "./format.js";
+import type { PayoutFailureReason } from "./render.js";
 
 /**
  * Every word of the status comment, per language. Arguments arrive already
@@ -28,13 +29,14 @@ export interface Copy {
   onHold: string;
   payoutFailed: (who: string) => string;
   lastError: (err: string, attempts: number | null) => string;
+  /** Short public reasons a payout failed (I3): never the raw error. */
+  payoutReasons: Record<PayoutFailureReason, string>;
   refunded: (amount: string) => string;
   cancelled: string;
   nextLabel: string;
   next: {
     unfundedNoCriteria: string;
     unfunded: string;
-    fundedNoCriteria: string;
     funded: (meUrl: string) => string;
     claimed: (who: string, issue: string) => string;
     submittedPending: (pr: string) => string;
@@ -43,7 +45,12 @@ export interface Copy {
     paying: string;
     paid: (who: string) => string;
     onHold: string;
-    payoutFailed: (who: string, meUrl: string) => string;
+    /** Failed for a reason the developer can't fix (Bitnob down, expired…): nothing to do. */
+    payoutFailed: string;
+    payoutFailedFinal: (who: string) => string;
+    /** Failed because the developer has no usable payout account. */
+    payoutAccount: (who: string, meUrl: string) => string;
+    payoutAccountFinal: (who: string, meUrl: string) => string;
     closed: string;
   };
   bountyPage: string;
@@ -70,7 +77,7 @@ const en: Copy = {
   },
   steps: ["Funded", "Claimed", "PR", "Validated", "Paid"],
   issueLine: (issue, title) => `Bounty on **${issue}** · ${title}`,
-  noCriteria: "_No acceptance criteria yet. Nobody can claim until the maintainer confirms some._",
+  noCriteria: "_Acceptance criteria: the issue's **Done when** list. Claude checks the PR against it._",
   moreCriteria: (n) => `_…and ${n} more on the bounty page._`,
   fundCta: "Fund this bounty →",
   fundedHeld: (amount, sats, rail, at) =>
@@ -95,15 +102,23 @@ const en: Copy = {
   onHold: "Payment is paused until the maintainer decides.",
   payoutFailed: (who) => `The payout to ${who} didn't go through. The money stays reserved for them.`,
   lastError: (err, attempts) => `Last error${attempts ? ` (attempt ${attempts})` : ""}: ${err}`,
+  payoutReasons: {
+    unreachable: "Bitnob didn't answer",
+    expired: "Bitnob reported the payment expired",
+    rejected: "Bitnob refused the payment",
+    no_account: "the developer hasn't set a payout account yet",
+    setup: "a payout setup problem on BitBounty's side",
+    other: "the payment didn't complete",
+    wallet_unreachable: "the developer's Lightning wallet didn't answer",
+    wallet_refused: "the developer's Lightning Address can't receive this payment",
+  },
   refunded: (amount) => `**${amount}** went back to the funder.`,
   cancelled: "This bounty was cancelled before it was funded.",
   nextLabel: "**Next:**",
   next: {
     unfundedNoCriteria:
-      "maintainer, add acceptance criteria to the issue (or confirm Claude's draft with `/criteria ok`), then fund it.",
+      "fund it with the link above (list the acceptance criteria under **Done when** in the issue). Developers can `/claim` once the money is held.",
     unfunded: "fund it with the link above. Developers can `/claim` once the money is held.",
-    fundedNoCriteria:
-      "maintainer, confirm the acceptance criteria with `/criteria ok`. Claims open after that.",
     funded: (meUrl) =>
       `comment \`/claim\` to take it. You need a payout account at ${meUrl}. Paid to Wave, Orange Money or Free Money within minutes of the merge.`,
     claimed: (who, issue) =>
@@ -116,8 +131,12 @@ const en: Copy = {
     paying: "nothing to do. This comment updates when the money lands.",
     paid: (who) => `nothing. Done, thank you ${who}!`,
     onHold: "maintainer, `/pay` to release the money or `/reject <reason>` to reopen the bounty for claims.",
-    payoutFailed: (who, meUrl) =>
-      `${who}, check your payout account at ${meUrl}. We retry automatically.`,
+    payoutFailed: "nothing to do. We retry automatically.",
+    payoutFailedFinal: (who) =>
+      `no more automatic retries. The money stays reserved for ${who}; maintainer, contact BitBounty to sort out the payout.`,
+    payoutAccount: (who, meUrl) => `${who}, set your payout account at ${meUrl}. We retry automatically.`,
+    payoutAccountFinal: (who, meUrl) =>
+      `${who}, set your payout account at ${meUrl}. No more automatic retries: the money stays reserved for you, ask the maintainer to contact BitBounty once it's set.`,
     closed: "nothing. This bounty is closed.",
   },
   bountyPage: "Bounty page",
@@ -142,8 +161,7 @@ const fr: Copy = {
   },
   steps: ["Financée", "Réservée", "PR", "Validée", "Payée"],
   issueLine: (issue, title) => `Prime sur **${issue}** · ${title}`,
-  noCriteria:
-    "_Pas encore de critères d'acceptation. Personne ne peut réserver tant que le mainteneur n'en a pas confirmé._",
+  noCriteria: "_Critères d'acceptation : la liste **Done when** de l'issue. Claude vérifie la PR par rapport à elle._",
   moreCriteria: (n) => `_…et ${n} de plus sur la page de la prime._`,
   fundCta: "Financer cette prime →",
   fundedHeld: (amount, sats, rail, at) =>
@@ -171,15 +189,23 @@ const fr: Copy = {
   payoutFailed: (who) =>
     `Le paiement à ${who} n'est pas passé. L'argent lui reste réservé.`,
   lastError: (err, attempts) => `Dernière erreur${attempts ? ` (tentative ${attempts})` : ""} : ${err}`,
+  payoutReasons: {
+    unreachable: "Bitnob n'a pas répondu",
+    expired: "Bitnob a signalé que le paiement a expiré",
+    rejected: "Bitnob a refusé le paiement",
+    no_account: "le développeur n'a pas encore de compte de paiement",
+    setup: "un problème de configuration des paiements chez BitBounty",
+    other: "le paiement n'a pas abouti",
+    wallet_unreachable: "le portefeuille Lightning du développeur n'a pas répondu",
+    wallet_refused: "l'adresse Lightning du développeur ne peut pas recevoir ce paiement",
+  },
   refunded: (amount) => `**${amount}** rendus au financeur.`,
   cancelled: "Cette prime a été annulée avant d'être financée.",
   nextLabel: "**Prochaine étape :**",
   next: {
     unfundedNoCriteria:
-      "mainteneur, ajoutez des critères d'acceptation à l'issue (ou validez le brouillon de Claude avec `/criteria ok`), puis financez-la.",
+      "financez-la avec le lien ci-dessus (listez les critères d'acceptation sous **Done when** dans l'issue). Les devs pourront faire `/claim` dès que l'argent est bloqué.",
     unfunded: "financez-la avec le lien ci-dessus. Les devs pourront faire `/claim` dès que l'argent est bloqué.",
-    fundedNoCriteria:
-      "mainteneur, confirmez les critères d'acceptation avec `/criteria ok`. Les réservations ouvrent ensuite.",
     funded: (meUrl) =>
       `commentez \`/claim\` pour la prendre. Il faut un compte de paiement sur ${meUrl}. Payé sur Wave, Orange Money ou Free Money quelques minutes après le merge.`,
     claimed: (who, issue) =>
@@ -194,8 +220,12 @@ const fr: Copy = {
     paid: (who) => `rien. C'est fini, merci ${who} !`,
     onHold:
       "mainteneur, `/pay` pour débloquer l'argent ou `/reject <motif>` pour rouvrir la prime aux réservations.",
-    payoutFailed: (who, meUrl) =>
-      `${who}, vérifiez votre compte de paiement sur ${meUrl}. Nous réessayons automatiquement.`,
+    payoutFailed: "rien à faire. Nous réessayons automatiquement.",
+    payoutFailedFinal: (who) =>
+      `plus de nouvel essai automatique. L'argent reste réservé à ${who} ; mainteneur, contactez BitBounty pour régler le paiement.`,
+    payoutAccount: (who, meUrl) => `${who}, configurez votre compte de paiement sur ${meUrl}. Nous réessayons automatiquement.`,
+    payoutAccountFinal: (who, meUrl) =>
+      `${who}, configurez votre compte de paiement sur ${meUrl}. Plus de nouvel essai automatique : l'argent vous reste réservé, demandez au mainteneur de contacter BitBounty une fois fait.`,
     closed: "rien. Cette prime est close.",
   },
   bountyPage: "Page de la prime",
