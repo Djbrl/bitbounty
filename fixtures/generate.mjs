@@ -608,6 +608,8 @@ const meAccount = (status) => ({
   verifiedAt: status === 'verified' ? T(17, 14, 32) : null,
   lockedUntil: status === 'verified' ? T(20, 14, 32) : null,
   phoneMasked: '+221 77 ••• •• 42',
+  // B6/U1: payouts go to this Lightning Address (masked); the mobile money fields are legacy.
+  lightningAddress: 'aw***@blink.sv',
 });
 const meBase = (account, verified) => ({
   user: userObj('awa-ndiaye'),

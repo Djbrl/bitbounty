@@ -1,40 +1,28 @@
-// Browser calls for the /me onboarding steps. Today they hit the mock /api/* (F4);
-// I1 points the same URLs at the real server, nothing else changes.
-import type { Me, PayoutProvider } from "../../../../fixtures/types";
+// Browser calls for the payout account: the mock /api/* in fixtures mode, the real server through
+// the /api proxy otherwise (same URLs).
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string; attemptsLeft?: number };
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string };
 
-export interface OnboardingApi {
-  /** Step 1: saves provider + number + name, sends the SMS code. */
-  createAccount(input: { provider: PayoutProvider; phone: string; accountName: string; country: "SN" }): Promise<ApiResult<Me>>;
-  /** Step 2: checks the SMS code, then the server sends the small test payout. */
-  verifySms(code: string): Promise<ApiResult<Me>>;
-  /** Step 3: the amount the developer says they received. */
-  confirmAmount(amount: number): Promise<ApiResult<Me>>;
-}
-
-async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+export async function postJson<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   try {
-    const res = await fetch(`/api/me/payout-account${path}`, {
+    const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (res.ok) return { ok: true, data: json as T };
-    return {
-      ok: false,
-      status: res.status,
-      error: typeof json.error === "string" ? json.error : "unknown_error",
-      attemptsLeft: typeof json.attemptsLeft === "number" ? json.attemptsLeft : undefined,
-    };
+    return { ok: false, status: res.status, error: typeof json.error === "string" ? json.error : "unknown_error" };
   } catch {
     return { ok: false, status: 0, error: "network_error" };
   }
 }
 
-export const onboardingApi: OnboardingApi = {
-  createAccount: (input) => post<Me>("", input),
-  verifySms: (code) => post<Me>("/sms", { code }),
-  confirmAmount: (amount) => post<Me>("/confirm", { amount }),
+export interface PayoutAccountApi {
+  /** Server checks the format, then that the address resolves (LNURL-pay), then saves it. Returns it masked. */
+  saveLightningAddress(lightningAddress: string): Promise<ApiResult<{ lightningAddress: string }>>;
+}
+
+export const payoutAccountApi: PayoutAccountApi = {
+  saveLightningAddress: (lightningAddress) => postJson("/api/me/lightning-address", { lightningAddress }),
 };

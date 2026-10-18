@@ -1,7 +1,7 @@
 export { InMemoryPayoutStore, type PayoutExpectation, type PayoutStore } from "./store.js";
 export { DrizzlePayoutStore } from "./drizzle-store.js";
 export { Bolt11Error, decodeBolt11, type DecodedBolt11, type LightningNetwork } from "./bolt11.js";
-export { HttpLnurlResolver, LnurlError, readLightningNetwork, type HttpLnurlResolverOptions, type LnurlResolver, type ResolvedInvoice } from "./lnurl.js";
+export { HttpLnurlResolver, LnurlError, readLightningNetwork, type HttpLnurlResolverOptions, type LnurlChecker, type LnurlPayParams, type LnurlResolver, type ResolvedInvoice } from "./lnurl.js";
 // Mobile money helpers: no longer used by payouts (B6), still used by B3's test payout.
 export {
   BankCodes,
