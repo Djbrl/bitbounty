@@ -2,6 +2,8 @@
 
 **Bounties on GitHub issues, priced in FCFA, funded through Bitnob, paid in sats over Lightning.**
 
+> 👥 **Who built what:** see [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for each member's tasks and the final points tally.
+
 Built at Code & Chain Dakar 2026 (a Bitnob hackathon, 17–18 Oct 2026). All the code was written by AI agents. MIT licence. The team's hackathon agreement is at the end of this file: [Hackathon team rules](#hackathon-team-rules).
 
 | | |
@@ -68,6 +70,8 @@ Every line of code was written by Claude Code (Claude Opus 5.5, `claude-opus-5-5
 
 ## Team
 [@Djbrl](https://github.com/Djbrl) · [@Rabatou](https://github.com/Rabatou) · [@Kml221-bot](https://github.com/Kml221-bot) · [@cheikhteej](https://github.com/cheikhteej)
+
+Who built what, and the final points tally: [CONTRIBUTIONS.md](CONTRIBUTIONS.md).
 
 ## Docs
 | | |
