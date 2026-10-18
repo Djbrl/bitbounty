@@ -45,6 +45,13 @@ describe("tokens", () => {
     expect(names(media).length).toBeGreaterThan(15);
     for (const n of names(media)) expect(light).toContain(n);
   });
+
+  it("keeps Verified (bright) and Paid (money-solid) apart in dark mode", () => {
+    const forced = css.slice(css.indexOf('[data-theme="dark"] {'), css.indexOf("@theme inline {"));
+    const value = (name: string) => forced.match(new RegExp(`--bb-${name}: (#[0-9a-f]{6});`))?.[1];
+    expect(value("bright")).toBeDefined();
+    expect(value("bright")).not.toBe(value("money"));
+  });
 });
 
 describe("Button", () => {
@@ -67,6 +74,12 @@ describe("Chip", () => {
   it("is a toggle button with aria-pressed when selected is set", () => {
     expect(html(<Chip selected>All</Chip>)).toMatch(/^<button type="button" aria-pressed="true"[^>]*bg-ink text-paper/);
     expect(html(<Chip selected={false}>Go</Chip>)).toContain('aria-pressed="false"');
+  });
+
+  it("is a plain button, not a toggle, with only onClick", () => {
+    const out = html(<Chip onClick={() => {}}>Clear</Chip>);
+    expect(out.startsWith("<button")).toBe(true);
+    expect(out).not.toContain("aria-pressed");
   });
 });
 
