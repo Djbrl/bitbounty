@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DrizzleBountyRepo, placeholderGithubId, toUuid } from "./drizzle-repo.js";
 
 const url = process.env.DATABASE_URL;
-const REPO = "bitbounty-demo/bitnob-sdk";
+const REPO = "Djbrl/sunu-wallet";
 
 it("maps readable submission ids to a stable uuid", () => {
   expect(toUuid("sub-a-1")).toBe(toUuid("sub-a-1"));
@@ -56,8 +56,8 @@ describe.skipIf(!url)("DrizzleBountyRepo on the demo seed (DATABASE_URL)", () =>
 
   it("returns the seeded active claimant and the open bounties they hold", async () => {
     const id = SEED_IDS.bounty("claimed");
-    expect(await repo.activeClaimant(id)).toMatchObject({ login: "awa-dev", userId: "github:awa-dev" });
-    const open = await repo.openBountiesClaimedBy(REPO, "AWA-dev");
+    expect(await repo.activeClaimant(id)).toMatchObject({ login: "moussa-ndiaye", userId: "github:moussa-ndiaye" });
+    const open = await repo.openBountiesClaimedBy(REPO, "MOUSSA-ndiaye");
     expect(open.map((b) => b.id)).toContain(id);
     expect(open.every((b) => b.status === "claimed" || b.status === "submitted")).toBe(true);
   });
@@ -74,7 +74,7 @@ describe.skipIf(!url)("DrizzleBountyRepo on the demo seed (DATABASE_URL)", () =>
       funderId: SEED_IDS.maintainer,
     });
     expect(res.created).toBe(true);
-    expect(res.bounty).toMatchObject({ repoFullName: REPO, funderId: "github:fatou-maintainer" });
+    expect(res.bounty).toMatchObject({ repoFullName: REPO, funderId: "github:Djbrl" });
     expect((await conn.db.select().from(repos)).length).toBe(before);
   });
 });

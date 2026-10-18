@@ -9,9 +9,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "./client.js";
 import { migrationsFolder } from "./migrate.js";
 import * as schema from "./schema.js";
-import { SEED_IDS, seed } from "./seed.js";
+import { SEED_IDS, resetDatabase, seed, seedId } from "./seed.js";
 
-const { bounties, bountyStatus, claims, events, fundings, ledger, payoutAccounts, payouts, submissions, users } =
+const { bounties, claims, events, fundings, installations, ledger, payoutAccounts, payouts, repos, submissions, users } =
   schema;
 
 interface Target {
@@ -110,28 +110,40 @@ function defineSuite(connect: () => Promise<Target>) {
       await seed(db);
     });
 
-    it("creates one bounty in every status", async () => {
+    it("tells a demo story with no failure on the board", async () => {
       const rows = await db.select({ status: bounties.status }).from(bounties);
-      expect(rows.map((r) => r.status).sort()).toEqual([...bountyStatus.enumValues].sort());
+      const count = (s: string) => rows.filter((r) => r.status === s).length;
+      expect(rows).toHaveLength(9);
+      expect(count("paid")).toBe(3);
+      for (const s of ["unfunded", "funded", "claimed", "submitted", "verified"]) expect(count(s), s).toBeGreaterThan(0);
+      for (const s of ["payout_failed", "on_hold", "paying", "refunded", "cancelled"]) expect(count(s), s).toBe(0);
+      const titles = (await db.select({ t: bounties.issueTitle }).from(bounties)).map((r) => r.t).join(" ");
+      expect(titles).not.toMatch(/orange money|wave/i);
+      expect(titles).toMatch(/wolof/i);
     });
 
     it("gives each status the rows it implies", async () => {
       const paidId = SEED_IDS.bounty("paid");
       const [payout] = await db.select().from(payouts).where(eq(payouts.bountyId, paidId));
-      expect(payout).toMatchObject({ status: "succeeded", reference: `pay-${paidId}`, amountXof: 10_000 });
+      expect(payout).toMatchObject({ status: "succeeded", reference: `pay-${paidId}`, amountXof: 10_000, attempts: 1 });
+      expect(await db.select().from(payouts).where(eq(payouts.status, "failed"))).toHaveLength(0);
 
       const unfundedId = SEED_IDS.bounty("unfunded");
       expect(await db.select().from(claims).where(eq(claims.bountyId, unfundedId))).toHaveLength(0);
       const [funding] = await db.select().from(fundings).where(eq(fundings.bountyId, unfundedId));
       expect(funding?.status).toBe("pending");
 
-      const failedId = SEED_IDS.bounty("payout_failed");
-      const [failed] = await db.select().from(payouts).where(eq(payouts.bountyId, failedId));
-      expect(failed).toMatchObject({ status: "failed", attempts: 3 });
-
       const [sub] = await db.select().from(submissions).where(eq(submissions.bountyId, SEED_IDS.bounty("verified")));
       expect(sub?.verdict).toBe("pass");
       expect(sub?.mergedAt).toBeInstanceOf(Date);
+    });
+
+    it("has an agent-funded bounty and a naira funding from Lagos", async () => {
+      const [byAgent] = await db.select().from(bounties).where(eq(bounties.funderKind, "agent"));
+      expect(byAgent?.funderId).toBe(SEED_IDS.agent);
+      const ngn = await db.select().from(fundings).where(eq(fundings.rail, "ngn"));
+      expect(ngn).toHaveLength(1);
+      expect(ngn[0]).toMatchObject({ sourceCurrency: "NGN", status: "paid" });
     });
 
     it("keeps every bounty's ledger equal to the money still held for it", async () => {
@@ -153,6 +165,7 @@ function defineSuite(connect: () => Promise<Target>) {
       }
       const paid = rows.filter((e) => e.bountyId === SEED_IDS.bounty("paid")).map((e) => e.type);
       expect(paid).toEqual(expect.arrayContaining(["funding.paid", "claim.created", "pr.merged", "payout.succeeded"]));
+      expect(rows.some((e) => e.type === "payout.failed")).toBe(false);
     });
 
     it("only pays out to verified accounts", async () => {
@@ -165,11 +178,65 @@ function defineSuite(connect: () => Promise<Target>) {
     });
 
     it("can run again and gives the same result", async () => {
+      const snapshot = async () => ({
+        bounties: (await db.select({ id: bounties.id, status: bounties.status }).from(bounties)).sort((a, b) => a.id.localeCompare(b.id)),
+        users: (await db.select({ n: count() }).from(users))[0]?.n,
+        ledger: (await db.select({ n: count() }).from(ledger))[0]?.n,
+        events: (await db.select({ n: count() }).from(events))[0]?.n,
+      });
+      const before = await snapshot();
       await seed(db);
-      const [b] = await db.select({ n: count() }).from(bounties);
-      const [u] = await db.select({ n: count() }).from(users);
-      expect(b?.n).toBe(bountyStatus.enumValues.length);
-      expect(u?.n).toBe(3);
+      expect(await snapshot()).toEqual(before);
+      expect(before.bounties).toHaveLength(9);
+      expect(before.users).toBe(5);
+    });
+
+    it("keeps rows it did not write, and removes rows an older seed wrote", async () => {
+      // A real bounty created by the live server on another repo, funded by the seeded maintainer.
+      const [inst] = await db.insert(installations).values({ githubInstallationId: 424242, accountLogin: "someone" }).returning();
+      const [repo] = await db.insert(repos).values({ installationId: inst!.id, githubRepoId: 434343, fullName: "Djbrl/bitbounty-demo" }).returning();
+      const [real] = await db
+        .insert(bounties)
+        .values({ repoId: repo!.id, issueNumber: 1, issueTitle: "real", amountXof: 5_000, funderKind: "human", funderId: SEED_IDS.maintainer })
+        .returning();
+      await db.insert(events).values({ bountyId: real!.id, source: "github", externalId: "real-delivery", type: "issue_comment", payload: {} });
+      // A leftover from the previous seed (11 bounties): its last id is not in the new story.
+      const stale = seedId(5, 11);
+      await db.insert(bounties).values({
+        id: stale,
+        repoId: SEED_IDS.repo,
+        issueNumber: 999,
+        issueTitle: "Support Orange Money in the onboarding form",
+        amountXof: 8_000,
+        status: "payout_failed",
+        funderKind: "human",
+        funderId: SEED_IDS.maintainer,
+      });
+
+      await seed(db);
+      expect(await db.select().from(bounties).where(eq(bounties.id, real!.id))).toHaveLength(1);
+      expect(await db.select().from(events).where(eq(events.externalId, "real-delivery"))).toHaveLength(1);
+      expect(await db.select().from(bounties).where(eq(bounties.id, stale))).toHaveLength(0);
+      // The maintainer the real bounty points at is still there.
+      expect(await db.select().from(users).where(eq(users.id, SEED_IDS.maintainer))).toHaveLength(1);
+
+      await db.delete(events).where(eq(events.externalId, "real-delivery"));
+      await db.delete(bounties).where(eq(bounties.id, real!.id));
+      await db.delete(repos).where(eq(repos.id, repo!.id));
+      await db.delete(installations).where(eq(installations.id, inst!.id));
+    });
+
+    it("reuses the maintainer the server already knows", async () => {
+      await resetDatabase(db);
+      const [djbrl] = await db.insert(users).values({ githubId: 12345, login: "djbrl" }).returning();
+      await seed(db);
+      const humans = await db.select({ f: bounties.funderId }).from(bounties).where(eq(bounties.funderKind, "human"));
+      const funders = new Set(humans.map((r) => r.f));
+      expect(funders.has(djbrl!.id)).toBe(true);
+      expect(funders.has(SEED_IDS.maintainer)).toBe(false);
+      // Back to the plain seed for the constraint tests.
+      await resetDatabase(db);
+      await seed(db);
     });
   });
 
@@ -257,7 +324,7 @@ function defineSuite(connect: () => Promise<Target>) {
       await expect(
         db.insert(bounties).values({
           repoId: SEED_IDS.repo,
-          issueNumber: 1,
+          issueNumber: 7, // sunu-wallet #7 is seeded
           issueTitle: "duplicate",
           amountXof: 1_000,
           funderKind: "human",
