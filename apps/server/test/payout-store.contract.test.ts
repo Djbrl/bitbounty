@@ -54,6 +54,25 @@ function contract(name: string, make: () => Promise<{ store: PayoutStore; bounty
       expect(await store.update(payout.id, { status: "pending" }, { lastError: "x" })).toBeNull();
     });
 
+    it("B1: saving an invoice expects payment_request IS NULL and marking the send sent_at IS NULL: one winner each", async () => {
+      const payout = (await store.getByBounty(bounty(1)))!; // claimed (processing, attempt 1) by the test above
+      const expect1 = { status: "processing" as const, attempts: 1, unset: ["paymentRequest"] as const };
+      const invoices = await Promise.all([
+        store.update(payout.id, expect1, { paymentRequest: "lnbc-a", paymentHash: "aa".repeat(32) }),
+        store.update(payout.id, expect1, { paymentRequest: "lnbc-b", paymentHash: "bb".repeat(32) }),
+      ]);
+      expect(invoices.filter(Boolean)).toHaveLength(1);
+      const expect2 = { status: "processing" as const, attempts: 1, unset: ["sentAt"] as const };
+      const sends = await Promise.all([
+        store.update(payout.id, expect2, { sentAt: "2026-10-18T00:00:00.000Z" }),
+        store.update(payout.id, expect2, { sentAt: "2026-10-18T00:00:01.000Z" }),
+      ]);
+      expect(sends.filter(Boolean)).toHaveLength(1);
+      // Both columns set: neither guard passes any more, the plain CAS still does.
+      expect(await store.update(payout.id, { status: "processing", attempts: 1, unset: ["paymentRequest", "sentAt"] }, { lastError: "x" })).toBeNull();
+      expect(await store.update(payout.id, { status: "processing", attempts: 1 }, { lastError: null })).toBeTruthy();
+    });
+
     it("keeps the Lightning details (sats, rate, invoice, hash, expiry, sentAt, preimage) and clears them with null", async () => {
       const { payout } = await store.create(row(2));
       const at = "2026-10-18T00:10:00.000Z";

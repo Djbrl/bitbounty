@@ -8,14 +8,27 @@ import { LnurlError, type LnurlResolver } from "./lnurl.js";
 import { PayoutConfigError, maskPhones } from "./rails.js";
 import type { PayoutStore } from "./store.js";
 
-/** The Bitnob calls a Lightning payout needs. `BitnobClient` satisfies it; tests pass a fake. */
-export type LightningRails = Pick<BitnobClient, "payLightningInvoice" | "getLightningPayment">;
+/**
+ * The Bitnob calls a Lightning payout needs. `BitnobClient` satisfies it; tests pass a fake.
+ * `findLightningPayment` (lookup by reference / payment hash) is optional: without it, a status
+ * check falls back to one idempotent re-send.
+ */
+export type LightningRails = Pick<BitnobClient, "payLightningInvoice" | "getLightningPayment"> &
+  Partial<Pick<BitnobClient, "findLightningPayment">>;
 
 /** Where the developer is paid. */
 export interface Payee {
   /** Lightning Address, e.g. `awa@blink.sv`. */
   lightningAddress: string;
 }
+
+/** Default `MAX_PAYOUT_SATS`: one payout never sends more than this (the demo's bounties are far below). */
+export const DEFAULT_MAX_PAYOUT_SATS = 100_000;
+/**
+ * FCFA per BTC we accept from the rate feed. BTC ≈ $100k ≈ 60 M FCFA (Oct 2026); a rate outside
+ * 10 M–1 000 M is a broken feed (e.g. a USDT/XOF answer read as BTC/XOF), never a market move.
+ */
+export const DEFAULT_XOF_PER_BTC_RANGE: readonly [number, number] = [10_000_000, 1_000_000_000];
 
 export interface PayoutServiceOptions {
   rails: LightningRails;
@@ -33,6 +46,13 @@ export interface PayoutServiceOptions {
   /** The developer's payout account, read at every attempt (they may fix their address). */
   getPayee: (userId: string) => Promise<Payee>;
   /**
+   * Is this row still the bounty's payout? Checked before `resume()` (or a poll after a crash)
+   * drives a row that wasn't sent yet: the bounty must already be `paying` / `payout_failed`
+   * (so the objection window is over and settlement started it), with the same claimant and
+   * amount. `true`, or why not. Absent → every row is payable (tests, scripts).
+   */
+  isPayable?: (row: Payout) => Promise<true | string>;
+  /**
    * Bitnob `customer_id` sent with every payment (`BITNOB_PAYOUT_CUSTOMER_ID`). The v2 spec lists
    * it as required; unverified, since the sandbox refuses `send_lightning` on our account. One
    * fixed id, so a replay sends exactly the same body, also after a restart.
@@ -40,9 +60,17 @@ export interface PayoutServiceOptions {
   customerId?: string;
   /** Routing fee cap in sats for a payment of `sats`. Default max(10, 1%). */
   maxFeeSats?: (sats: number) => number;
+  /** Hard cap on one payout, in sats (`MAX_PAYOUT_SATS`). Above it: refused, not retried. */
+  maxPayoutSats?: number;
+  /** Plausible FCFA per BTC; outside it the rate is refused, not retried. */
+  xofPerBtcRange?: readonly [number, number];
   maxAttempts?: number;
   /** Wait before attempt 2, 3, … (the last value repeats). */
   retryDelaysMs?: number[];
+  /** Wait between status checks of one sent attempt (the last value repeats). */
+  checkDelaysMs?: number[];
+  /** Re-sends of the same reference + invoice when no status lookup finds the payment. Default 1. */
+  maxResends?: number;
   schedule?: (fn: () => void, ms: number) => void;
   now?: () => Date;
   newId?: () => string;
@@ -102,29 +130,51 @@ export async function payoutSats(
   return { sats: Math.floor((amountXof * 1e8) / xofPerBtc), xofPerBtc };
 }
 
+/**
+ * `MAX_PAYOUT_SATS`: empty = 100 000. Anything that isn't a positive integer throws at boot, so a
+ * typo can't lift the cap.
+ */
+export function readMaxPayoutSats(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.MAX_PAYOUT_SATS?.trim();
+  if (!raw) return DEFAULT_MAX_PAYOUT_SATS;
+  if (!/^[1-9]\d{0,9}$/.test(raw)) throw new Error(`MAX_PAYOUT_SATS must be a positive whole number of sats (got "${raw}")`);
+  return Number(raw);
+}
+
 const REF = /^(pay-.+)-(\d+)$/;
+/** Prefix of `lastError` when Bitnob refused an attempt's one and only pay request. */
+const REFUSED = "pay refused: ";
+/** Prefix of `lastError` when a sent attempt can't be settled automatically (see `check`). */
+export const STUCK = "stuck: ";
 
 /**
  * Pays a bounty to the developer's Lightning Address: LNURL-pay → BOLT11 for the exact amount
  * → Bitnob `POST /api/lightning/pay`, up to `maxAttempts` attempts, never twice.
  *
  * Order of an attempt (each step saved with a compare-and-set before the next one):
- *   1. claim the row (pending → processing, attempts n);
+ *   1. claim the row (pending → processing, attempts n), marked in flight in this process;
  *   2. `payout.started` moves the bounty to `paying`. If that fails, the claim is undone and
  *      **nothing is sent to Bitnob**;
- *   3. rate → sats (rounded down), LNURL-pay → invoice checked (amount, network, expiry), saved;
- *   4. `sentAt` saved, then exactly one `POST /api/lightning/pay` with reference `pay-<bountyId>-<n>`.
+ *   3. rate → sats (rounded down, capped), LNURL-pay → invoice checked (amount, network,
+ *      expiry), saved only if the attempt has no invoice yet (`payment_request IS NULL`);
+ *   4. `sentAt` saved only if unset (`sent_at IS NULL`), then exactly one `POST /api/lightning/pay`
+ *      with reference `pay-<bountyId>-<n>`.
  *
  * Why it can't pay twice:
- * - one row per bounty and compare-and-set on (status, attempts): one worker per attempt;
+ * - one row per bounty, compare-and-set on (status, attempts) plus "invoice not saved yet" and
+ *   "not sent yet": one worker (or process) saves the invoice, one sends it;
  * - the pay call is sent once (`retries: 0`). After an unclear answer (timeout, 5xx, 409) the
  *   attempt stays `processing` until Bitnob says paid or failed;
- * - to find out, we read the payment by its Bitnob id, or, if the answer was lost before we got an
- *   id, we replay **the same reference with the same invoice**. That is not a second payment:
- *   Bitnob's pay is idempotent on `reference`, and a BOLT11 has one payment hash, which Lightning
- *   settles at most once;
- * - a new attempt (new invoice, new reference) starts only after Bitnob **confirmed** the
- *   previous one failed, or it was never sent (`sentAt` unset, or Bitnob refused the request).
+ * - to find out we **read**: the payment by its Bitnob id, else by reference / payment hash.
+ *   Only if no read finds it, the same reference with the same invoice is re-sent **once**
+ *   (Bitnob documents pay as idempotent on `reference`; a BOLT11 has one payment hash, which
+ *   Lightning settles at most once). A refusal of that re-send proves nothing (it may be
+ *   "reference already used"): the attempt stays open, and is reported `stuck: …` once its
+ *   invoice expired with no answer, for a human to check in the Bitnob dashboard;
+ * - a new attempt starts only after Bitnob **reported** the previous one failed, refused its
+ *   one and only request (4xx on the first send), or it was never sent. After a refusal the next
+ *   attempt pays the **same invoice** while it is valid, so even a wrong reading of that refusal
+ *   can't settle two payments.
  */
 export class PayoutService {
   private readonly rails: LightningRails;
@@ -133,16 +183,25 @@ export class PayoutService {
   private readonly store: PayoutStore;
   private readonly emit: PayoutServiceOptions["emit"];
   private readonly getPayee: PayoutServiceOptions["getPayee"];
+  private readonly isPayable?: PayoutServiceOptions["isPayable"];
   private readonly customerId?: PayoutServiceOptions["customerId"];
   private readonly maxFeeSats: (sats: number) => number;
+  private readonly maxPayoutSats: number;
+  private readonly xofPerBtcRange: readonly [number, number];
   private readonly maxAttempts: number;
   private readonly retryDelaysMs: number[];
+  private readonly checkDelaysMs: number[];
+  private readonly maxResends: number;
   private readonly schedule: (fn: () => void, ms: number) => void;
   private readonly now: () => Date;
   private readonly newId: () => string;
   private readonly log: Pick<Console, "info" | "warn" | "error">;
   /** Payout ids being driven in this process, so polling doesn't race an attempt. */
   private readonly inFlight = new Set<string>();
+  /** `<id>#<attempt>` → re-sends done by this process. */
+  private readonly resends = new Map<string, number>();
+  /** `<id>#<attempt>` → when the next status check is due, and how many waits so far. */
+  private readonly nextCheck = new Map<string, { at: number; n: number }>();
 
   constructor(opts: PayoutServiceOptions) {
     this.rails = opts.rails;
@@ -151,10 +210,15 @@ export class PayoutService {
     this.store = opts.store;
     this.emit = opts.emit;
     this.getPayee = opts.getPayee;
+    this.isPayable = opts.isPayable;
     this.customerId = opts.customerId;
     this.maxFeeSats = opts.maxFeeSats ?? ((sats) => Math.max(10, Math.ceil(sats / 100)));
+    this.maxPayoutSats = opts.maxPayoutSats ?? DEFAULT_MAX_PAYOUT_SATS;
+    this.xofPerBtcRange = opts.xofPerBtcRange ?? DEFAULT_XOF_PER_BTC_RANGE;
     this.maxAttempts = opts.maxAttempts ?? 3;
     this.retryDelaysMs = opts.retryDelaysMs ?? [5_000, 30_000];
+    this.checkDelaysMs = opts.checkDelaysMs ?? [15_000, 30_000, 60_000, 120_000, 300_000, 900_000, 1_800_000, 3_600_000];
+    this.maxResends = opts.maxResends ?? 1;
     this.schedule = opts.schedule ?? ((fn, ms) => void setTimeout(fn, ms));
     this.now = opts.now ?? (() => new Date());
     this.newId = opts.newId ?? randomUUID;
@@ -164,7 +228,7 @@ export class PayoutService {
   /** Starts paying a bounty. Safe to call any number of times for the same bounty. */
   async start(req: PayoutRequest): Promise<Payout> {
     assertAmount(req.amountXof, "amountXof");
-    const { payout } = await this.store.create({
+    let { payout } = await this.store.create({
       id: this.newId(),
       bountyId: req.bountyId,
       userId: req.userId,
@@ -179,7 +243,22 @@ export class PayoutService {
       rail: "lightning",
     });
     if (payout.userId !== req.userId || payout.amountXof !== req.amountXof) {
-      throw new Error(`bounty ${req.bountyId} already has a payout to another user or for another amount`);
+      // A row nothing was ever sent for (its first start was refused by the gate) follows the
+      // bounty's current claimant and amount; anything else is a real conflict.
+      const untouched = payout.status === "pending" && payout.attempts === 0 && !payout.sentAt && isLightning(payout);
+      const rebound = untouched
+        ? await this.store.update(
+            payout.id,
+            { status: "pending", attempts: 0, unset: ["sentAt"] },
+            { userId: req.userId, amountXof: req.amountXof, lastError: null, ...EMPTY_ATTEMPT },
+          )
+        : null;
+      if (!rebound) throw new Error(`bounty ${req.bountyId} already has a payout to another user or for another amount`);
+      payout = rebound;
+    }
+    if (!isLightning(payout)) {
+      this.log.warn(`[payouts] ${payout.reference}: a ${payout.rail ?? "mobile money"} payout row exists for this bounty, not paid over Lightning`);
+      return payout;
     }
     if (payout.status !== "pending") return payout;
     return this.attempt(payout);
@@ -206,7 +285,10 @@ export class PayoutService {
     });
   }
 
-  /** Asks Bitnob about every payout still `processing` (Lightning has no documented webhook). */
+  /**
+   * Asks Bitnob about every payout still `processing` (Lightning has no documented webhook).
+   * Each sent attempt is checked on its own backoff (`checkDelaysMs`), not on every tick.
+   */
   async poll(): Promise<void> {
     let rows: Payout[];
     try {
@@ -216,18 +298,28 @@ export class PayoutService {
       this.log.error(`[payouts] poll: payouts not readable: ${safe(err)}`);
       return;
     }
+    const now = this.now().getTime();
     for (const row of rows) {
       if (this.inFlight.has(row.id)) continue;
+      if (row.sentAt && (this.nextCheck.get(checkKey(row))?.at ?? 0) > now) continue;
       await this.drive(row, false).catch((err) => this.log.error(`[payouts] poll failed for ${row.reference}: ${safe(err)}`));
     }
   }
 
   /**
-   * On boot: finish what a crash interrupted. Runs every `pending` row (never claimed, lost retry
-   * timer, or a start the bounty refused), then polls the `processing` ones.
+   * On boot: finish what a crash interrupted. A `pending` row (lost retry timer) is retried only
+   * if it is still the bounty's payout (`isPayable`: bounty already `paying` / `payout_failed`,
+   * same claimant and amount); otherwise it waits for settlement, which restarts it after the
+   * objection window. Then the `processing` ones are polled (an unsent one is re-checked the same way).
    */
   async resume(): Promise<void> {
     for (const row of await this.store.listByStatus("pending")) {
+      if (!isLightning(row)) continue;
+      const ok = await this.payable(row);
+      if (ok !== true) {
+        this.log.info(`[payouts] resume: ${row.reference} left pending, ${ok}`);
+        continue;
+      }
       await this.attempt(row).catch((err) => this.log.error(`[payouts] resume: ${safe(err)}`));
     }
     await this.poll();
@@ -261,18 +353,57 @@ export class PayoutService {
     });
   }
 
+  private async payable(row: Payout): Promise<true | string> {
+    if (!this.isPayable) return true;
+    try {
+      return await this.isPayable(row);
+    } catch (err) {
+      return `bounty not readable: ${safe(err)}`;
+    }
+  }
+
   private async attempt(p: Payout): Promise<Payout> {
     if (p.attempts >= this.maxAttempts || !isLightning(p)) return p;
-    const n = p.attempts + 1;
-    const claimed = await this.store.update(
-      p.id,
-      { status: "pending", attempts: p.attempts },
-      { status: "processing", attempts: n, rail: "lightning", lastError: null, ...EMPTY_ATTEMPT },
-    );
-    if (!claimed) return (await this.store.get(p.id)) ?? p;
-    const gated = await this.gate(claimed);
-    if (gated !== true) return gated;
-    return this.drive(claimed, true);
+    // In flight from before the claim to the end of the send: a poll tick can't race the gate or LNURL.
+    if (this.inFlight.has(p.id)) return p;
+    this.inFlight.add(p.id);
+    try {
+      const n = p.attempts + 1;
+      const reuse = await this.reusableInvoice(p);
+      const claimed = await this.store.update(
+        p.id,
+        { status: "pending", attempts: p.attempts },
+        { status: "processing", attempts: n, rail: "lightning", lastError: null, ...EMPTY_ATTEMPT, ...reuse },
+      );
+      if (!claimed) return (await this.store.get(p.id)) ?? p;
+      const gated = await this.gate(claimed);
+      if (gated !== true) return gated;
+      return await this.drive(claimed, true, true);
+    } finally {
+      this.inFlight.delete(p.id);
+    }
+  }
+
+  /**
+   * After Bitnob refused an attempt's only request, the next attempt pays the same invoice while
+   * it has at least 5 minutes left and the developer's address didn't change.
+   */
+  private async reusableInvoice(p: Payout): Promise<Partial<Payout>> {
+    if (!p.lastError?.startsWith(REFUSED) || !p.paymentRequest || !p.invoiceExpiresAt || !p.lightningAddress) return {};
+    if (Date.parse(p.invoiceExpiresAt) - 300_000 <= this.now().getTime()) return {};
+    try {
+      if ((await this.getPayee(p.userId)).lightningAddress !== p.lightningAddress) return {};
+    } catch {
+      return {};
+    }
+    return {
+      lightningAddress: p.lightningAddress,
+      amountSats: p.amountSats,
+      xofPerBtc: p.xofPerBtc,
+      paymentRequest: p.paymentRequest,
+      paymentHash: p.paymentHash,
+      invoiceExpiresAt: p.invoiceExpiresAt,
+    };
   }
 
   /**
@@ -291,50 +422,66 @@ export class PayoutService {
       });
       return true;
     } catch (err) {
-      const reason = `not started, the bounty wasn't moved to paying: ${safe(err)}`;
-      this.log.warn(`[payouts] ${row.reference}-${row.attempts} ${reason}`);
-      const back = await this.store.update(
-        row.id,
-        { status: "processing", attempts: row.attempts },
-        { status: "pending", attempts: row.attempts - 1, lastError: reason },
-      );
-      return back ?? (await this.store.get(row.id)) ?? row;
+      return this.unclaim(row, `not started, the bounty wasn't moved to paying: ${safe(err)}`);
     }
+  }
+
+  /** Back to `pending`, the attempt not counted. Only for an attempt that was never sent. */
+  private async unclaim(row: Payout, reason: string): Promise<Payout> {
+    this.log.warn(`[payouts] ${row.reference}-${row.attempts} ${reason}`);
+    const back = await this.store.update(
+      row.id,
+      { status: "processing", attempts: row.attempts, unset: ["sentAt"] },
+      { status: "pending", attempts: row.attempts - 1, lastError: reason },
+    );
+    return back ?? (await this.store.get(row.id)) ?? row;
   }
 
   /**
    * Moves the current attempt forward from wherever it stands.
-   * `fresh`: we just claimed and gated it. Otherwise (poll / resume after a crash) the gate is
-   * run again if no invoice was saved yet: the crash may have happened before it.
+   * `fresh`: we just claimed and gated it. Otherwise (poll / resume after a crash) an unsent
+   * attempt is re-checked (`isPayable`) and gated again: the crash may have happened before.
+   * `owned`: the caller already marked the row in flight.
    */
-  private async drive(row: Payout, fresh: boolean): Promise<Payout> {
-    if (this.inFlight.has(row.id) || !isLightning(row)) return row;
-    this.inFlight.add(row.id);
+  private async drive(row: Payout, fresh: boolean, owned = false): Promise<Payout> {
+    if (!isLightning(row)) return row;
+    if (!owned) {
+      if (this.inFlight.has(row.id)) return row;
+      this.inFlight.add(row.id);
+    }
     try {
+      if (row.sentAt) return await this.check(row);
+      if (!fresh) {
+        const ok = await this.payable(row);
+        if (ok !== true) return await this.unclaim(row, `not resumed: ${ok}`);
+        const gated = await this.gate(row);
+        if (gated !== true) return gated;
+      }
       if (!row.paymentRequest) {
-        if (!fresh) {
-          const gated = await this.gate(row);
-          if (gated !== true) return gated;
-        }
         const prepared = await this.prepare(row);
+        // Another worker saved its invoice first: it sends, we stop.
+        if (!prepared) return (await this.store.get(row.id)) ?? row;
         if (prepared.status !== "processing" || !prepared.paymentRequest) return prepared;
         row = prepared;
       }
-      if (!row.sentAt) {
-        // Nothing left for Bitnob in this attempt yet. An invoice that expired meanwhile gets replaced.
-        if (row.invoiceExpiresAt && Date.parse(row.invoiceExpiresAt) - 30_000 <= this.now().getTime()) {
-          return await this.fail(row, "invoice expired before it was sent");
-        }
-        return await this.send(row);
+      // Nothing left for Bitnob in this attempt yet. An invoice that expired meanwhile gets replaced.
+      if (row.invoiceExpiresAt && Date.parse(row.invoiceExpiresAt) - 30_000 <= this.now().getTime()) {
+        return await this.fail(row, "invoice expired before it was sent");
       }
-      return await this.check(row);
+      if ((row.amountSats ?? 0) > this.maxPayoutSats) {
+        return await this.fail(row, `setup: ${row.amountSats} sats is above MAX_PAYOUT_SATS=${this.maxPayoutSats}`, true);
+      }
+      return await this.send(row);
     } finally {
-      this.inFlight.delete(row.id);
+      if (!owned) this.inFlight.delete(row.id);
     }
   }
 
-  /** Rate → sats, LNURL-pay → checked invoice, saved on the row. Nothing is paid here. */
-  private async prepare(row: Payout): Promise<Payout> {
+  /**
+   * Rate → sats, LNURL-pay → checked invoice, saved on the row if it has none yet. Nothing is
+   * paid here. Returns null when another worker saved an invoice for this attempt first.
+   */
+  private async prepare(row: Payout): Promise<Payout | null> {
     let payee: Payee;
     try {
       payee = await this.getPayee(row.userId);
@@ -347,7 +494,14 @@ export class PayoutService {
     } catch (err) {
       return await this.fail(row, `rate: ${safe(err)}`);
     }
+    const [lo, hi] = this.xofPerBtcRange;
+    if (quote.xofPerBtc < lo || quote.xofPerBtc > hi) {
+      return await this.fail(row, `setup: implausible rate ${Math.round(quote.xofPerBtc)} FCFA/BTC (accepted ${lo}–${hi})`, true);
+    }
     if (quote.sats < 1) return await this.fail(row, `${row.amountXof} FCFA is less than 1 sat`, true);
+    if (quote.sats > this.maxPayoutSats) {
+      return await this.fail(row, `setup: ${quote.sats} sats is above MAX_PAYOUT_SATS=${this.maxPayoutSats}`, true);
+    }
     let invoice;
     try {
       invoice = await this.resolver.invoiceFor(payee.lightningAddress, quote.sats * 1000);
@@ -356,9 +510,9 @@ export class PayoutService {
       const fatal = err instanceof LnurlError ? !err.retryable : false;
       return await this.fail(row, `${fatal ? "lnurl refused" : "lnurl unreachable"}: ${safe(err)}`, fatal);
     }
-    const saved = await this.store.update(
+    return this.store.update(
       row.id,
-      { status: "processing", attempts: row.attempts },
+      { status: "processing", attempts: row.attempts, unset: ["paymentRequest", "sentAt"] },
       {
         lightningAddress: payee.lightningAddress,
         amountSats: quote.sats,
@@ -368,7 +522,6 @@ export class PayoutService {
         invoiceExpiresAt: invoice.expiresAt,
       },
     );
-    return saved ?? (await this.store.get(row.id)) ?? row;
   }
 
   /** Deterministic from the row: a replay sends exactly the same body as the first request. */
@@ -381,11 +534,18 @@ export class PayoutService {
     };
   }
 
-  /** The only call that moves money: `sentAt` is saved first, then exactly one request. */
+  /** The only first send: `sentAt` is saved first (only if unset), then exactly one request. */
   private async send(row: Payout): Promise<Payout> {
+    const result = await this.sendOnce(row);
+    // The first status check after a send is due on the next poll tick; the backoff starts there.
+    this.nextCheck.delete(checkKey(row));
+    return result;
+  }
+
+  private async sendOnce(row: Payout): Promise<Payout> {
     const marked = await this.store.update(
       row.id,
-      { status: "processing", attempts: row.attempts },
+      { status: "processing", attempts: row.attempts, unset: ["sentAt"] },
       { sentAt: this.now().toISOString() },
     );
     if (!marked) return (await this.store.get(row.id)) ?? row;
@@ -398,18 +558,23 @@ export class PayoutService {
     try {
       payment = await this.rails.payLightningInvoice(this.payInput(row), { retries: 0 });
     } catch (err) {
+      // Bitnob answered the one and only request carrying this reference with a refusal.
       if (refusedBeforePaying(err)) {
-        return await this.fail(row, `pay: ${safe(err)}`, isFatal(err));
+        return await this.fail(row, `${REFUSED}${safe(err)}`, isFatal(err));
       }
       this.log.warn(`[payouts] ${ref}: pay answered ${safe(err)}; outcome unknown, will ask Bitnob`);
-      return await this.note(row, `pay: ${safe(err)} (outcome unknown, polling)`);
+      return await this.wait(row, `pay: ${safe(err)} (outcome unknown, polling)`);
     }
     return this.apply(row, payment);
   }
 
   /**
-   * The payment was sent; ask Bitnob how it went. By id when we have one; otherwise (the answer
-   * was lost) by replaying the same reference + same invoice, which can't create a second payment.
+   * The payment was sent; ask Bitnob how it went, reading first:
+   *   1. by Bitnob id (`GET /api/lightning/invoices/:id`);
+   *   2. by reference / payment hash (`findLightningPayment`, unverified for payments);
+   *   3. nothing found: re-send the same reference + same invoice, at most `maxResends` times
+   *      and only while the invoice can still be paid. A refusal of that re-send is not "unpaid".
+   * Then wait (backoff). Once the invoice expired with no answer, the attempt is `stuck`.
    */
   private async check(row: Payout): Promise<Payout> {
     const ref = `${row.reference}-${row.attempts}`;
@@ -418,25 +583,39 @@ export class PayoutService {
         return await this.apply(row, await this.rails.getLightningPayment(row.bitnobPayoutId));
       } catch (err) {
         if (!(err instanceof BitnobError && err.status === 404)) {
-          return await this.note(row, `status check: ${safe(err)} (outcome unknown, polling)`);
+          return await this.wait(row, `status check: ${safe(err)} (outcome unknown, polling)`);
         }
-        // Not readable by id: fall back to the idempotent replay below.
+        // Not readable by id: look it up by reference below.
       }
     }
-    let payment: LightningPayment;
-    try {
-      payment = await this.rails.payLightningInvoice(this.payInput(row), { retries: 0 });
-    } catch (err) {
-      // 400/422 on a replay once the invoice has expired: Bitnob has no payment under this
-      // reference and the invoice can no longer be paid by anyone, so the attempt is over.
-      // Before expiry a refusal could be "already in flight": keep waiting.
-      const expired = row.invoiceExpiresAt && Date.parse(row.invoiceExpiresAt) <= this.now().getTime();
-      if (expired && err instanceof BitnobError && (err.status === 400 || err.status === 422)) {
-        return await this.fail(row, `Bitnob has no payment ${ref} and its invoice expired: ${safe(err)}`);
+    if (this.rails.findLightningPayment) {
+      try {
+        const found = await this.rails.findLightningPayment({ reference: ref, paymentHash: row.paymentHash ?? undefined });
+        if (found) return await this.apply(row, found);
+      } catch (err) {
+        return await this.wait(row, `status lookup: ${safe(err)} (outcome unknown, polling)`);
       }
-      return await this.note(row, `status check: ${safe(err)} (outcome unknown, polling)`);
     }
-    return this.apply(row, payment);
+    const key = checkKey(row);
+    const done = this.resends.get(key) ?? 0;
+    const expired = !row.invoiceExpiresAt || Date.parse(row.invoiceExpiresAt) <= this.now().getTime();
+    if (done < this.maxResends && !expired) {
+      this.resends.set(key, done + 1);
+      let payment: LightningPayment;
+      try {
+        payment = await this.rails.payLightningInvoice(this.payInput(row), { retries: 0 });
+      } catch (err) {
+        // Even a 400/422 here may mean "reference already used": the first send may be in flight.
+        return await this.wait(row, `re-send: ${safe(err)} (outcome unknown, polling)`);
+      }
+      return this.apply(row, payment);
+    }
+    if (expired) {
+      const msg = `${STUCK}Bitnob has no readable status for ${ref} and its invoice expired; check it in the Bitnob dashboard (nothing is retried automatically)`;
+      if (!row.lastError?.startsWith(STUCK)) this.log.error(`[payouts] ${msg}`);
+      return await this.wait(row, msg);
+    }
+    return await this.wait(row, `no status for ${ref} yet (outcome unknown, polling)`);
   }
 
   /** Acts on a Bitnob payment answer for the current attempt. */
@@ -450,17 +629,27 @@ export class PayoutService {
     const outcome = toLightningOutcome(payment.status, payment.preimage);
     if (outcome === "success") return this.succeed(row, typeof payment.preimage === "string" ? payment.preimage : null);
     if (outcome === "failed") return this.fail(row, `Bitnob reported ${String(payment.status)}`);
-    return this.note(row, `Bitnob: ${String(payment.status ?? "pending")}, polling`);
+    return this.wait(row, `Bitnob: ${String(payment.status ?? "pending")}, polling`);
   }
 
-  /** Records why a `processing` row is waiting, without changing its state. */
-  private async note(row: Payout, error: string): Promise<Payout> {
+  /** Records why a sent attempt is waiting, and when to look again. */
+  private async wait(row: Payout, error: string): Promise<Payout> {
+    const key = checkKey(row);
+    const n = this.nextCheck.get(key)?.n ?? 0;
+    const delay = this.checkDelaysMs[Math.min(n, this.checkDelaysMs.length - 1)] ?? 0;
+    this.nextCheck.set(key, { at: this.now().getTime() + delay, n: n + 1 });
     const updated = await this.store.update(
       row.id,
       { status: "processing", attempts: row.attempts },
       { lastError: maskPhones(error) },
     );
     return updated ?? (await this.store.get(row.id)) ?? row;
+  }
+
+  private forget(row: Payout) {
+    const key = checkKey(row);
+    this.nextCheck.delete(key);
+    this.resends.delete(key);
   }
 
   private async succeed(row: Payout, preimage: string | null): Promise<Payout> {
@@ -470,6 +659,7 @@ export class PayoutService {
       { status: "succeeded", paidAt: this.now().toISOString(), lastError: null, preimage },
     );
     if (!done) return (await this.store.get(row.id)) ?? row;
+    this.forget(row);
     this.log.info(
       `[payouts] ${row.reference} paid ${row.amountSats} sats (${row.amountXof} FCFA) to ${maskLightningAddress(row.lightningAddress ?? "")} (attempt ${row.attempts})`,
     );
@@ -483,7 +673,7 @@ export class PayoutService {
     return done;
   }
 
-  /** `fatal`: retrying can't help (bad credentials, feature off, invalid address, amount out of range). */
+  /** `fatal`: retrying can't help (bad credentials, feature off, invalid address, amount out of range, cap). */
   private async fail(row: Payout, rawError: string, fatal = false): Promise<Payout> {
     const error = maskPhones(rawError);
     const last = fatal || row.attempts >= this.maxAttempts;
@@ -493,6 +683,7 @@ export class PayoutService {
       { status: last ? "failed" : "pending", lastError: error },
     );
     if (!updated) return (await this.store.get(row.id)) ?? row;
+    this.forget(row);
     this.log.warn(`[payouts] ${row.reference} attempt ${row.attempts}/${this.maxAttempts} failed${fatal ? " (not retryable)" : ""}: ${error}`);
     await this.emit({
       type: "payout.failed",
@@ -511,6 +702,8 @@ export class PayoutService {
     return updated;
   }
 }
+
+const checkKey = (row: Payout) => `${row.id}#${row.attempts}`;
 
 /**
  * Rows from the mobile money rail (B2, and the demo seed) are never driven here: they have no
@@ -535,9 +728,10 @@ const EMPTY_ATTEMPT = {
 } satisfies Partial<Payout>;
 
 /**
- * Bitnob answered and refused the request: nothing was paid. 400/422 (validation, expired
- * invoice, balance), 401/403 (credentials, feature not enabled), 429 (rate limited).
- * 409 (duplicate reference), 404, 5xx and network errors are **not** refusals: maybe paid.
+ * Bitnob answered the **first** request of an attempt with a refusal: nothing was paid.
+ * 400/422 (validation, expired invoice, balance), 401/403 (credentials, feature not enabled),
+ * 429 (rate limited). 409 (duplicate reference), 404, 5xx and network errors are **not**
+ * refusals: maybe paid. Never used for a re-send (see `check`).
  */
 function refusedBeforePaying(err: unknown): boolean {
   return err instanceof BitnobError && [400, 401, 403, 422, 429].includes(err.status);

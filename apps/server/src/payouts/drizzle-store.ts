@@ -1,8 +1,8 @@
 import type { Payout } from "@bitbounty/core";
 import { payouts, users, type Database } from "@bitbounty/db";
-import { and, eq, or, type SQL } from "drizzle-orm";
+import { and, eq, isNull, or, type SQL } from "drizzle-orm";
 import { ensureUserId } from "../bounties/drizzle-repo.js";
-import type { PayoutStore } from "./store.js";
+import type { PayoutExpectation, PayoutStore } from "./store.js";
 
 type Row = typeof payouts.$inferSelect;
 type Patch = Partial<Omit<Payout, "id" | "bountyId" | "reference">>;
@@ -16,7 +16,8 @@ const GITHUB = "github:";
  *
  * - `create`: `insert … on conflict (bounty_id) do nothing`, then read: one row per bounty, even
  *   with two concurrent starts.
- * - `update`: a single `UPDATE … WHERE id = $1 AND status = $2 [AND attempts = $3] RETURNING *`.
+ * - `update`: a single `UPDATE … WHERE id = $1 AND status = $2 [AND attempts = $3]
+ *   [AND payment_request IS NULL] [AND sent_at IS NULL] RETURNING *`.
  *   That compare-and-set is what stops two workers (or two processes) from running one attempt.
  * - User ids: core uses `github:<login>`, the table `users.id` (inserted on first use, like
  *   DrizzleBountyRepo). Bounty ids must be the bounties' uuids (foreign key).
@@ -74,7 +75,7 @@ export class DrizzlePayoutStore implements PayoutStore {
     return (await this.select().where(eq(payouts.status, status)).limit(1000)).map((r) => toPayout(r.p, r.login));
   }
 
-  async update(id: string, expected: { status: Payout["status"]; attempts?: number }, patch: Patch) {
+  async update(id: string, expected: PayoutExpectation, patch: Patch) {
     if (!UUID.test(id)) return null;
     const set = toColumns(patch);
     if (patch.userId !== undefined) set.userId = await this.userId(patch.userId);
@@ -83,6 +84,8 @@ export class DrizzlePayoutStore implements PayoutStore {
       eq(payouts.id, id),
       eq(payouts.status, expected.status),
       expected.attempts === undefined ? undefined : eq(payouts.attempts, expected.attempts),
+      expected.unset?.includes("paymentRequest") ? isNull(payouts.paymentRequest) : undefined,
+      expected.unset?.includes("sentAt") ? isNull(payouts.sentAt) : undefined,
     );
     // An empty patch still has to check the expected state: set a column to itself.
     const updated = await this.db

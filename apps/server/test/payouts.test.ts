@@ -48,6 +48,8 @@ class FakeLightning implements LightningRails {
   /** Consumed one per pay call that creates a payment; "pending" when empty. Replays of a known reference don't consume. */
   plan: PayMode[] = [];
   getError: (() => Error) | null = null;
+  /** false: a known reference is refused (400 duplicate) instead of returning the existing payment. */
+  idempotent = true;
   private n = 0;
 
   get settlements() {
@@ -58,6 +60,7 @@ class FakeLightning implements LightningRails {
     this.calls.push(input);
     this.opts.push(opts);
     const existing = this.payments.get(input.reference);
+    if (existing && !this.idempotent) throw new BitnobError("POST /api/lightning/pay failed: 400 DUPLICATE_REFERENCE", 400, "DUPLICATE_REFERENCE");
     if (existing) return { ...existing };
     const mode = this.plan.shift() ?? "pending";
     if (mode === "lost") throw new BitnobError("POST /api/lightning/pay: timed out", 0, "TIMEOUT");
@@ -602,10 +605,12 @@ describe("invariant (fuzzed): at most one payment ever settles per bounty", () =
   };
   const MODES: PayMode[] = ["pending", "paid", "failed", "paid-then-timeout", "pending-then-502", "lost", "409", "422", "500"];
 
-  it.each(Array.from({ length: 200 }, (_, i) => i + 1))("seed %i", async (seed) => {
+  const seeds = Array.from({ length: 200 }, (_, i) => i + 1);
+  it.each([...seeds.map((n) => [n, true] as const), ...seeds.map((n) => [n, false] as const)])("seed %i (idempotent reference: %s)", async (seed, idempotent) => {
     const rand = rng(seed);
     const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rand() * xs.length)]!;
     const ln = new FakeLightning();
+    ln.idempotent = idempotent;
     ln.plan = Array.from({ length: 12 }, () => pick(MODES));
     const resolver = new FakeResolver();
     if (rand() < 0.3) resolver.errors = [new LnurlError("down", true)];

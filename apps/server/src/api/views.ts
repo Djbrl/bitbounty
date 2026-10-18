@@ -2,6 +2,8 @@ import { maskLightningAddress, type Bounty, type BountyStatus, type Payout, type
 import type { ClaimRecord } from "../bounties/repo.js";
 import type { FundingRecord } from "../funding/store.js";
 import type { ActivityEntry } from "./activity.js";
+import { COPY } from "../github/status-comment/copy.js";
+import { publicPayoutReason } from "../settlement/status-extras.js";
 import { groupThousands } from "./format.js";
 
 /**
@@ -118,7 +120,8 @@ export function payoutView(p: Payout, createdAt: string): NonNullable<BountyDeta
     reference: p.reference,
     status: p.status,
     attempts: p.attempts,
-    lastError: p.lastError,
+    // L1: never the raw error (hosts, env names, account details): I3's short public reason.
+    lastError: p.lastError ? COPY.en.payoutReasons[publicPayoutReason(p.lastError)] : null,
     paidAt: p.paidAt,
     ...(p.rail ? { rail: p.rail } : {}),
     ...(p.lightningAddress ? { lightningAddress: maskLightningAddress(p.lightningAddress) } : {}),

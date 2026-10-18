@@ -41,6 +41,8 @@ export async function statusExtras(
 /** Maps the payout service's raw `lastError` (B2, B6 Lightning) to a reason safe to show on a public issue. */
 export function publicPayoutReason(raw: string): PayoutFailureReason {
   const e = raw.toLowerCase();
+  // B6 guards: payout cap, implausible rate (never the developer's fault, never retried).
+  if (e.startsWith("setup:")) return "setup";
   if (e.includes("no payout account") || e.includes("has no lightning address")) return "no_account";
   // B6: LNURL-pay against the developer's own wallet, before anything reaches Bitnob.
   if (e.startsWith("lnurl unreachable")) return "wallet_unreachable";

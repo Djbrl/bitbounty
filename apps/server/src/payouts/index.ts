@@ -1,4 +1,4 @@
-export { InMemoryPayoutStore, type PayoutStore } from "./store.js";
+export { InMemoryPayoutStore, type PayoutExpectation, type PayoutStore } from "./store.js";
 export { DrizzlePayoutStore } from "./drizzle-store.js";
 export { Bolt11Error, decodeBolt11, type DecodedBolt11, type LightningNetwork } from "./bolt11.js";
 export { HttpLnurlResolver, LnurlError, readLightningNetwork, type HttpLnurlResolverOptions, type LnurlResolver, type ResolvedInvoice } from "./lnurl.js";
@@ -15,8 +15,12 @@ export {
   type PayoutRails,
 } from "./rails.js";
 export {
+  DEFAULT_MAX_PAYOUT_SATS,
+  DEFAULT_XOF_PER_BTC_RANGE,
   PayoutService,
   payoutSats,
+  readMaxPayoutSats,
+  STUCK,
   toLightningOutcome,
   type LightningOutcome,
   type LightningRails,

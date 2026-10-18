@@ -38,6 +38,7 @@ import {
   InMemoryPayoutStore,
   PayoutService,
   readLightningNetwork,
+  readMaxPayoutSats,
   type PayoutStore,
 } from "./payouts/index.js";
 import { payeeFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement, statusExtras } from "./settlement/index.js";
@@ -209,6 +210,7 @@ export const lightningFunding =
 export const payoutStore: PayoutStore = database ? new DrizzlePayoutStore(database.db) : new InMemoryPayoutStore();
 // Validated at boot: a typo refuses to start instead of accepting invoices for the wrong chain.
 const lightningNetwork = readLightningNetwork();
+const maxPayoutSats = readMaxPayoutSats();
 const payoutAccounts = readPayoutAccounts();
 let payoutService: PayoutService | null = null;
 export const settlement = new Settlement({
@@ -232,10 +234,22 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
     store: payoutStore,
     emit: settlement.applyPayoutEvent,
     getPayee: payeeFromAccounts(payoutAccounts),
+    maxPayoutSats,
+    // M1: a row is resumed after a restart only if settlement already started it (bounty past the
+    // objection window, `paying` / `payout_failed`) and it still pays the claimant the bounty's amount.
+    isPayable: async (row) => {
+      const bounty = await bountyRepo.findById(row.bountyId);
+      if (!bounty) return "bounty not found";
+      if (bounty.status !== "paying" && bounty.status !== "payout_failed") return `bounty is ${bounty.status}, waiting for settlement`;
+      if (bounty.amountXof !== row.amountXof) return `bounty is ${bounty.amountXof} FCFA, the payout ${row.amountXof} FCFA`;
+      const c = await bountyRepo.activeClaimant(row.bountyId);
+      const same = c && (c.userId === row.userId || row.userId.toLowerCase() === `github:${c.login}`.toLowerCase());
+      return same ? true : "the payout's developer is no longer the bounty's claimant";
+    },
     customerId: process.env.BITNOB_PAYOUT_CUSTOMER_ID?.trim() || undefined,
   });
   payoutService.register(bitnobDispatcher);
-  console.log(`[payouts] Lightning payouts on ${lightningNetwork}, ${payoutAccounts.size} account(s) in PAYOUT_ACCOUNTS, store ${database ? "Postgres" : "in memory"}`);
+  console.log(`[payouts] Lightning payouts on ${lightningNetwork}, cap ${maxPayoutSats} sats, ${payoutAccounts.size} account(s) in PAYOUT_ACCOUNTS, store ${database ? "Postgres" : "in memory"}`);
 }
 
 /**

@@ -10,6 +10,14 @@ import type { Payout } from "@bitbounty/core";
  *   succeeded   paid (terminal)
  *   failed      gave up after the last attempt (the money stays reserved for the developer)
  */
+/** What `update` expects the row to still look like. */
+export interface PayoutExpectation {
+  status: Payout["status"];
+  attempts?: number;
+  /** Columns that must still be null. */
+  unset?: readonly ("paymentRequest" | "sentAt")[];
+}
+
 export interface PayoutStore {
   /** Inserts, or returns the existing row for this bounty. */
   create(payout: Payout): Promise<{ inserted: boolean; payout: Payout }>;
@@ -19,12 +27,14 @@ export interface PayoutStore {
   listByStatus(status: Payout["status"]): Promise<Payout[]>;
   /**
    * Compare-and-set: applies `patch` only if the row still has `expected.status`
-   * (and `expected.attempts` when given). Returns the new row, or null if someone
-   * else changed it first. This is what stops two workers from paying twice.
+   * (and `expected.attempts` when given, and every column in `expected.unset` still null).
+   * Returns the new row, or null if someone else changed it first. This is what stops two
+   * workers from paying twice: saving the invoice expects `paymentRequest` unset, marking the
+   * send expects `sentAt` unset, so only one worker can do either for an attempt.
    */
   update(
     id: string,
-    expected: { status: Payout["status"]; attempts?: number },
+    expected: PayoutExpectation,
     patch: Partial<Omit<Payout, "id" | "bountyId" | "reference">>,
   ): Promise<Payout | null>;
 }
@@ -64,14 +74,11 @@ export class InMemoryPayoutStore implements PayoutStore {
     return [...this.rows.values()].filter((r) => r.status === status).map((r) => ({ ...r }));
   }
 
-  async update(
-    id: string,
-    expected: { status: Payout["status"]; attempts?: number },
-    patch: Partial<Omit<Payout, "id" | "bountyId" | "reference">>,
-  ) {
+  async update(id: string, expected: PayoutExpectation, patch: Partial<Omit<Payout, "id" | "bountyId" | "reference">>) {
     const row = this.rows.get(id);
     if (!row || row.status !== expected.status) return null;
     if (expected.attempts !== undefined && row.attempts !== expected.attempts) return null;
+    if (expected.unset?.some((k) => row[k] != null)) return null;
     const next = { ...row, ...patch };
     this.rows.set(id, next);
     return { ...next };

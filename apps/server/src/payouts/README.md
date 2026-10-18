@@ -6,13 +6,15 @@ payouts won't work. Amounts stay shown in FCFA, paid in sats at the rate we alre
 
 ```
 bounty verified ─(objection window)→ start()
-  1. claim the row               pending → processing, attempt n           (compare-and-set)
+  1. claim the row               pending → processing, attempt n           (compare-and-set, in flight from here)
   2. payout.started              Settlement moves the bounty to `paying`; if that fails → stop, nothing sent
-  3. FCFA → sats                 floor(amountXof × 1e8 / (FCFA/USDT × USDT/BTC)), rate saved on the row
+  3. FCFA → sats                 floor(amountXof × 1e8 / (FCFA/USDT × USDT/BTC)), rate saved on the row;
+                                 refused (not retried) above MAX_PAYOUT_SATS or outside 10 M–1 000 M FCFA/BTC
   4. LNURL-pay                   user@domain → /.well-known/lnurlp/user → callback?amount=<msat> → BOLT11
-                                 checked: exact amount, network, ≥ 120 s before expiry, description hash
-  5. sentAt saved, then ONE      POST /api/lightning/pay {request, reference: pay-<bountyId>-<n>, max_fee}
-  6. paid / failed / pending     poll every 15 s (Lightning has no documented webhook; one is handled if it comes)
+                                 checked: exact amount, network, ≥ 120 s before expiry, description hash;
+                                 saved only if the attempt has no invoice yet (payment_request IS NULL)
+  5. sentAt saved (only if unset), then ONE   POST /api/lightning/pay {request, reference: pay-<bountyId>-<n>, max_fee}
+  6. paid / failed / pending     status reads with backoff 15 s → 1 h (no documented webhook; one is handled if it comes)
 ```
 
 ```ts
@@ -35,26 +37,33 @@ Emits `payout.started` (each attempt), `payout.succeeded`, `payout.failed` (each
 | Situation | What happens |
 | --- | --- |
 | `start()` twice, or concurrently | one row per bounty, compare-and-set on (status, attempts): one invoice, one pay call |
+| a poll tick (or a second server) reaches an attempt that is still being gated or resolving LNURL | the row is in flight in its process from before the claim; across processes the invoice is saved only if `payment_request IS NULL` and the send marked only if `sent_at IS NULL`, so exactly one worker sends |
 | the bounty can't be saved as `paying` (on hold, DB down, CAS lost) | `applyPayoutEvent` throws `PayoutNotAllowedError`: the claim is undone (row back to `pending`, attempt not counted), **no LNURL call, no Bitnob call**. The next `/pay` or a restart tries again |
 | LNURL server down, slow (10 s), HTML, 5xx, `{"status":"ERROR"}`, no invoice | nothing was sent: attempt failed, **retried** after 5 s then 30 s with a fresh invoice |
 | invoice for another amount, any-amount invoice, wrong network, bad description hash, amount outside `minSendable`/`maxSendable`, invalid address | nothing was sent: **not retryable** (only the developer can fix their address) |
-| `/lightning/pay` answers 400 / 422 / 429 | Bitnob refused it, nothing paid: retried with a new invoice |
+| first `/lightning/pay` of an attempt answers 400 / 422 / 429 | Bitnob refused the only request carrying that reference, nothing paid: the next attempt pays **the same invoice** while it has ≥ 5 min left (so even a misread refusal can't settle twice), else a new one |
 | `/lightning/pay` answers 401 / 403 (e.g. `FEATURE_NOT_ENABLED`) | not retryable: setup problem |
 | `/lightning/pay` times out, 5xx, 409 | **maybe paid**: stays `processing`, never a new attempt until Bitnob says failed |
-| finding out after an unclear answer | `GET /api/lightning/invoices/:id` when Bitnob gave us an id; otherwise replay **the same reference with the same invoice**. Not a second payment: Bitnob documents pay as idempotent on `reference`, and one BOLT11 (one payment hash) settles at most once on Lightning |
-| replay answers 400/422 after the invoice expired | the payment never existed and can't happen any more: attempt failed, new invoice |
+| finding out after an unclear answer | **reads first**: `GET /api/lightning/invoices/:id` when Bitnob gave us an id, then `GET /api/lightning/invoices?reference=…` filtered by reference / payment hash (`findLightningPayment`; both **unverified for outgoing payments**, the sandbox refuses `send_lightning`). Only if nothing is found, **one** re-send of the same reference with the same invoice while it can still be paid (Bitnob documents pay as idempotent on `reference`; one payment hash settles at most once). Checks back off 15 s, 30 s, 1, 2, 5, 15, 30 min, then hourly |
+| a re-send is refused (400/422, e.g. "reference already used") | **not** read as unpaid (the first send may be in flight): the attempt stays `processing` |
+| sent, no status readable and the invoice expired | `lastError` = `stuck: …`, logged as an error, **nothing retried automatically**: check the payment in the Bitnob dashboard. A later webhook or readable status still settles it |
 | invoice expired before it was sent (crash in between) | attempt failed (nothing sent), new invoice |
-| server killed after the claim / after the invoice / mid pay call | `resume()` re-runs the gate if no invoice was saved, sends a saved-but-unsent invoice, or asks Bitnob about a sent one (above) |
+| server killed after the claim / after the invoice / mid pay call | an unsent attempt is re-checked (`isPayable`: bounty `paying`/`payout_failed`, same claimant and amount; else back to `pending`), re-gated, then sent once; a sent one is asked about (above) |
+| `pending` row at boot (lost retry timer, or a start the gate refused) | retried only if `isPayable`; a bounty still `verified` waits for settlement (objection window) |
+| the gate refused a start, then the bounty changed claimant or amount | the untouched row (nothing ever sent) follows the new claimant and amount on the next `start()`; a row that was sent never changes recipient |
 | 3 attempts failed | row `failed`, bounty `payout_failed`, money stays reserved for the developer |
 | success seen twice (poll + webhook), `pending` after `paid`, event about an earlier attempt | ignored, `payout.succeeded` emitted once |
-| mobile money rows (seed, pre-B6) | never driven over Lightning (`rail` must be `lightning`) |
+| mobile money rows (seed, pre-B6) | never driven over Lightning (`rail` must be `lightning`); `start()` logs a warning |
 
-Invariants fuzzed over 200 seeds in `test/payouts.test.ts`: at most one payment settles per bounty, and
-attempt n+1's reference is only sent after attempt n failed at Bitnob (or never reached it).
+Invariants fuzzed over 200 seeds in `test/payouts.test.ts`, with Bitnob idempotent on `reference` and again
+with a Bitnob that refuses a known reference: at most one payment settles per bounty, and attempt n+1's
+reference is only sent after attempt n failed at Bitnob (or never reached it). The review fixes (races, refusals,
+backoff, cap, resume) each have a test in `test/payouts-review.test.ts`.
 
 Lightning Addresses are masked in logs, errors and the public API (`aw***@blink.sv`); the BOLT11 and
 preimage never leave the server. `lastError` prefixes (`lnurl unreachable:`, `lnurl refused:`,
-`payout account:`, `pay:`) drive the short public reason in the status comment (`settlement/status-extras.ts`).
+`payout account:`, `pay refused:`, `setup:`) drive the short public reason in the status comment and the public
+payout view (`settlement/status-extras.ts`); the raw error stays in the logs and the payout row.
 
 ## Where to pay
 `PAYOUT_ACCOUNTS='{"awa-dev":"awa@blink.sv"}'` (or `{"awa-dev":{"lightningAddress":"awa@blink.sv"}}`) until
@@ -73,6 +82,7 @@ in the database (migration `0002_b6_lightning_payouts`), with the mobile money c
 | `LIGHTNING_NETWORK` | `testnet` (default, sandbox `lntb…`), `bitcoin`/`mainnet` with production keys. A typo refuses to start |
 | `BITNOB_PAYOUT_CUSTOMER_ID` | optional `customer_id` sent on every pay (the v2 spec lists it as required; unverified) |
 | `PAYOUT_ACCOUNTS` | Lightning Address per GitHub login |
+| `MAX_PAYOUT_SATS` | hard cap on one payout (default `100000`); above it the payout fails, not retried, public reason `setup` |
 
 Fee cap: `max_fee = max(10, 1 % of the sats)`.
 
