@@ -99,8 +99,8 @@ export function BacklogEntry({ repos, lang, suggest }: BacklogEntryProps) {
       ) : null}
       {last ? (
         <div className="grid gap-2">
-          <span className="font-mono text-[0.72rem] uppercase tracking-[0.08em] text-muted">
-            {t.backlogLast} · {last.repo}
+          <span className="text-sm text-muted">
+            {t.backlogLast} · <span className="font-mono">{last.repo}</span>
           </span>
           {last.suggestions.length ? (
             <ul className="divide-y divide-rule rounded-[var(--radius-card)] border border-rule">

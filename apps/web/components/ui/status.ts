@@ -19,13 +19,13 @@ export interface StatusMeta {
  * ink = payout in flight, blue = a developer is on it, red = payout failed, grey = closed without payout.
  */
 export const STATUS_META: Record<BountyStatus, StatusMeta> = {
-  unfunded: { tone: "amber", label: "Awaiting funds", labelFr: "En attente de fonds", hint: "Bounty posted, fund link live, can't be claimed yet." },
+  unfunded: { tone: "amber", label: "Awaiting funds", labelFr: "En attente de fonds", hint: "Waiting for funding. Can't be claimed yet." },
   funded: { tone: "money", label: "Funded", labelFr: "Financé", hint: "Money held. Open to claims." },
   claimed: { tone: "claim", label: "Claimed", labelFr: "Réservé", hint: "A developer has 72 h to open a PR." },
   submitted: { tone: "claim-solid", label: "PR submitted", labelFr: "PR soumise", hint: "PR linked. Claude checks the criteria." },
-  verified: { tone: "bright", label: "Verified", labelFr: "Vérifié", hint: "Merged, CI green, verdict pass. Objection window." },
-  paying: { tone: "ink", label: "Paying out", labelFr: "Paiement en cours", hint: "Bitnob Lightning payout in flight." },
-  paid: { tone: "money-solid", label: "Paid", labelFr: "Payé", hint: "Paid out. Receipt everywhere." },
+  verified: { tone: "bright", label: "Verified", labelFr: "Vérifié", hint: "Merged, CI green, Claude passed. Paid after the objection window." },
+  paying: { tone: "ink", label: "Paying out", labelFr: "Paiement en cours", hint: "Lightning payout in progress." },
+  paid: { tone: "money-solid", label: "Paid", labelFr: "Payé", hint: "Paid out. Receipt available." },
   on_hold: { tone: "pending", label: "On hold", labelFr: "En pause", hint: "Maintainer put the payout on hold." },
   payout_failed: { tone: "danger", label: "Payout failed", labelFr: "Paiement échoué", hint: "Retrying. Money stays reserved for the developer." },
   refunded: { tone: "neutral", label: "Refunded", labelFr: "Remboursé", hint: "Money returned to the funder." },

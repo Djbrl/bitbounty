@@ -63,8 +63,7 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | `Page` | `nav?: AppNavProps`, `width?: "narrow" \| "default" \| "wide"` | Page container, 16 px gutter on phones, optional top nav |
 | `AppNav` | `items?`, `active?`, `initials?`, `right?` | Top bar (mark + links + avatar) |
 | `Mark` | `label?` | Landing logo ("b" stroke + green dot) + wordmark |
-| `Section` | `eyebrow?`, `title?`, `description?`, `actions?`, `id?` | Heading block + content |
-| `Eyebrow` | children | Mono uppercase label |
+| `Section` | `title?`, `description?`, `actions?`, `id?` | Heading block + content |
 | `Table`, `THead`, `TBody`, `Tr`, `Th`, `Td` | `Tr selected?`, `Td numeric?`, `Td mono?` | Bordered table, scrolls inside its border on phones |
 | `PhoneFrame`, `BrowserFrame` | see source | Mockups (landing phone colours) |
 | `PhoneNotification` | `title`, `body`, `icon?` | Wallet payout push notification (e.g. Lightning sats received) |

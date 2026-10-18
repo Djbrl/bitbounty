@@ -163,7 +163,7 @@ describe("fund page", () => {
 
   it("renders the funded state for a funded bounty", () => {
     const html = renderToStaticMarkup(<FundView bounty={getFundBounty("b-102")!} />);
-    expect(html).toContain("Funded");
+    expect(html).toContain("Bounty funded");
     expect(html).not.toContain('role="tab"');
     expect(html).toContain('data-pay-state="paid"');
   });

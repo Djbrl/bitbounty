@@ -17,10 +17,7 @@ export function ExploreGrid({ bounties, lang, now, q = "" }: { bounties: BountyS
 
   return (
     <div className="grid min-w-0 content-start gap-4">
-      <div className="grid gap-0.5">
-        <h2 className="text-[1.6rem] font-extrabold tracking-tight">{t.paidIssues}</h2>
-        <p className="text-[13px] text-muted">{t.paidIssuesSub}</p>
-      </div>
+      <h2 className="text-[1.6rem] font-extrabold tracking-tight">{t.paidIssues}</h2>
 
       {bounties.length > 0 ? (
         <div role="group" aria-label={t.filters} className="grid gap-3">

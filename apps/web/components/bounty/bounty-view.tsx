@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { formatXof, Amount } from "../ui/amount";
 import { buttonClass } from "../ui/button";
-import { Card, Eyebrow } from "../ui/card";
+import { Card } from "../ui/card";
 import { Pill, Tag } from "../ui/pill";
 import { STATUS_META } from "../ui/status";
 import { StatusPill } from "../ui/status-pill";
@@ -62,11 +62,9 @@ export function BountyHeader({ b }: { b: BountyDetail }) {
   return (
     <Card padding="lg" className="grid gap-4">
       <div className="grid gap-1.5">
-        <Eyebrow>
-          <a href={b.issueUrl} {...ext} className="hover:text-ink hover:underline">
-            {b.repoFullName} #{b.issueNumber}
-          </a>
-        </Eyebrow>
+        <a href={b.issueUrl} {...ext} className="w-fit font-mono text-[13px] text-muted hover:text-ink hover:underline">
+          {b.repoFullName} #{b.issueNumber}
+        </a>
         <h1 className="text-[clamp(1.5rem,4vw,2.2rem)] font-extrabold leading-tight tracking-tight">{b.issueTitle}</h1>
       </div>
       <div className="flex flex-wrap items-center gap-3">
@@ -74,7 +72,7 @@ export function BountyHeader({ b }: { b: BountyDetail }) {
         <StatusPill status={b.status} />
         {b.funderKind === "agent" ? (
           <Pill tone="agent" dot>
-            Funded by an AI agent · @{b.funderLogin}
+            Funded by an agent · @{b.funderLogin}
           </Pill>
         ) : (
           <span className="text-sm text-muted">posted by @{b.funderLogin}</span>
@@ -180,11 +178,7 @@ export function CriteriaCard({ b }: { b: BountyDetail }) {
     <Card padding="lg">
       <CardTitle
         right={
-          b.criteria.length === 0 ? (
-            <Pill tone="neutral" size="sm">
-              From the issue
-            </Pill>
-          ) : b.criteriaConfirmed ? (
+          b.criteria.length === 0 ? undefined : b.criteriaConfirmed ? (
             <Pill tone="money" size="sm">
               Confirmed by the maintainer
             </Pill>
@@ -199,11 +193,11 @@ export function CriteriaCard({ b }: { b: BountyDetail }) {
       </CardTitle>
       {b.criteria.length === 0 && (
         <p className="text-[15px] text-muted">
-          The issue&apos;s <strong>Done when</strong> list on{" "}
+          Claude checks the PR against the <strong>Done when</strong> list in the{" "}
           <a className="underline" href={b.issueUrl}>
-            GitHub
+            GitHub issue
           </a>
-          . Claude checks the PR against it.
+          .
         </p>
       )}
       <ul className="grid gap-2">
@@ -228,8 +222,8 @@ export function VerdictCard({ b }: { b: BountyDetail }) {
       <Card padding="lg">
         <CardTitle>Claude verification</CardTitle>
         <p className="text-sm text-muted">
-          No pull request yet. When one says <code className="font-mono">Fixes #{b.issueNumber}</code>, Claude checks it
-          against each criterion and posts a GitHub Check Run.
+          No pull request yet. Open one with <code className="font-mono">Fixes #{b.issueNumber}</code> and Claude checks it
+          against each criterion.
         </p>
       </Card>
     );
@@ -352,7 +346,7 @@ export function PayoutCard({ b, receiptId }: { b: BountyDetail; receiptId: strin
             ? b.status === "refunded"
               ? "Closed without a payout. The money went back to the funder."
               : "Cancelled before funding. Nothing to pay."
-            : `${formatXof(b.amountXof)} goes to the developer's Lightning Address, paid in sats, within minutes of the merge.`}
+            : `${formatXof(b.amountXof)} is paid in sats to the developer's Lightning Address after the merge.`}
         </p>
       </Card>
     );
@@ -419,7 +413,7 @@ export function FundingCard({ b }: { b: BountyDetail }) {
           <p className="text-sm text-muted">Not funded yet.</p>
           {b.status === "unfunded" && (
             <Link href={`/pay/${b.id}`} className={buttonClass({ block: true, className: "mt-4" })}>
-              Fund this bounty →
+              Fund this bounty
             </Link>
           )}
         </>

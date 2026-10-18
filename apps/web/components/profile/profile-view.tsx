@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Amount, Avatar, Card, Chip, EmptyState, Eyebrow, Pill, StatCard, cx, formatSats, formatXof } from "../ui";
+import { Amount, Avatar, Card, Chip, EmptyState, Pill, StatCard, cx, formatSats, formatXof } from "../ui";
 import { formatDay, formatMinutes, payoutLabel, type ProfileView as Data, type WorkItem } from "./data";
 
 /** Proof-of-work profile (build kit screen 8): identity card on the left, numbers + receipts on the right. */
@@ -11,24 +11,19 @@ export function ProfileView({ data }: { data: Data }) {
       <HunterCard data={data} />
       <div className="grid min-w-0 gap-6">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard
-            label="Earned"
-            value={formatXof(stats.totalXof)}
-            money
-            sub={data.totalSats != null ? `${formatSats(data.totalSats)} over Lightning` : "paid in sats over Lightning"}
-          />
+          <StatCard label="Earned" value={formatXof(stats.totalXof)} money sub={data.totalSats != null ? formatSats(data.totalSats) : undefined} />
           <StatCard label="Bounties merged" value={stats.paidCount} sub={`${stats.acceptedPct}% accepted on first review`} />
-          <StatCard label="Repos" value={stats.repos} sub="with paid work" />
+          <StatCard label="Repos with paid work" value={stats.repos} />
           <StatCard label="Median merge → paid" value={formatMinutes(stats.medianMinutesMergeToPay)} />
         </div>
 
         <section className="grid gap-2" aria-label="Paid work, last 6 months">
-          <Eyebrow>Paid work, last 6 months</Eyebrow>
+          <h2 className="text-sm font-semibold">Paid work, last 6 months</h2>
           <Heat cells={data.heat} />
         </section>
 
         <section className="grid gap-2">
-          <Eyebrow>Paid bounties</Eyebrow>
+          <h2 className="text-sm font-semibold">Paid bounties</h2>
           {data.work.length ? (
             <ul className="grid gap-2">
               {data.work.map((w) => (
@@ -37,7 +32,7 @@ export function ProfileView({ data }: { data: Data }) {
             </ul>
           ) : (
             <EmptyState title="No paid bounty yet" align="start">
-              Every merged and paid PR by @{user.login} will show up here with a signed receipt.
+              Paid PRs by @{user.login} show up here with their receipt.
             </EmptyState>
           )}
         </section>
@@ -84,28 +79,25 @@ function HunterCard({ data }: { data: Data }) {
             {user.city ? ` · ${user.city}` : ""}
           </span>
           {tier ? (
-            <span className={cx("font-mono text-xs font-semibold uppercase tracking-wider", TIER_TEXT[tier])} data-tier={tier}>
+            <span className={cx("text-xs font-semibold", TIER_TEXT[tier])} data-tier={tier}>
               ● {TIER_LABEL[tier]} hunter
             </span>
           ) : (
-            <span className="font-mono text-xs uppercase tracking-wider text-muted">New hunter</span>
+            <span className="text-xs text-muted">New hunter</span>
           )}
         </div>
       </div>
       <div className="grid gap-1">
-        <Eyebrow>Total earned</Eyebrow>
+        <span className="text-xs text-muted">Total earned</span>
         <Amount xof={stats.totalXof} sats={data.totalSats ?? undefined} size="xl" money />
       </div>
       {data.languages.length > 0 && (
-        <div className="grid gap-1.5">
-          <Eyebrow>Stack</Eyebrow>
-          <div className="flex flex-wrap gap-1.5">
-            {data.languages.map((l) => (
-              <Chip key={l} size="sm">
-                {l}
-              </Chip>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-1.5" aria-label="Stack">
+          {data.languages.map((l) => (
+            <Chip key={l} size="sm">
+              {l}
+            </Chip>
+          ))}
         </div>
       )}
       <dl className="grid w-full border-t border-rule text-[13px]">
@@ -127,8 +119,7 @@ function HunterCard({ data }: { data: Data }) {
       )}
       {data.repos.length > 0 && (
         <div className="grid min-w-0 gap-1.5">
-          <Eyebrow>Repos</Eyebrow>
-          <div className="flex min-w-0 flex-wrap gap-1.5">
+          <div className="flex min-w-0 flex-wrap gap-1.5" aria-label="Repos">
             {data.repos.map((r) => (
               <a key={r.fullName} href={r.url} className="min-w-0 max-w-full">
                 <Pill size="sm" className="max-w-full truncate hover:underline">
@@ -185,7 +176,7 @@ function Receipt({ w }: { w: WorkItem }) {
       </small>
       <small className="font-mono text-[11px] text-muted">{formatDay(w.paidAt)}</small>
       <Link href={w.receiptHref} className="col-span-2 text-xs font-semibold text-money hover:underline">
-        View receipt {w.receiptId} →
+        View receipt
       </Link>
     </li>
   );

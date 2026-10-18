@@ -68,7 +68,7 @@ describe("StatusPill", () => {
 
   it("snapshot: paid", () => {
     expect(renderToStaticMarkup(<StatusPill status="paid" />)).toMatchInlineSnapshot(
-      `"<span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-semibold leading-none px-2.5 py-[5px] text-xs bg-money text-on-solid" title="Paid out. Receipt everywhere." data-status="paid" data-tone="money-solid"><i aria-hidden="true" class="inline-block size-2 shrink-0 rounded-full bg-current"></i>Paid</span>"`,
+      `"<span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-semibold leading-none px-2.5 py-[5px] text-xs bg-money text-on-solid" title="Paid out. Receipt available." data-status="paid" data-tone="money-solid"><i aria-hidden="true" class="inline-block size-2 shrink-0 rounded-full bg-current"></i>Paid</span>"`,
     );
   });
 });

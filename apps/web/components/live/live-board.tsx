@@ -124,13 +124,12 @@ function ConnectionPill({ conn }: { conn: LiveConnection }) {
     <span
       role="status"
       className={cx(
-        "inline-flex items-center gap-2 font-mono text-[clamp(0.8rem,0.95vw,1.15rem)] font-semibold uppercase tracking-wider",
+        "inline-flex items-center gap-2 text-[clamp(0.8rem,0.95vw,1.15rem)] font-semibold",
         live ? "text-money-bright" : "text-pending",
       )}
     >
       <i aria-hidden className={cx("inline-block size-2.5 shrink-0 animate-pulse rounded-full", live ? "bg-money-bright" : "bg-pending")} />
       {live ? "Live" : conn === "connecting" ? "Connecting…" : "Reconnecting…"}
-      <span className="text-muted/80 normal-case tracking-normal">· Code &amp; Chain Dakar</span>
     </span>
   );
 }
@@ -154,7 +153,7 @@ function Lane({
       data-lane={status}
       className="flex min-h-[clamp(120px,22vh,320px)] flex-col gap-[clamp(8px,0.6vw,12px)] rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(10px,0.8vw,16px)]"
     >
-      <h2 className="m-0 flex items-center gap-2 font-mono text-[clamp(0.8rem,0.85vw,1.1rem)] font-medium uppercase tracking-[0.08em] text-muted">
+      <h2 className="m-0 flex items-center gap-2 text-[clamp(0.8rem,0.85vw,1.1rem)] font-semibold text-muted">
         <i aria-hidden className={cx("inline-block size-2.5 shrink-0 rounded-full", dot)} />
         {meta.label}
         <span className="ml-auto tabular-nums text-muted/80">{cards.length}</span>
@@ -201,7 +200,6 @@ function RoutePanel({ route, stage }: { route: LiveRoute; stage: 0 | 1 | 2 }) {
   ];
   return (
     <div className="grid gap-3 rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(12px,1vw,20px)]">
-      <span className="font-mono text-[clamp(0.75rem,0.8vw,1rem)] font-medium uppercase tracking-[0.08em] text-muted">Lagos → Dakar</span>
       <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-2">
         {nodes.map((n, i) => (
           <RouteNode key={n.small} big={n.big} small={n.small} on={i <= stage} seg={i < nodes.length - 1} segOn={i < stage} />
@@ -262,7 +260,6 @@ function PayoutToast({ toast }: { toast: Toast }) {
         styles.toast,
       )}
     >
-      <span className="font-mono text-[clamp(0.75rem,0.85vw,1.05rem)] uppercase tracking-[0.08em] text-money-bright">Payout sent</span>
       <b className="font-display text-[clamp(2rem,3.4vw,4.4rem)] font-extrabold leading-none tabular-nums text-money-bright">
         +{formatXof(card.amountXof)}
       </b>

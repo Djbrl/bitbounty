@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import type { DisplayCurrency, OnboardingRole, OnboardingState, UserMode } from "../../../../fixtures/types";
 import { LightningAddressForm } from "../onboarding/onboarding";
 import type { PayoutAccountApi } from "../onboarding/api";
-import { Amount, Avatar, Button, buttonClass, Card, Chip, cx, Eyebrow, ProgressSteps } from "../ui";
+import { Amount, Avatar, Button, buttonClass, Card, Chip, cx, ProgressSteps } from "../ui";
 import { welcomeApi, type OnboardingPatch, type WelcomeApi } from "./api";
 import {
   CURRENCIES,
@@ -18,7 +18,6 @@ import {
   showsHunter,
   showsMaintainer,
   stackOptions,
-  STEP_COUNT,
   toggle,
   APP_HREF,
   type Step,
@@ -35,11 +34,11 @@ export interface WelcomeFlowProps {
 
 const ROLE_CARDS: { id: OnboardingRole; icon: string; title: string; body: string }[] = [
   { id: "maintain", icon: "🏗️", title: "Financer des issues sur mes dépôts", body: "Installez l'app GitHub, chiffrez votre backlog avec Claude et financez en sats, USDT ou naira." },
-  { id: "hunt", icon: "⚡", title: "Être payé pour corriger des bugs", body: "Choisissez une issue payée, ouvrez une PR : les sats arrivent sur votre Lightning Address au merge." },
+  { id: "hunt", icon: "⚡", title: "Être payé pour corriger des bugs", body: "Choisissez une issue payée et ouvrez une PR. Vous êtes payé en sats sur votre Lightning Address au merge." },
   { id: "both", icon: "🔁", title: "Les deux", body: "Un seul compte GitHub : financer sur un dépôt et corriger sur un autre." },
 ];
 
-const STEP_LABELS = ["Votre rôle", "Vos préférences", "C'est parti"];
+const STEP_LABELS = ["Votre rôle", "Vos préférences", "Configuration"];
 
 /** /welcome: 3 steps (role · preferences · setup), Back / Skip everywhere, each step saved so a reload resumes. */
 export function WelcomeFlow({ initial, intent, step: initialStep, api = welcomeApi, addressApi }: WelcomeFlowProps) {
@@ -104,13 +103,10 @@ export function WelcomeFlow({ initial, intent, step: initialStep, api = welcomeA
           current={step - 1}
           steps={STEP_LABELS.map((label, i) => ({ label: <span className="max-sm:sr-only">{label}</span>, done: i + 1 < step }))}
         />
-        <span className="font-mono text-[11px] font-medium tracking-[0.05em] text-muted">
-          ÉTAPE {step} / {STEP_COUNT}
-        </span>
 
         {step === 1 && (
           <>
-            <Heading>Bienvenue @{state.login}, qu&apos;est-ce qui vous amène ?</Heading>
+            <Heading>Bienvenue @{state.login}. Choisissez votre rôle</Heading>
             <div role="radiogroup" aria-label="Votre rôle" className="grid gap-3">
               {ROLE_CARDS.map((c) => (
                 <button
@@ -141,7 +137,7 @@ export function WelcomeFlow({ initial, intent, step: initialStep, api = welcomeA
 
         {step === 2 && (
           <>
-            <Heading>Faites-en votre espace</Heading>
+            <Heading>Vos préférences</Heading>
             {showsHunter(role) && (
               <div className="grid gap-4">
                 <Group label="Vos langages et votre stack" hint={initial.githubLanguages.length ? "Pré-remplis depuis vos dépôts GitHub publics." : "Choisissez ce que vous savez corriger."}>
@@ -185,9 +181,9 @@ export function WelcomeFlow({ initial, intent, step: initialStep, api = welcomeA
 
         {step === 3 && (
           <>
-            <Heading>Dernière étape</Heading>
+            <Heading>Configurez votre compte</Heading>
             {showsHunter(role) && (
-              <Group label="Où recevoir vos bounties" hint="En sats sur Lightning, quelques secondes après le merge.">
+              <Group label="Où recevoir vos bounties" hint="En sats sur Lightning, après le merge.">
                 {state.lightningAddress ? (
                   <div role="status" className="flex flex-wrap items-center gap-2 rounded-[10px] bg-money-soft px-3 py-2.5 text-[13px] font-semibold text-money">
                     <span aria-hidden>✓</span> Lightning Address vérifiée · <span className="font-mono">{state.lightningAddress}</span>
@@ -286,7 +282,7 @@ function Nav(props: { busy: boolean; error: string | null; onBack?: () => void; 
 function Preview(p: { login: string; role: OnboardingRole | null; stack: string[]; currency: DisplayCurrency; repo: string | null; address: string | null }) {
   return (
     <aside aria-label="Aperçu" className="grid gap-3 max-lg:hidden">
-      <Eyebrow>Aperçu</Eyebrow>
+      <h2 className="text-sm font-semibold text-muted">Aperçu</h2>
       {showsHunter(p.role) && (
         <Card className="grid gap-3">
           <div className="flex items-center gap-3">
