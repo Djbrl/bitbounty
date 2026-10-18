@@ -154,13 +154,13 @@ Example with P = $1,000 and points 30 / 28 / 25 / 17 (T = 100): $290, $274, $250
 | | | |
 
 ### Points tally (filled in during the event)
-Status at Sun 18 Oct, 02:15, with rule 11 applied to every merged PR (per-PR audit: who wrote it, clean or fixed, breaks, done-when at push).
+Status at Sun 18 Oct, 04:00, with rule 11 applied to every merged PR (per-PR audit: who wrote it, clean or fixed, breaks, done-when at push).
 
 | Member | Earned | Lost to the pool (done-when not met at push) | Halved (bad break) | Reviews | Points |
 | --- | --- | --- | --- | --- | --- |
-| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (29) · F7 (2) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 12 (+5, capped by rule 6) | **38.5** |
+| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (29) · F7 (2) · A5 (2) · U1, U3, U4, U5 (12) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 12 (+5, capped by rule 6) | **52.5** |
 | Rabatou | F2 (3), B4 (3) | F5 (2), B5 (2), B1 (3), B2 (5), B3 (1), I2 (3) | – | ½ credit #91 (+0.25) | **6.25** |
-| Kml221-bot | I1 (3), A4 (3), A3 (3), I3 (2) | F1 (3), F3 (2) | – | – | **11** |
+| Kml221-bot | I1 (3), A4 (3), A3 (3), I3 (2), U0 (3) | F1 (3), F3 (2) | – | – | **14** |
 | cheikhteej | – | – | – | – | **0** |
 | **Shared pool** | | **28 pts → +7 each** | | | |
 
@@ -168,7 +168,9 @@ Update (Sun 18 Oct): Djbrl's 4 rule 11 reviews at 23:23 (#90, #76, #75, #85, log
 
 Changes since 22:15: I1, A4, A3 merged with full points (fixes #99, #96, #97), I3 merged with full points (#93, fixes #101), I2 merged with done-when not met (fixes #98, 3 pts to the pool), F7 (#89) sized at 2 by the captain, Djbrl's reviews capped at 5 (rule 6). B2/B3 closed as not planned (replaced by B6/B7).
 
-Pending: B6 (Djbrl, 5, #102: to be proven with a real production payment, captain's call), D7 landing (Djbrl, 5), wave 3b L1/U0–U5 (Kml221-bot, 20), unclaimed B7, A5, I4, D1–D6.
+Since 02:15: A5 merged (#113). Wave 3b: U0 by Kml221-bot (#121, their commit), then L1, U1–U5 taken over by Djbrl as captain (one commit in 1h30 for 7 claimed tasks): U1 #125, U3 #126, U4 #127, U5 #123 merged with their done-when met.
+
+Pending: B6 (Djbrl, 5, merged in #102, done-when needs a real production payment), L1 (Djbrl, 3, merged in #122, old-landing redirect not deployed yet), U2 (Djbrl, 2, merged in #124, 1280/390 screenshots missing), D1–D7 (demo repo app install + funding, deck review, rehearsals, video, npm package, submission, trailer), unclaimed B7, I4.
 To settle (rule 9): whether the finisher of a pooled task (F1, F3, B1, B5 were completed by Djbrl in #51, #72/#74, #80, #78) earns any of its points, or they stay in the pool.
 
 #### Rule 11 verdicts on open PRs (Sat 17 Oct, 23:15)
