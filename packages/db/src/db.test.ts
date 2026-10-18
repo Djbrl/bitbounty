@@ -300,7 +300,7 @@ function defineSuite(connect: () => Promise<Target>) {
       // B6
       ["a Lightning Address that isn't user@domain", `update payout_accounts set lightning_address = 'awa' where user_id = '${SEED_IDS.awa}'`],
       ["an upper-case Lightning Address", `update payout_accounts set lightning_address = 'Awa@Blink.sv' where user_id = '${SEED_IDS.awa}'`],
-      ["a payout account with nowhere to pay", `update payout_accounts set phone_e164 = null where user_id = '${SEED_IDS.awa}'`],
+      ["a payout account with nowhere to pay", `update payout_accounts set phone_e164 = null, lightning_address = null where user_id = '${SEED_IDS.awa}'`],
       ["a zero sats payout", `update payouts set amount_sats = 0 where bounty_id = '${SEED_IDS.bounty("paid")}'`],
       ["an unknown payout rail", `update payouts set rail = 'carrier_pigeon' where bounty_id = '${SEED_IDS.bounty("paid")}'`],
     ])("refuses %s", async (_label, query) => {
