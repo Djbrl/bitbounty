@@ -7,6 +7,8 @@ import type { StoredEvent } from "../event-store.js";
 import { isStatusComment, statusMarker } from "../status-comment/index.js";
 import { Settlement } from "../../settlement/index.js";
 import type { PayoutRequest } from "../../payouts/service.js";
+import { FakeBitnob } from "../../e2e/fake-bitnob.js";
+import { applyFundingPaid, BitnobFunderCustomers, InMemoryFundingStore, LightningFunding } from "../../funding/index.js";
 import { FakeGithubWriter, handleIssueComment, registerCommentWiring, type WiringDeps } from "./index.js";
 
 const REPO = "bitbounty-demo/sandbox";
@@ -248,6 +250,97 @@ describe("/claim and friends", () => {
     const out = await run("/claim", { login: "awa" });
     expect(out.kind).toBe("replied");
     expect(replies()[0]!.body).toContain("no bounty on this issue");
+  });
+});
+
+describe("/funded (sandbox demo: simulates the funding payment)", () => {
+  let bitnob: FakeBitnob;
+  let fundings: InMemoryFundingStore;
+  let sandbox: boolean;
+  let lightning: LightningFunding;
+
+  beforeEach(() => {
+    bitnob = new FakeBitnob();
+    fundings = new InMemoryFundingStore();
+    sandbox = true;
+    const quiet = { info() {}, warn() {}, error() {} };
+    lightning = new LightningFunding({
+      client: bitnob,
+      store: fundings,
+      rates: bitnob.rates,
+      customers: new BitnobFunderCustomers(bitnob),
+      bounties: repo,
+      emit: applyFundingPaid(repo, bus, quiet),
+      isSandbox: async () => sandbox,
+      log: quiet,
+    });
+    deps.funding = () => lightning;
+  });
+
+  it("no invoice yet: creates one through the funding flow, simulates it, the bounty is funded", async () => {
+    await run("/bounty 10000");
+    const out = await run("/funded");
+    expect(out.kind).toBe("replied");
+    const b = repo.all()[0]!;
+    expect(b.status).toBe("funded");
+    expect(bitnob.invoices.size).toBe(1);
+    expect(bitnob.simulated).toEqual([...bitnob.invoices.keys()]);
+    expect(bus.published.some((e) => e.type === "funding.paid")).toBe(true);
+    expect(statusComments()).toHaveLength(1);
+    expect(gh.labelsOn(REPO, issueNumber)).toContain("bounty: open");
+    expect(gh.labelsOn(REPO, issueNumber)).not.toContain("bounty: waiting for funding");
+    expect(replies().at(-1)!.body).toMatch(/@maintainer-demo .*funded/);
+  });
+
+  it("reuses the open invoice from the fund link instead of creating another", async () => {
+    await run("/bounty 10000");
+    const b = repo.all()[0]!;
+    const f = await lightning.invoice({ bountyId: b.id, funderId: b.funderId });
+    await run("/funded");
+    expect(bitnob.invoices.size).toBe(1);
+    expect(bitnob.simulated).toEqual([f.bitnobRef]);
+    expect(repo.all()[0]!.status).toBe("funded");
+  });
+
+  it("already funded: short reply, no Bitnob call", async () => {
+    await run("/bounty 10000");
+    await fund();
+    await run("/funded");
+    expect(replies().at(-1)!.body).toContain("already funded");
+    expect(bitnob.invoices.size).toBe(0);
+    expect(bitnob.simulated).toEqual([]);
+  });
+
+  it("refused outside the Bitnob sandbox, before any invoice is created", async () => {
+    sandbox = false;
+    await run("/bounty 10000");
+    await run("/funded");
+    expect(replies().at(-1)!.body).toContain("sandbox");
+    expect(bitnob.invoices.size).toBe(0);
+    expect(repo.all()[0]!.status).toBe("unfunded");
+  });
+
+  it("refused when funding isn't configured", async () => {
+    deps.funding = () => null;
+    await run("/bounty 10000");
+    await run("/funded");
+    expect(replies().at(-1)!.body).toContain("sandbox");
+    expect(repo.all()[0]!.status).toBe("unfunded");
+  });
+
+  it("maintainers only: a contributor gets the same refusal as /pay", async () => {
+    await run("/bounty 10000");
+    await run("/funded", { login: "awa" });
+    expect(replies().at(-1)!.body).toContain("Only maintainers");
+    expect(bitnob.invoices.size).toBe(0);
+    expect(repo.all()[0]!.status).toBe("unfunded");
+  });
+
+  it("replies in French when the bot speaks French", async () => {
+    deps.lang = "fr";
+    await run("/bounty 10000");
+    await run("/funded");
+    expect(replies().at(-1)!.body).toContain("financée");
   });
 });
 

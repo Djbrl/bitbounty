@@ -7,6 +7,7 @@ export {
   type CommentOutcome,
   type DecisionOutcome,
   type MaintainerDecision,
+  type SandboxFunding,
   type WiringDeps,
 } from "./handle-comment.js";
 export { syncIssue, type SyncOptions } from "./sync.js";

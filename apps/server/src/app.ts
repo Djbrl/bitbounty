@@ -138,6 +138,8 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
     claims: claimTimers,
     // CR3: `/pay @user` only for a user the payout can pay (called after the module has loaded).
     hasPayoutAccount: (login) => hasPayoutAccount(getPayee)(login),
+    // `/funded` (demo): sandbox keys only; lightningFunding is built further down, read lazily.
+    funding: () => lightningFunding,
     ...botSettings,
   };
   registerCommentWiring(githubDispatcher, wiring);

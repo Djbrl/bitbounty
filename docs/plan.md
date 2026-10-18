@@ -54,8 +54,8 @@ Details, the full transition table and the event list: [packages/core/README.md]
 - `agents` (owner_user_id, key_hash, monthly_budget_xof, per_task_max_xof, allowed_repos)
 
 ### GitHub commands (issue/PR comments)
-`/bounty <amount>` · `/criteria ok` · `/claim` · `/unclaim` · `/extend` · `/pay [@user] [now]` · `/hold` · `/reject <reason>` · `/cancel`
-Permissions: `/bounty /criteria /pay /hold /reject /cancel` = write access on the repo. `/claim /unclaim /extend` = any user with a linked account.
+`/bounty <amount>` · `/criteria ok` · `/claim` · `/unclaim` · `/extend` · `/pay [@user] [now]` · `/hold` · `/reject <reason>` · `/cancel` · `/funded` (Bitnob sandbox demo only: simulates the funding payment)
+Permissions: `/bounty /criteria /pay /hold /reject /cancel /funded` = write access on the repo. `/claim /unclaim /extend` = any user with a linked account.
 
 ### Webhooks received
 - GitHub: `installation`, `issue_comment.created`, `issues.closed|reopened`, `pull_request.opened|synchronize|closed`

@@ -1,6 +1,6 @@
 /**
  * Who is allowed to run which command (docs/plan.md, "GitHub commands"):
- * - `/bounty /criteria /pay /hold /reject /cancel` need write access on the repo (maintainer).
+ * - `/bounty /criteria /pay /hold /reject /cancel /funded` need write access on the repo (maintainer).
  * - `/claim /unclaim /extend` are open to any human. Whether they have a linked payout
  *   account is checked by the caller (G3), not here: the parser has no database.
  * - Bots (including BitBounty itself) never run commands.
@@ -58,7 +58,7 @@ export function resolveRole(author: AuthorInfo): Role {
   return author.authorAssociation === "OWNER" ? "maintainer" : "contributor";
 }
 
-export const MAINTAINER_COMMANDS = ["bounty", "criteria", "pay", "hold", "reject", "cancel"] as const;
+export const MAINTAINER_COMMANDS = ["bounty", "criteria", "pay", "hold", "reject", "cancel", "funded"] as const;
 export const CONTRIBUTOR_COMMANDS = ["claim", "unclaim", "extend"] as const;
 export const COMMAND_NAMES = [...MAINTAINER_COMMANDS, ...CONTRIBUTOR_COMMANDS] as const;
 export type CommandName = (typeof COMMAND_NAMES)[number];

@@ -207,13 +207,19 @@ export class LightningFunding {
     });
   }
 
+  /** True only when simulated payments are allowed (Bitnob sandbox keys, BITNOB_SANDBOX_PAY not 0). */
+  async canSimulate(): Promise<boolean> {
+    if (!this.opts.client.simulateLightningPayment || !this.opts.isSandbox) return false;
+    return this.opts.isSandbox().catch(() => false);
+  }
+
   /**
    * Sandbox only: settles the bounty's open Lightning invoice with Bitnob's simulate-payment,
    * then checks it so the normal paid flow (`funding.paid`) runs at once. Already paid → no call.
    */
   async simulatePayment(bountyId: string): Promise<FundingRecord> {
     const simulate = this.opts.client.simulateLightningPayment?.bind(this.opts.client);
-    if (!simulate || !this.opts.isSandbox || !(await this.opts.isSandbox().catch(() => false))) {
+    if (!simulate || !(await this.canSimulate())) {
       throw new FundingError("SANDBOX_ONLY", "simulated payments need Bitnob sandbox keys");
     }
     const fundings = (await this.opts.store.listByBounty(bountyId)).filter((f) => f.rail === "lightning");

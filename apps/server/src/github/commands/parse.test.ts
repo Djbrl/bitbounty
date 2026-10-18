@@ -184,6 +184,14 @@ describe("parseCommand: every command", () => {
     expect(cmd(parseCommand("/cancel", maintainer))).toEqual({ name: "cancel", note: null });
   });
 
+  it("/funded (sandbox demo), case-insensitive, extra words ignored", () => {
+    expect(cmd(parseCommand("/funded", maintainer))).toEqual({ name: "funded" });
+    expect(cmd(parseCommand("/FUNDED please", maintainer))).toEqual({ name: "funded" });
+    expect(parseCommand("`/funded`", maintainer)).toEqual({ type: "ignore", reason: "no_command" });
+    expect(parseCommand("> /funded", maintainer)).toEqual({ type: "ignore", reason: "no_command" });
+    expect(parseCommand("/fundedx", maintainer)).toEqual({ type: "ignore", reason: "no_command" });
+  });
+
   it("/reject <reason>", () => {
     expect(cmd(parseCommand("/reject tests don't cover the edge case", maintainer))).toEqual({
       name: "reject",
@@ -195,7 +203,7 @@ describe("parseCommand: every command", () => {
 });
 
 describe("parseCommand: permissions", () => {
-  it.each(["/bounty 10000", "/criteria ok", "/pay", "/pay @awa now", "/hold", "/reject nope", "/cancel"])(
+  it.each(["/bounty 10000", "/criteria ok", "/pay", "/pay @awa now", "/hold", "/reject nope", "/cancel", "/funded"])(
     "a contributor can't run %s",
     (body) => {
       const e = err(parseCommand(body, contributor));
