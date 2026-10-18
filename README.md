@@ -83,6 +83,7 @@ The split covers any cash prize the team wins (overall placing or partner award)
     - **Done-when not met** → the task earns **0** for its author, and its points go to a **shared pool** split equally between the 4 members.
     - **A bad break** (a crash, a broken build on main, money or data at risk) that decent testing would have caught → **half** the task's points.
     - Fixes made on top of someone's PR are logged in #77 with who did what. The audit is in the tally below.
+12. **Captain** (announced by Djbrl, Sun 18 Oct, 02:00): from now on Djbrl is captain for all operations. The captain sizes new tasks and confirms points instead of 2 members (replaces rule 7 for tasks added after this), and decides how a done-when is proven when the original path is blocked (e.g. B6 proven on production because the sandbox can't send Lightning).
 
 **Formula.** For prize P, with your points p and the team total T:
 `your share = 0.20 × P / 4 + 0.80 × P × p / T`.
@@ -97,19 +98,21 @@ Example with P = $1,000 and points 30 / 28 / 25 / 17 (T = 100): $290, $274, $250
 | | | |
 
 ### Points tally (filled in during the event)
-Status at Sat 17 Oct, 22:15, with rule 11 applied to every merged PR (per-PR audit: who wrote it, clean or fixed, breaks, done-when at push).
+Status at Sun 18 Oct, 02:15, with rule 11 applied to every merged PR (per-PR audit: who wrote it, clean or fixed, breaks, done-when at push).
 
 | Member | Earned | Lost to the pool (done-when not met at push) | Halved (bad break) | Reviews | Points |
 | --- | --- | --- | --- | --- | --- |
-| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (29) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 11 (+5, capped by rule 6) | **36.5** |
-| Rabatou | F2 (3), B4 (3) | F5 (2), B5 (2), B1 (3), B2 (5), B3 (1) | – | – | **6** |
-| Kml221-bot | – (A3, A4, I1 open) | F1 (3), F3 (2) | – | – | **0** |
+| Djbrl | W1, W3–W8, G1–G3, G5, A1, A2 (29) · F7 (2) · F4 ½ (1) · W2 ½ (1.5) | F6 (2), W9 (2), G4 (3) | F4: broke main's web build · W2: broken fund link | 12 (+5, capped by rule 6) | **38.5** |
+| Rabatou | F2 (3), B4 (3) | F5 (2), B5 (2), B1 (3), B2 (5), B3 (1), I2 (3) | – | ½ credit #91 (+0.25) | **6.25** |
+| Kml221-bot | I1 (3), A4 (3), A3 (3), I3 (2) | F1 (3), F3 (2) | – | – | **11** |
 | cheikhteej | – | – | – | – | **0** |
-| **Shared pool** | | **25 pts → +6.25 each** | | | |
+| **Shared pool** | | **28 pts → +7 each** | | | |
 
 Update (Sun 18 Oct): Djbrl's 4 rule 11 reviews at 23:23 (#90, #76, #75, #85, logged in #77) add +2, capped at 5 by rule 6 → +1.5, Djbrl 35 → **36.5**.
 
-Pending: D7 landing (Djbrl, 5), A3/A4/I1 (Kml221-bot), I2 (Rabatou), B2/B3 done-when (blocked: Wave/OM not usable), unclaimed A5, I3, I4, D1–D6.
+Changes since 22:15: I1, A4, A3 merged with full points (fixes #99, #96, #97), I3 merged with full points (#93, fixes #101), I2 merged with done-when not met (fixes #98, 3 pts to the pool), F7 (#89) sized at 2 by the captain, Djbrl's reviews capped at 5 (rule 6). B2/B3 closed as not planned (replaced by B6/B7).
+
+Pending: B6 (Djbrl, 5, #102: to be proven with a real production payment, captain's call), D7 landing (Djbrl, 5), wave 3b L1/U0–U5 (Kml221-bot, 20), unclaimed B7, A5, I4, D1–D6.
 To settle (rule 9): whether the finisher of a pooled task (F1, F3, B1, B5 were completed by Djbrl in #51, #72/#74, #80, #78) earns any of its points, or they stay in the pool.
 
 #### Rule 11 verdicts on open PRs (Sat 17 Oct, 23:15)
@@ -121,6 +124,8 @@ Each PR was tested as pushed (install, lint, typecheck, tests, build, built serv
 | #76 | A4 (3) | Kml221-bot | Met: an agent key posts a bounty over MCP within its budget; bad key, over budget and a repo it isn't allowed are all refused | No | **Full** | 3 |
 | #75 | A3 (3) | Kml221-bot | Met: issue, why it fits, criteria and an FCFA price on a real repo (offline heuristic; the Claude path was never run live) | No | **Full** | 3 |
 | #85 | I2 (3) | Rabatou | **Not met**: the done-when says "in sandbox", and the PR says `--sandbox` was never run. Offline it is green 3 times in a row | A `/hold` during the objection window doesn't stop the payout (latent while the window is 0) | **Zero** → 3 pts to the pool | 0 |
+
+| #93 | I3 (2) | Kml221-bot | Met: a failed payout that retries and a claim that expires both show on GitHub and the web | No | **Full** | 2 (merged) |
 
 Rabatou also posted A3 review fixes in #91 (23:09), after Djbrl had taken over the remaining open PRs. #97 superseded it; Djbrl granted **half credit**: +0.25 (half of a rule 6 review bonus).
 If all of them are merged as-is (before that +0.25): Kml221-bot **9**, Rabatou **6**, pool **28 pts → +7 each**.
