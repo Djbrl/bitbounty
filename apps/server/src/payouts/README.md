@@ -97,3 +97,34 @@ pnpm --filter @bitbounty/server payout:smoke                              # pays
 **Status (2026-10-18): our sandbox account answers `403 FEATURE_NOT_ENABLED` ("The Lightning withdrawals
 feature is currently not available", `feature_key: send_lightning`) to `/lightning/pay` and `/lightning/preview`.**
 Everything up to the pay call is proven live; the payment itself needs Bitnob to enable `send_lightning`.
+
+## Live test on production
+`scripts/live-pay.ts` proves B6 on Bitnob **production** with one tiny real payment, run by a human.
+It reads `--env-file` (default: repo-root `.env.prod`, never the dev `.env`):
+
+| Env | |
+| --- | --- |
+| `BITNOB_PROD_CLIENT_ID`, `BITNOB_PROD_CLIENT_SECRET` | production creds (never printed) |
+| `LIVE_TEST_LIGHTNING_ADDRESS` | where the test sats go (dry run falls back to `bitbounty@blink.sv`; `--pay` requires it) |
+| `BITNOB_PROD_PAYOUT_CUSTOMER_ID` | optional `customer_id` for the pay call |
+
+```bash
+pnpm --filter @bitbounty/server live-pay -- --sats 100            # dry run: nothing is sent
+pnpm --filter @bitbounty/server live-pay -- --xof 50              # FCFA → sats at Bitnob's rate (needs the creds)
+pnpm --filter @bitbounty/server live-pay -- --sats 100 --pay      # the real payment
+```
+- **Dry run (default)**: resolves the Lightning Address with B6's `HttpLnurlResolver` (network `bitcoin`),
+  requests the real invoice for the exact amount (costs nothing), decodes it with B6's BOLT11 decoder and checks
+  amount, network = `bitcoin`, ≥ 120 s before expiry and description hash = sha256(LNURL metadata), then prints the
+  summary. With creds it runs `whoami` and prints the environment. A `401` prints why: the client ID and secret
+  don't belong together (Bitnob uses the same client ID across environments, only the secret changes; a secret
+  issued for another company won't work with ours).
+- `--max-sats` is a hard cap (default `1000`): above it the script refuses before any call.
+- **`--pay`**: the same checks, refused unless `whoami` says `production`, then you must type the exact sats
+  amount. It pays that one invoice through `PayoutService` itself (the bounty payout code path: one
+  `POST /api/lightning/pay` with reference `pay-live-test-<timestamp>-1`, B6's own reference format; status
+  reads, at most one idempotent re-send, `maxAttempts: 1` so a confirmed failure is never retried with a new
+  invoice), polls for 3 minutes and prints the result. If the outcome is still unknown, check the Bitnob
+  dashboard before running `--pay` again.
+- Exit codes: 0 ok, 1 payment failed or unknown, 2 refused by a check, 3 aborted at the prompt.
+
