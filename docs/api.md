@@ -23,6 +23,8 @@ The web pages were built on `fixtures/*.json` (F4). The server now serves the sa
 | `GET /api/users/:login` | `Profile` | paid work (payouts) and active claims; 404 when none |
 | `GET /api/receipts/:id` | `Receipt` | a succeeded payout (`id` = payout id) with merge and funding; `signature` = SHA-256 of the receipt fields |
 | `GET /api/me` | `Me` | needs the session (above) |
+| `GET /api/me/preferences` | `UserPreferences` (`packages/core`): `{defaultMode: "hunt"\|"maintain"\|null, onboardedAt: string\|null}` | L1, needs the session. `users.default_mode` / `users.onboarded_at`; `{null, null}` = not onboarded |
+| `PUT /api/me/preferences {defaultMode}` | `UserPreferences` | L1, needs the session. Sets the default mode; the first call stamps `onboardedAt`, later calls keep it. `400 invalid_mode` unless `hunt` / `maintain` |
 | `GET /api/live` | SSE: `snapshot` then `transition` events | live columns; every internal event as it happens |
 | `POST /api/bounties/:id/funding {rail}` | `FundingSession` | Lightning invoice through B1 (`503` without Bitnob keys, `501` for usdt/ngn) |
 | `GET /api/bounties/:id/funding` | `{status: pending\|paid, bountyStatus}` | |

@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "Bienvenue · BitBounty" };
 export const dynamic = "force-dynamic";
 
 const CHOICES = [
-  { mode: "maintain", label: "Financer des issues", hint: "Je maintiens un dépôt" },
-  { mode: "hunt", label: "Être payé pour corriger", hint: "Je contribue" },
+  { mode: "maintain", label: "Je maintiens un dépôt : financer des issues" },
+  { mode: "hunt", label: "Je contribue : être payé pour corriger" },
 ] as const;
 
 type Props = { searchParams?: Promise<{ intent?: string | string[] }> };
@@ -38,7 +38,7 @@ export default async function WelcomePage({ searchParams }: Props) {
               value={c.mode}
               className={buttonClass({ variant: i === 0 ? "primary" : "secondary", size: "lg", block: true })}
             >
-              {c.label} · <span className="font-normal">{c.hint}</span>
+              {c.label}
             </button>
           ))}
         </form>

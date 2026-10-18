@@ -22,8 +22,21 @@ const req = (path: string, cookie?: string) =>
 afterEach(() => vi.unstubAllEnvs());
 
 describe("middleware", () => {
-  it("matcher covers exactly the protected prefixes", () => {
-    expect(config.matcher).toEqual(PROTECTED_PREFIXES.map((p) => `${p}/:path*`));
+  it("matcher covers /signin and exactly the protected prefixes", () => {
+    expect(config.matcher).toEqual(["/signin", ...PROTECTED_PREFIXES.map((p) => `${p}/:path*`)]);
+  });
+
+  it("a sign-in cancelled on GitHub goes back to the landing, auth on or off; real errors stay on /signin", async () => {
+    for (const secret of [SECRET, ""]) {
+      vi.stubEnv("AUTH_SECRET", secret);
+      for (const code of ["OAuthCallbackError", "AccessDenied"]) {
+        const res = await middleware(req(`/signin?error=${code}`));
+        expect(res?.status).toBe(307);
+        expect(new URL(res!.headers.get("location")!).pathname).toBe("/");
+      }
+      expect((await middleware(req("/signin?error=Configuration")))?.headers.get("location")).toBeNull();
+      expect((await middleware(req("/signin?callbackUrl=%2Fapp")))?.headers.get("location")).toBeNull();
+    }
   });
 
   it("is a no-op when AUTH_SECRET is unset", async () => {

@@ -32,11 +32,37 @@ In middleware / route handlers wrapped with `auth(...)`, use `sessionToUser(req.
 |---|---|
 | `apps/web/auth.ts` | Auth.js config: GitHub provider, JWT session (7 days), callbacks that store / expose the fields above |
 | `apps/web/app/api/auth/[...nextauth]/route.ts` | Auth.js endpoints. The static `auth` segment wins over the mock catch-all `app/api/[...path]`, so `/api/me`, `/api/dashboard`... keep serving fixtures |
-| `apps/web/middleware.ts` | Redirects signed-out visitors of `/dashboard` and `/me` (and sub-paths) to `/signin?callbackUrl=...`. Everything else is public |
+| `apps/web/middleware.ts` | Redirects signed-out visitors of `/dashboard`, `/me`, `/app`, `/welcome`, `/settings` (and sub-paths) to `/signin?callbackUrl=...`. Signed in: `/app` → `/app/<defaultMode>` (or `/welcome`), `/welcome` → the workspace once onboarded. `/signin?error=OAuthCallbackError\|AccessDenied` (cancel on GitHub) → `/`. Everything else is public |
 | `apps/web/app/signin/page.tsx` | Sign-in page; also shows Auth.js errors (`?error=OAuthCallbackError` when the user refuses on GitHub) |
 | `apps/web/components/auth/` | `SignInButton`, `SignOutButton`, `UserMenu` (server components, no client JS). Drop `<UserMenu />` in any header |
 | `apps/web/lib/auth/session-user.ts` | Pure mapping profile / token / session → `{ githubId, login, avatarUrl }` (tested) |
 | `apps/web/lib/auth/paths.ts` | Protected paths, `authEnabled()`, safe `callbackUrl`, error messages (tested) |
+
+## Landing, CTAs and onboarding (L1)
+
+One site: `/` is the landing, the board is `/explore`. Every landing CTA links to `/start`:
+
+| CTA | Link | After GitHub sign-in |
+|---|---|---|
+| Financer une issue | `/start?intent=maintain` | `/welcome?intent=maintain` |
+| Être payé pour corriger | `/start?intent=hunt` | `/welcome?intent=hunt` |
+| Se connecter (nav) | `/start` | `/app` |
+
+`/start` (`app/start/route.ts`) calls Auth.js `signIn("github", { redirectTo })` server side, so the
+click goes straight to GitHub. Signed in already: no second sign-in, same destination. Auth off: no
+sign-in at all. Middleware sends an onboarded user from `/welcome` to their workspace, so a returning
+user who clicks a CTA lands in the app. Signed in, the landing shows "Ouvrir l'app" (→ `/app`).
+Cancel on GitHub: Auth.js sends `/signin?error=OAuthCallbackError`, middleware sends that back to `/`.
+
+**Onboarding fields** (`User.defaultMode`, `User.onboardedAt` in `packages/core`; `users.default_mode`,
+`users.onboarded_at` in `packages/db`). The session carries them too (`session.user.defaultMode`,
+`session.user.onboardedAt`), so middleware decides without a server call:
+- read: `preferencesFrom(session.user)` (`lib/auth/workspace.ts`), or `sessionUser()` in a server
+  component (`lib/session-login.ts`, returns `{ user, preferences }`);
+- written: the server action `completeOnboarding` (`app/welcome/actions.ts`, form field `mode`) saves
+  them with `PUT /api/me/preferences` and copies them into the cookie with `unstable_update`;
+- at sign-in the `jwt` callback loads them with `GET /api/me/preferences` (docs/api.md). Without
+  `BITBOUNTY_API_URL` (fixtures) they live in the session cookie only, until the next sign-in.
 
 ## Auth off by default (local dev on fixtures)
 
@@ -77,5 +103,5 @@ Manual (after the setup above):
 2. *Sign in with GitHub* → authorize on GitHub → back on `/dashboard`. `/signin` (or any `<UserMenu />`)
    shows your avatar and `@login`. `GET /api/auth/session` returns `githubId`, `login`, `avatarUrl`.
 3. *Sign out* → back on `/`; `/dashboard` redirects to `/signin` again.
-4. Refuse: on GitHub's authorize screen click *Cancel* → `/signin` shows "GitHub sign-in was cancelled or refused".
+4. Refuse: on GitHub's authorize screen click *Cancel* → back on the landing `/`, no error page.
 5. Expiry: delete the `authjs.session-token` cookie (or wait 7 days) → `/dashboard` redirects to `/signin`.

@@ -12,6 +12,8 @@ Postgres schema (Drizzle), SQL migrations and demo seed. Tables follow [docs/pla
 ## Tables
 `users`, `payout_accounts`, `installations`, `repos`, `bounties`, `fundings`, `claims`, `submissions`, `payouts`, `ledger`, `events`, `agents`.
 
+`users.default_mode` (`workspace_mode`: `hunt` | `maintain`) and `users.onboarded_at` (L1, migration `0002_onboarding`) are null until the user finishes onboarding on `/welcome`; the server reads/writes them through `GET|PUT /api/me/preferences`.
+
 Rules the database enforces:
 - `events`: one row per `(source, external_id)` (unique index `events_source_external_id_uq`). Webhook dedupe = `insert ... on conflict do nothing`. Columns follow the server's `DrizzleEventStore` (F6): serial `id`, `type`/`action`/`repo`/`installation_id`, `payload`, `status` `received|processed|failed`, `error`, `received_at`, `processed_at`; `bounty_id` (nullable) makes it the bounty timeline.
 - **One payout per bounty** (`payouts.bounty_id` unique, `reference` = `pay-<bountyId>` unique): retries update the row, they never add one.

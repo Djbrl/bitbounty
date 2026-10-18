@@ -1,9 +1,8 @@
 // W9: sign-in page. Middleware sends signed-out visitors of /dashboard and /me here,
-// and Auth.js sends errors here too. L1: a cancel / refusal on GitHub (?error=OAuthCallbackError or
-// AccessDenied) isn't an error for the visitor: they go back to the landing.
-import { redirect } from "next/navigation";
+// and Auth.js sends errors here too. L1: a cancel / refusal on GitHub never reaches this page
+// (middleware sends it back to the landing).
 import { UserMenu } from "../../components/auth";
-import { authEnabled, isCancelledSignIn, safeCallbackUrl, signInErrorMessage } from "../../lib/auth/paths";
+import { authEnabled, safeCallbackUrl, signInErrorMessage } from "../../lib/auth/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +12,6 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 export default async function SignInPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  if (isCancelledSignIn(first(sp.error))) redirect("/");
   const callbackUrl = safeCallbackUrl(first(sp.callbackUrl));
   const error = signInErrorMessage(first(sp.error));
 
