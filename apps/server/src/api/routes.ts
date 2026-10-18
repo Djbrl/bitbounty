@@ -34,6 +34,8 @@ export interface ReadApiDeps {
    * `X-BitBounty-User: <github login>` from the Auth.js session; without it /api/me is 401.
    */
   internalToken?: string;
+  /** U1: the Lightning Address saved at onboarding (full; /api/me masks it). */
+  lightningAddressOf?: (login: string) => Promise<string | null>;
   /** SSE keep-alive comment interval (ms). */
   keepAliveMs?: number;
 }
@@ -257,10 +259,13 @@ export function readApiRoutes(deps: ReadApiDeps) {
       if (b) activeClaims.push({ bountyId: b.id, issueTitle: b.issueTitle, repoFullName: b.repoFullName, expiresAt: cl.expiresAt });
     }
     const paid = payouts.filter((p) => p.status === "succeeded");
+    // U1: the payout account is the Lightning Address saved at onboarding (checked to resolve when saved).
+    const address = (await deps.lightningAddressOf?.(login)) ?? null;
     return c.json({
       user: userView(login),
-      // The payout account lives with B3's onboarding service, not wired into the server yet.
-      payoutAccount: null,
+      payoutAccount: address
+        ? { userId: `github:${login}`, country: "SN", status: "verified", lightningAddress: maskLightningAddress(address), verifiedAt: null, lockedUntil: null }
+        : null,
       earnings: { totalXof: paid.reduce((s, p) => s + p.amountXof, 0), paidCount: paid.length },
       activeClaims,
       payouts: payouts.map((p) => ({
@@ -374,17 +379,24 @@ export function readApiRoutes(deps: ReadApiDeps) {
   );
 
   function userFrom(c: Context): string | null {
-    const token = deps.internalToken;
-    if (!token) return null;
-    const auth = c.req.header("authorization") ?? "";
-    const given = Buffer.from(auth.replace(/^Bearer\s+/i, ""));
-    const want = Buffer.from(token);
-    if (given.length !== want.length || !timingSafeEqual(given, want)) return null;
-    const login = c.req.header("x-bitbounty-user")?.trim() ?? "";
-    return LOGIN_RE.test(login) ? login : null;
+    return requestUser(c, deps.internalToken);
   }
 
   return api;
+}
+
+/**
+ * The GitHub login the web proxy vouches for: `Authorization: Bearer <INTERNAL_API_TOKEN>` +
+ * `X-BitBounty-User: <login>`. Null without a configured token, a wrong token or a bad login.
+ */
+export function requestUser(c: Context, token: string | undefined): string | null {
+  if (!token) return null;
+  const auth = c.req.header("authorization") ?? "";
+  const given = Buffer.from(auth.replace(/^Bearer\s+/i, ""));
+  const want = Buffer.from(token);
+  if (given.length !== want.length || !timingSafeEqual(given, want)) return null;
+  const login = c.req.header("x-bitbounty-user")?.trim() ?? "";
+  return LOGIN_RE.test(login) ? login : null;
 }
 
 function userView(login: string, since?: string) {

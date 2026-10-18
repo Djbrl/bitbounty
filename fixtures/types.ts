@@ -219,10 +219,42 @@ export type PayoutStatus = Payout['status'];
 export type UserView = User & { name: string; city: string };
 
 /** API never returns the full number nor the test amount: phoneE164/testAmountXof → phoneMasked. */
-export type PayoutAccountView = Omit<PayoutAccount, 'phoneE164' | 'testAmountXof'> & {
+export type PayoutAccountView = Omit<PayoutAccount, 'phoneE164' | 'testAmountXof' | 'provider' | 'accountName'> & {
+  /** B6/U1: where payouts go, masked ("aw***@blink.sv"). Null on legacy mobile money accounts. */
+  lightningAddress?: string | null;
+  /** Legacy mobile money fields (fixtures only; the real server no longer sends them). */
+  provider?: PayoutProvider;
+  accountName?: string;
   /** "+221 77 ••• •• 42" */
-  phoneMasked: string;
+  phoneMasked?: string;
 };
+
+export type UserMode = 'maintain' | 'hunt';
+export type OnboardingRole = UserMode | 'both';
+export type DisplayCurrency = 'xof' | 'ngn' | 'sats';
+
+/** U1: GET|POST /api/me/onboarding — /welcome */
+export interface OnboardingState {
+  login: string;
+  defaultMode: UserMode | null;
+  onboardedAt: ISODate | null;
+  preferences: {
+    role: OnboardingRole | null;
+    stack: string[];
+    currency: DisplayCurrency;
+    language: 'fr' | 'en';
+    repo: string | null;
+    /** 1..3, where /welcome resumes. */
+    step: number;
+  };
+  /** Masked ("aw***@blink.sv"). */
+  lightningAddress: string | null;
+  /** Top languages of the user's public GitHub repos (empty when GitHub didn't answer). */
+  githubLanguages: string[];
+  /** Repos where the BitBounty GitHub App is installed for this user. */
+  installedRepos: string[];
+  appInstallUrl: string;
+}
 
 export type BountyView = Bounty & {
   issueUrl: string;

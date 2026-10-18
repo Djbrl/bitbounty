@@ -74,6 +74,8 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   defaultMode: userMode("default_mode"),
   onboardedAt: ts("onboarded_at"),
+  /** U1: onboarding answers (stack, display currency, language, role, step), editable later in /settings. */
+  preferences: jsonb("preferences").$type<Record<string, unknown>>().notNull().default({}),
   createdAt: createdAt(),
 });
 
