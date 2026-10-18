@@ -30,22 +30,7 @@ export function DashboardContent({ data }: { data: DashboardData }) {
   return (
     <>
       <h1 className="sr-only">Maintainer dashboard</h1>
-      <div id="payouts" className="grid gap-3 sm:grid-cols-3">
-        <StatCard
-          emphasis
-          label="Held for open bounties"
-          value={formatXof(stats.heldXof)}
-          sub={`${plural(stats.activeCount, "bounty", "bounties")} · ${plural(repos.length, "repo")}`}
-        />
-        <StatCard
-          money
-          label="Paid out"
-          value={formatXof(stats.spentXof)}
-          sub={`${plural(stats.paidCount, "merged PR")} · budget ${formatXof(stats.budgetXof)}`}
-        />
-        <StatCard label="Median merge → paid" value={`${stats.medianMinutesMergeToPay} min`} />
-      </div>
-
+      <div data-tour="price-backlog" className="grid">
       <Section
         id="backlog"
         title="Price my backlog"
@@ -69,7 +54,9 @@ export function DashboardContent({ data }: { data: DashboardData }) {
       >
         <PriceMyBacklog backlog={backlog} />
       </Section>
+      </div>
 
+      <div data-tour="funded-prs" className="grid gap-10">
       {needsAction.length > 0 && (
         <Section title="Needs you">
           <Card padding="none" as="section">
@@ -127,6 +114,23 @@ export function DashboardContent({ data }: { data: DashboardData }) {
           <EmptyState title="No active bounty">Fund one from your backlog above.</EmptyState>
         )}
       </Section>
+      </div>
+
+      <div id="payouts" className="grid gap-3 sm:grid-cols-3">
+        <StatCard
+          emphasis
+          label="Held for open bounties"
+          value={formatXof(stats.heldXof)}
+          sub={`${plural(stats.activeCount, "bounty", "bounties")} · ${plural(repos.length, "repo")}`}
+        />
+        <StatCard
+          money
+          label="Paid out"
+          value={formatXof(stats.spentXof)}
+          sub={`${plural(stats.paidCount, "merged PR")} · budget ${formatXof(stats.budgetXof)}`}
+        />
+        <StatCard label="Median merge → paid" value={`${stats.medianMinutesMergeToPay} min`} />
+      </div>
 
       <Section id="repos" title="Repositories">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

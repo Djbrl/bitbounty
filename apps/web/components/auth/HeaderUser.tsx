@@ -11,6 +11,7 @@ import { sessionToUser, type SessionUser } from "../../lib/auth/session-user";
 import { Avatar } from "../ui/avatar";
 import { buttonClass } from "../ui/button";
 import { cx } from "../ui/tone";
+import { shellText, type Lang } from "../app-shell/mode";
 
 export type HeaderSession = { kind: "off" } | { kind: "out" } | { kind: "in"; user: SessionUser };
 
@@ -31,7 +32,7 @@ export function signInHref(path: string): string {
   return `${SIGN_IN_PATH}?callbackUrl=${encodeURIComponent(safeCallbackUrl(path))}`;
 }
 
-export function HeaderUserView({ session, path = "/" }: { session: HeaderSession | null; path?: string }) {
+export function HeaderUserView({ session, path = "/", lang = "fr" }: { session: HeaderSession | null; path?: string; lang?: Lang }) {
   const pill = buttonClass({ variant: "secondary", size: "sm", className: "whitespace-nowrap" });
   if (!session) {
     // Same size as the button, so nothing shifts when the session arrives; static on the server.
@@ -49,16 +50,29 @@ export function HeaderUserView({ session, path = "/" }: { session: HeaderSession
     );
   }
   const { user } = session;
+  const t = shellText(lang);
   return (
-    <span className="inline-flex items-center gap-2">
-      {user.avatarUrl ? <Avatar initials={user.login.slice(0, 1)} src={user.avatarUrl} size="sm" /> : null}
-      <a href={`https://github.com/${user.login}`} className="font-medium text-ink">
-        @{user.login}
-      </a>
-      <button type="button" onClick={() => void signOut({ redirectTo: "/" })} className="underline hover:text-ink">
-        Sign out
-      </button>
-    </span>
+    <details data-tour="profile" className="group/menu relative">
+      <summary
+        aria-label={t.menu}
+        className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-transparent py-0.5 pl-0.5 pr-3 transition-all duration-150 hover:-translate-y-px hover:border-rule hover:bg-chip hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agent group-open/menu:border-rule group-open/menu:bg-chip [&::-webkit-details-marker]:hidden"
+      >
+        <Avatar initials={user.login.slice(0, 1).toUpperCase()} src={user.avatarUrl} size="sm" />
+        <span className="max-w-[10rem] truncate font-mono text-[13px] font-semibold text-ink underline-offset-4 hover:underline">@{user.login}</span>
+      </summary>
+      <div className="absolute right-0 top-full z-40 mt-2 grid w-60 gap-1 rounded-[var(--radius-card)] border border-rule bg-sheet p-2 text-sm shadow-lg">
+        <a href={`/u/${encodeURIComponent(user.login)}`} className="rounded-md px-2 py-1.5 hover:bg-chip">
+          {t.profile}
+        </a>
+        <a href="/me" className="grid rounded-md px-2 py-1.5 hover:bg-chip">
+          <span>{t.settings}</span>
+          <span className="text-xs text-muted">{t.settingsHint}</span>
+        </a>
+        <button type="button" onClick={() => void signOut({ redirectTo: "/" })} className="rounded-md px-2 py-1.5 text-left hover:bg-chip">
+          {t.signOut}
+        </button>
+      </div>
+    </details>
   );
 }
 

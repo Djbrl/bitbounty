@@ -166,6 +166,7 @@ function ClaimItem({ c, t, lang, now }: { c: ClaimCard; t: HuntText; lang: Lang;
 
 function Claims({ claims, t, lang, now }: { claims: Part<ClaimCard[]>; t: HuntText; lang: Lang; now: number }) {
   return (
+    <div data-tour="claims">
     <Section id="claims" title={t.claims} description={t.claimsSub}>
       {!claims.ok ? (
         <SectionError t={t} />
@@ -180,7 +181,7 @@ function Claims({ claims, t, lang, now }: { claims: Part<ClaimCard[]>; t: HuntTe
           title={t.noClaims}
           align="start"
           action={
-            <Link href="/explore" className={buttonClass({ size: "sm" })}>
+            <Link href="/app/explore" className={buttonClass({ size: "sm" })}>
               {t.browse}
             </Link>
           }
@@ -189,6 +190,7 @@ function Claims({ claims, t, lang, now }: { claims: Part<ClaimCard[]>; t: HuntTe
         </EmptyState>
       )}
     </Section>
+    </div>
   );
 }
 
@@ -201,7 +203,7 @@ function ForYouSection({ data, t, lang, now }: { data: HuntData; t: HuntText; la
       title={t.forYou}
       description={desc}
       actions={
-        <Link href="/explore" className={buttonClass({ size: "sm", variant: "ghost" })}>
+        <Link href="/app/explore" className={buttonClass({ size: "sm", variant: "ghost" })}>
           {t.seeAll}
         </Link>
       }
@@ -302,6 +304,19 @@ export function HuntView({ data, lang, now }: { data: HuntData; lang: Lang; now:
       <h1 className="sr-only">{t.title}</h1>
       <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="grid min-w-0 gap-10">
+          <form role="search" action="/app/explore" data-tour="search" className="flex">
+            <label className="sr-only" htmlFor="hunt-search">
+              {t.searchIssues}
+            </label>
+            <input
+              id="hunt-search"
+              type="search"
+              name="q"
+              maxLength={100}
+              placeholder={t.searchIssues}
+              className="w-full rounded-full border border-rule bg-sheet px-4 py-2 text-sm placeholder:text-muted focus-visible:outline-2 focus-visible:outline-money"
+            />
+          </form>
           <HunterCard data={data} t={t} />
           {account?.status !== "verified" ? (
             <Card className="flex flex-wrap items-center justify-between gap-3">

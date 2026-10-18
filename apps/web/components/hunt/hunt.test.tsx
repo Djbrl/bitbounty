@@ -5,7 +5,8 @@ import type { BountyDetail, BountySummary } from "../../../../fixtures/types";
 import { getBoard } from "../board/data";
 import { TIER_MIN } from "../profile/data";
 import { loadHunt, pickStack } from "./data";
-import { applyExplore, bountyLanguages, canonicalLanguage, exploreOptions, inBucket, NO_FILTER, timeAgo } from "./explore";
+import { applyExplore, bountyLanguages, canonicalLanguage, exploreOptions, exploreQuery, inBucket, NO_FILTER, projectSummaries, timeAgo } from "./explore";
+import { ProjectGrid } from "./project-grid";
 import { ExploreGrid } from "./explore-grid";
 import { HuntView } from "./hunt-view";
 import { activityFeed, claimCard, claimElapsed, formatCountdown, forYou, tierProgress, weekStreak } from "./shape";
@@ -127,6 +128,35 @@ describe("explore filters", () => {
   });
 });
 
+describe("explore projects (mission select)", () => {
+  it("groups open bounties by repo, most claimable money first", () => {
+    const rows = [
+      row({ id: "a", repoFullName: "o/kit-js", amountXof: 5000, status: "claimed" }),
+      row({ id: "b", repoFullName: "o/core-py", amountXof: 8000, issueTitle: "Old", createdAt: "2026-10-10T00:00:00Z" }),
+      row({ id: "c", repoFullName: "o/core-py", amountXof: 2000, issueTitle: "New", createdAt: "2026-10-17T00:00:00Z" }),
+    ];
+    const ps = projectSummaries(rows);
+    expect(ps.map((p) => p.repoFullName)).toEqual(["o/core-py", "o/kit-js"]);
+    expect(ps[0]).toMatchObject({ owner: "o", name: "core-py", openCount: 2, claimableCount: 2, totalXof: 10000, languages: ["Python"], latestTitle: "New" });
+    expect(ps[1]).toMatchObject({ openCount: 1, claimableCount: 0 });
+    expect(projectSummaries([])).toEqual([]);
+  });
+
+  it("renders project cards linking to their bounties, and the empty state", () => {
+    const html = renderToStaticMarkup(<ProjectGrid projects={projectSummaries([row({ repoFullName: "o/kit-js" })])} lang="en" base="/app/explore" />);
+    expect(html).toContain("/app/explore?repo=o%2Fkit-js");
+    expect(html).toContain("https://github.com/o.png");
+    expect(html).toContain("1 open bounty");
+    expect(html).toContain("1 to claim");
+    expect(renderToStaticMarkup(<ProjectGrid projects={[]} lang="fr" base="/explore" />)).toContain("Aucun projet");
+  });
+
+  it("reads q and repo from search params", () => {
+    expect(exploreQuery({ q: [" x ", "y"], repo: "o/r" })).toEqual({ q: "x", repo: "o/r" });
+    expect(exploreQuery({})).toEqual({ q: "", repo: "" });
+  });
+});
+
 describe("/app/hunt", () => {
   it("loads the fixture hunter and renders every section", async () => {
     const data = await loadHunt(new Date(NOW));
@@ -135,7 +165,7 @@ describe("/app/hunt", () => {
     expect(data.claims.ok && data.claims.value[0]?.bountyId).toBe("b-103");
     expect(data.forYou.ok && data.forYou.value.matched).toBe(true);
     const html = renderToStaticMarkup(<HuntView data={data} lang="fr" now={NOW} />);
-    for (const s of ['id="claims"', 'id="earnings"', 'id="for-you"', "Mes réservations", "Pour toi", "Activité", "pour passer Argent", 'data-tier="bronze"', "/extend"]) {
+    for (const s of ['id="claims"', 'id="earnings"', 'id="for-you"', "Mes claims", 'data-tour="claims"', 'data-tour="search"', "Rechercher une issue…", "Pour toi", "Activité", "pour passer Argent", 'data-tier="bronze"', "/extend"]) {
       expect(html).toContain(s);
     }
     const en = renderToStaticMarkup(<HuntView data={data} lang="en" now={NOW} />);

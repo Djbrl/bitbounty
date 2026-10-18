@@ -112,6 +112,10 @@ describe("render", () => {
     expect(html).toContain('data-status="claimed"');
     expect(html).toContain("teranga-labs/xof");
     expect(html).not.toContain('data-bounty="b-107"');
+    // Focus: price the backlog first, then funded PRs, stats last.
+    expect(html.indexOf('data-tour="price-backlog"')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('data-tour="price-backlog"')).toBeLessThan(html.indexOf('data-tour="funded-prs"'));
+    expect(html.indexOf('data-tour="funded-prs"')).toBeLessThan(html.indexOf("Held for open bounties"));
   });
 
   it("disables the fund button when nothing is selected", () => {

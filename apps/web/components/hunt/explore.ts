@@ -97,9 +97,59 @@ export function applyExplore(rows: BountySummary[], f: ExploreFilter): BountySum
   );
 }
 
+// ---------------------------------------------------------------------------
+// Explore "mission select": one entry per BitBounty-enabled repo with open bounties.
+
+export interface ProjectSummary {
+  repoFullName: string;
+  owner: string;
+  name: string;
+  /** Open (funded, not paid yet) bounties on this repo. */
+  openCount: number;
+  /** Of those, still free to claim. */
+  claimableCount: number;
+  totalXof: number;
+  languages: string[];
+  /** Newest open issue title, as a hint of what the work looks like. */
+  latestTitle: string;
+}
+
+/** Group open bounties by repo; most claimable money first. */
+export function projectSummaries(rows: BountySummary[]): ProjectSummary[] {
+  const by = new Map<string, BountySummary[]>();
+  for (const b of rows) by.set(b.repoFullName, [...(by.get(b.repoFullName) ?? []), b]);
+  return [...by.entries()]
+    .map(([repoFullName, list]) => {
+      const [owner = "", name = repoFullName] = repoFullName.split("/");
+      const newest = [...list].sort((a, b) => (b.createdAt < a.createdAt ? -1 : b.createdAt > a.createdAt ? 1 : 0))[0]!;
+      return {
+        repoFullName,
+        owner,
+        name,
+        openCount: list.length,
+        claimableCount: list.filter((b) => b.status === "funded").length,
+        totalXof: list.reduce((s, b) => s + b.amountXof, 0),
+        languages: [...new Set(list.flatMap(bountyLanguages))].sort((a, b) => a.localeCompare(b)),
+        latestTitle: newest.issueTitle,
+      };
+    })
+    .sort((a, b) => b.claimableCount - a.claimableCount || b.totalXof - a.totalXof || a.repoFullName.localeCompare(b.repoFullName));
+}
+
 /** "il y a 3 h" / "3 h ago" (coarse, for card footers). */
 export function timeAgo(iso: string, now: number, lang: "fr" | "en"): string {
   const min = Math.max(0, Math.round((now - Date.parse(iso)) / 60_000));
   const v = min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} ${lang === "fr" ? "j" : "d"}`;
   return lang === "fr" ? `il y a ${v}` : `${v} ago`;
+}
+
+// ---------------------------------------------------------------------------
+// /explore and /app/explore search params.
+
+export type ExploreParams = { q?: string | string[]; repo?: string | string[] };
+
+const firstParam = (v: string | string[] | undefined) => ((Array.isArray(v) ? v[0] : v) ?? "").slice(0, 100);
+
+export function exploreQuery(params: ExploreParams): { q: string; repo: string } {
+  return { q: firstParam(params.q).trim(), repo: firstParam(params.repo).trim() };
 }

@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import liveFx from "../../../../fixtures/live.json";
-import { formatXof } from "../ui";
 import { BoardView } from "./board-view";
 import { getBoard, getIssueIndex, getRecentPayouts } from "./data";
 import {
@@ -15,7 +14,6 @@ import {
   openBounties,
   type Board,
   type Live,
-  type PayoutRow,
 } from "./shape";
 
 const live = liveFx as unknown as Live;
@@ -97,30 +95,40 @@ describe("live payouts", () => {
   });
 });
 
-describe("BoardView", () => {
-  const payouts: PayoutRow[] = [
-    { bountyId: "b-107", login: "awa-ndiaye", via: "16 180 sats", repoFullName: "teranga-labs/bitnob-js", issueNumber: 11, amountXof: 10000 },
-  ];
-
-  it("renders hero stats, funded rows, external rows and the live column", async () => {
+describe("BoardView (explore)", () => {
+  it("shows a calm project list: no stat cards, no live column", async () => {
     const board = await getBoard();
-    const html = renderToStaticMarkup(<BoardView board={board} payouts={payouts} issues={{}} lang="en" />);
-    expect(html).toContain(String(board.stats.paidCount));
-    expect(html).toContain(formatXof(board.stats.paidTotalXof));
-    expect(html).toContain(`${board.stats.medianMinutesMergeToPay} min`);
-    expect(html).toContain("Paid issues");
-    expect(html).toContain(board.bounties.find((b) => b.status === "funded")!.issueTitle);
-    expect(html).toContain("Paid in dollars elsewhere");
-    expect(html).toContain("$500");
-    expect(html).toContain("@awa-ndiaye");
-    expect(html).toContain("funded by an agent");
+    const html = renderToStaticMarkup(<BoardView board={board} lang="en" />);
+    expect(html).toContain("Pick a project");
+    expect(html).toContain("teranga-labs");
+    expect(html).toContain("/explore?repo=teranga-labs%2Fbitnob-js");
+    expect(html).not.toContain(`${board.stats.medianMinutesMergeToPay} min`);
+    expect(html).not.toContain("Live payouts");
+    expect(html).not.toContain("Paid in dollars elsewhere");
+    // paid-only repos are not listed
+    expect(html).not.toContain("ngn-kit");
   });
 
-  it("renders the empty states", () => {
+  it("drills into one project's open bounties", async () => {
+    const board = await getBoard();
+    const html = renderToStaticMarkup(<BoardView board={board} lang="en" repo="teranga-labs/bitnob-js" base="/app/explore" inShell />);
+    expect(html).toContain("All projects");
+    expect(html).toContain('href="/app/explore"');
+    const funded = board.bounties.find((b) => b.repoFullName === "teranga-labs/bitnob-js" && b.status === "funded")!;
+    expect(html).toContain(funded.issueTitle);
+    expect(html).not.toContain(board.bounties.find((b) => b.repoFullName === "teranga-labs/xof")!.issueTitle);
+  });
+
+  it("searches issues across projects with q", async () => {
+    const board = await getBoard();
+    const html = renderToStaticMarkup(<BoardView board={board} lang="fr" q="formatXOF" />);
+    expect(html).toContain("Résultats de recherche");
+    expect(html).toContain("formatXOF()");
+  });
+
+  it("renders the empty state", () => {
     const empty: Board = { stats: { paidCount: 0, paidTotalXof: 0, medianMinutesMergeToPay: 0, developersPaid: 0 }, bounties: [], external: [] };
-    const html = renderToStaticMarkup(<BoardView board={empty} payouts={[]} issues={{}} lang="en" />);
-    expect(html).toContain("No funded issues right now");
-    expect(html).toContain("No payouts yet");
-    expect(html).not.toContain("Paid in dollars elsewhere");
+    const html = renderToStaticMarkup(<BoardView board={empty} lang="en" />);
+    expect(html).toContain("No project with open bounties");
   });
 });
