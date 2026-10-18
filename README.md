@@ -1,6 +1,9 @@
 # BitBounty
 
 **Bounties on GitHub issues, paid in sats over Lightning.**
+
+> 👥 **Who built what:** see [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for each member's tasks and the final points tally.
+
 A maintainer puts a price on an issue and funds it in sats (Lightning) or in naira (a Nigerian bank transfer to a Bitnob virtual account). A developer claims it and opens a PR, Claude checks the PR against the issue's acceptance criteria, and the maintainer merges. The developer is then paid in sats to their Lightning Address through [Bitnob](https://bitnob.dev).
 
 Built at **Code & Chain Dakar 2026** (a Bitnob hackathon), 17–18 Oct 2026. **100% of the code was written by AI agents** (see [Built with AI agents](#built-with-ai-agents)). Licensed [MIT](LICENSE).
