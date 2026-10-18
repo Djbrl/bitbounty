@@ -1,8 +1,11 @@
-# Payouts (B6: Lightning)
+# Payouts: Lightning
 
 `PayoutService` pays a bounty **in sats over Lightning** to the developer's Lightning Address
-(e.g. `awa@blink.sv`). It replaced B2's Wave / Orange Money rail: the mentor confirmed mobile money
-payouts won't work. Amounts stay shown in FCFA, paid in sats at the rate we already fetch (B1).
+(e.g. `awa@blink.sv`). Amounts are shown in FCFA and paid in sats at Bitnob's rate.
+
+**Status:** implemented and tested against fakes; testnet by default. No payout has completed end to end:
+the Bitnob sandbox refuses `/lightning/pay` (`403 FEATURE_NOT_ENABLED`, `send_lightning`) and our
+production key is rejected with `401 Invalid HMAC` ([#86](https://github.com/Djbrl/bitbounty/issues/86)).
 
 ```
 bounty verified ─(objection window)→ start()
@@ -24,7 +27,7 @@ const payouts = new PayoutService({
   rates: new BitnobRates(bitnobClient),
   store,                                                // DrizzlePayoutStore when DATABASE_URL is set
   emit: settlement.applyPayoutEvent,                    // the paying-first gate, then the bus
-  getPayee: payeeFromAccounts(readPayoutAccounts()),    // PAYOUT_ACCOUNTS until W4/B7
+  getPayee,                                             // PAYOUT_ACCOUNTS, then the address saved at /welcome or /me
 });
 payouts.register(bitnobDispatcher);   // a Bitnob webhook whose data.reference is pay-<bountyId>-<n>
 await payouts.resume();               // on boot: finish what a crash interrupted
@@ -53,7 +56,7 @@ Emits `payout.started` (each attempt), `payout.succeeded`, `payout.failed` (each
 | the gate refused a start, then the bounty changed claimant or amount | the untouched row (nothing ever sent) follows the new claimant and amount on the next `start()`; a row that was sent never changes recipient |
 | 3 attempts failed | row `failed`, bounty `payout_failed`, money stays reserved for the developer |
 | success seen twice (poll + webhook), `pending` after `paid`, event about an earlier attempt | ignored, `payout.succeeded` emitted once |
-| mobile money rows (seed, pre-B6) | never driven over Lightning (`rail` must be `lightning`); `start()` logs a warning |
+| legacy rows with `rail = mobile_money` | never driven over Lightning; `start()` logs a warning |
 
 Invariants fuzzed over 200 seeds in `test/payouts.test.ts`, with Bitnob idempotent on `reference` and again
 with a Bitnob that refuses a known reference: at most one payment settles per bounty, and attempt n+1's
@@ -66,9 +69,9 @@ preimage never leave the server. `lastError` prefixes (`lnurl unreachable:`, `ln
 payout view (`settlement/status-extras.ts`); the raw error stays in the logs and the payout row.
 
 ## Where to pay
-`PAYOUT_ACCOUNTS='{"awa-dev":"awa@blink.sv"}'` (or `{"awa-dev":{"lightningAddress":"awa@blink.sv"}}`) until
-W4/B7 store accounts. `PayoutAccount.lightningAddress` exists in `@bitbounty/core` and `payout_accounts.lightning_address`
-in the database (migration `0002_b6_lightning_payouts`), with the mobile money columns now optional.
+`PAYOUT_ACCOUNTS='{"awa-dev":"awa@blink.sv"}'` (or `{"awa-dev":{"lightningAddress":"awa@blink.sv"}}`) first,
+then the Lightning Address the developer saved on the web (`payout_accounts.lightning_address`). With neither,
+the payout fails on its first attempt with a `payout account:` reason.
 
 ## Persistence
 `DrizzlePayoutStore` (Postgres, `payouts` table) when `DATABASE_URL` is set: `create` is
@@ -94,12 +97,13 @@ pnpm --filter @bitbounty/server payout:smoke -- --dry-run                 # reso
 pnpm --filter @bitbounty/server payout:smoke -- --dry-run --wrong-amount  # the receiver answers 1 sat more → refused
 pnpm --filter @bitbounty/server payout:smoke                              # pays (sandbox sats), duplicate triggers on purpose
 ```
-**Status (2026-10-18): our sandbox account answers `403 FEATURE_NOT_ENABLED` ("The Lightning withdrawals
-feature is currently not available", `feature_key: send_lightning`) to `/lightning/pay` and `/lightning/preview`.**
-Everything up to the pay call is proven live; the payment itself needs Bitnob to enable `send_lightning`.
+Result: everything up to the pay call works against the sandbox. The pay call itself (and `/lightning/preview`)
+answers `403 FEATURE_NOT_ENABLED` ("The Lightning withdrawals feature is currently not available").
+
 
 ## Live test on production
-`scripts/live-pay.ts` proves B6 on Bitnob **production** with one tiny real payment, run by a human.
+`scripts/live-pay.ts` makes one tiny real payout on Bitnob **production**, run by a human. Not completed yet:
+our production key gets `401 Invalid HMAC` (#86).
 It reads `--env-file` (default: repo-root `.env.prod`, never the dev `.env`):
 
 | Env | |
@@ -113,8 +117,8 @@ pnpm --filter @bitbounty/server live-pay -- --sats 100            # dry run: not
 pnpm --filter @bitbounty/server live-pay -- --xof 50              # FCFA → sats at Bitnob's rate (needs the creds)
 pnpm --filter @bitbounty/server live-pay -- --sats 100 --pay      # the real payment
 ```
-- **Dry run (default)**: resolves the Lightning Address with B6's `HttpLnurlResolver` (network `bitcoin`),
-  requests the real invoice for the exact amount (costs nothing), decodes it with B6's BOLT11 decoder and checks
+- **Dry run (default)**: resolves the Lightning Address with `HttpLnurlResolver` (network `bitcoin`),
+  requests the real invoice for the exact amount (costs nothing), decodes it with our BOLT11 decoder and checks
   amount, network = `bitcoin`, ≥ 120 s before expiry and description hash = sha256(LNURL metadata), then prints the
   summary. With creds it runs `whoami` and prints the environment. A `401` prints why: the client ID and secret
   don't belong together (Bitnob uses the same client ID across environments, only the secret changes; a secret
@@ -122,7 +126,7 @@ pnpm --filter @bitbounty/server live-pay -- --sats 100 --pay      # the real pay
 - `--max-sats` is a hard cap (default `1000`): above it the script refuses before any call.
 - **`--pay`**: the same checks, refused unless `whoami` says `production`, then you must type the exact sats
   amount. It pays that one invoice through `PayoutService` itself (the bounty payout code path: one
-  `POST /api/lightning/pay` with reference `pay-live-test-<timestamp>-1`, B6's own reference format; status
+  `POST /api/lightning/pay` with reference `pay-live-test-<timestamp>-1`, the bounty payout format; status
   reads, at most one idempotent re-send, `maxAttempts: 1` so a confirmed failure is never retried with a new
   invoice), polls for 3 minutes and prints the result. If the outcome is still unknown, check the Bitnob
   dashboard before running `--pay` again.

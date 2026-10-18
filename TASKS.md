@@ -1,5 +1,8 @@
 # Tasks
 
+> This is the task board we worked from during the hackathon (17–18 Oct 2026), kept as written.
+> The final status of each task lives in the [GitHub issues](https://github.com/Djbrl/bitbounty/issues).
+
 17 10 2026. Read with [docs/plan.md](docs/plan.md) (stack, contract, Bitnob calls) and [docs/product.md](docs/product.md).
 Principle: **contract first, then everything is built against mocks and interfaces**, so any task can be picked up without waiting on someone else.
 

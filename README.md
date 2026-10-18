@@ -1,114 +1,93 @@
 # BitBounty
 
-**Bounties on GitHub issues, paid in sats over Lightning.**
+**Bounties on GitHub issues, priced in FCFA, funded through Bitnob, paid in sats over Lightning.**
 
 > 👥 **Who built what:** see [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for each member's tasks and the final points tally.
 
-A maintainer puts a price on an issue and funds it in sats (Lightning) or in naira (a Nigerian bank transfer to a Bitnob virtual account). A developer claims it and opens a PR, Claude checks the PR against the issue's acceptance criteria, and the maintainer merges. The developer is then paid in sats to their Lightning Address through [Bitnob](https://bitnob.dev).
-
-Built at **Code & Chain Dakar 2026** (a Bitnob hackathon), 17–18 Oct 2026. **100% of the code was written by AI agents** (see [Built with AI agents](#built-with-ai-agents)). Licensed [MIT](LICENSE).
+Built at Code & Chain Dakar 2026 (a Bitnob hackathon, 17–18 Oct 2026). All the code was written by AI agents. MIT licence. The team's hackathon agreement is at the end of this file: [Hackathon team rules](#hackathon-team-rules).
 
 | | |
 | --- | --- |
 | Web app | https://bitbounty-app.vercel.app |
-| Landing page | https://bitbounty-nine.vercel.app |
-| Demo repo (bounties live there) | https://github.com/Djbrl/bitbounty-demo |
-| GitHub App (install it on a repo) | https://github.com/apps/bitbounty-dakar |
-| Architecture | [docs/architecture.md](docs/architecture.md) |
-| Run it locally | [docs/setup.md](docs/setup.md) |
+| Demo repo | https://github.com/Djbrl/bitbounty-demo |
+| GitHub App | https://github.com/apps/bitbounty-dakar |
+| Pitch deck | [docs/pitch/BitBounty_v6.pptx](docs/pitch/BitBounty_v6.pptx) |
 
-## Why
-Btrust's mission, in its own words: "Locating, educating, and remunerating Bitcoin Open-Source Engineers in the Global South." BitBounty is a tool for that kind of work: the public board and profiles **locate** developers by their merged, paid work; Claude's criterion-by-criterion review on every PR **educates**; and the payout in sats minutes after the merge **remunerates**, with no PayPal, Stripe or wire transfer. BitBounty is an independent hackathon project, not affiliated with Btrust or Bitnob.
+## What it does
+1. A maintainer comments `/bounty 10000` on an issue of a repo where the GitHub App is installed. The amount is in FCFA, what the developer receives.
+2. They fund it through Bitnob by paying a Lightning invoice in sats. The bot's status comment switches to **Funded**.
+3. A developer comments `/claim`. One active claim per issue, with a timer (`/extend` once, `/unclaim` to release it).
+4. The developer opens a PR that says `Fixes #12`.
+5. Claude checks the PR against the issue's "Done when" criteria and posts the result as a GitHub check. It only advises; it never moves money.
+6. The maintainer merges. The merge is the approval (`/hold` stops the payout, `/pay` forces one).
+7. The developer is paid in sats over Lightning to their Lightning Address: FCFA converted to sats at Bitnob's rate, an invoice for that exact amount requested from their wallet (LNURL-pay), and paid through Bitnob.
 
-## How it works, in 60 seconds
-1. **The maintainer posts a bounty.** On an issue of a repo where the [GitHub App](https://github.com/apps/bitbounty-dakar) is installed, they comment `/bounty 10000` (the amount the developer gets, in FCFA). The bot answers with one status comment that it keeps editing, and a "Fund this bounty" link. "Price my backlog" on the dashboard can also have Claude suggest which issues to fund, with criteria and a price.
-2. **They fund it.** The payment page shows a Lightning invoice in sats (QR code), or a Nigerian bank account number for a naira transfer, converted to BTC on Bitnob. Once Bitnob confirms the payment, the comment switches to **Funded** and the bounty appears on the public board.
-3. **A developer claims it.** They comment `/claim`; the issue is theirs for a limited time (`/extend` once, `/unclaim` to give it back). One active claim per issue, so no race between ten PRs.
-4. **They open a PR** that says `Fixes #12`. The bot links it to the bounty.
-5. **Claude checks it.** A GitHub check, "BitBounty verification", lists each acceptance criterion as met or not, with evidence from the diff. **Claude only advises**: it never moves money.
-6. **The maintainer merges.** The merge is the approval (`/hold` stops a payout, `/pay` forces one).
-7. **The developer is paid in sats** over Lightning to their Lightning Address: BitBounty converts the FCFA amount to sats at Bitnob's rate, asks the developer's wallet for an invoice for that exact amount (LNURL-pay), and Bitnob pays it. The status comment becomes a receipt.
+Also built: "Price my backlog" (Claude suggests which open issues to fund, with criteria and a price), a public board, proof-of-work profiles and receipts, and an API plus MCP server so an AI agent can post bounties within a budget its human owner sets ([docs/agents.md](docs/agents.md)).
 
-Payout status (18 Oct): Lightning payouts are merged ([#102](https://github.com/Djbrl/bitbounty/pull/102)): one pay call per attempt so a bounty is never paid twice, a cap in sats per payout (`MAX_PAYOUT_SATS`), and payouts stored in Postgres so a restart resumes them. Bitnob's sandbox refuses the pay call (`403 FEATURE_NOT_ENABLED`, `send_lightning`: Lightning withdrawals aren't enabled on our sandbox account), so the real payment is being proven on Bitnob production.
-
-Agents can fund bounties too: an AI agent with a `bb_` key and a budget set by its human owner posts bounties through the `/v1` API or the MCP server (`packages/mcp`), see [docs/agents.md](docs/agents.md).
+## Status
+- **Lightning funding** works against the Bitnob sandbox (invoice created, payment simulated, bounty moves to `funded`).
+- **Lightning payouts** are implemented: one pay call per attempt with an idempotent reference, a sats cap per payout (`MAX_PAYOUT_SATS`), payouts stored in Postgres and resumed after a restart. They default to testnet. No payout has completed end to end yet: the sandbox refuses the pay call (`403 FEATURE_NOT_ENABLED`, `send_lightning`) and our production key is rejected with `401 Invalid HMAC` ([#86](https://github.com/Djbrl/bitbounty/issues/86)).
+- **Naira funding** (NGN virtual account, then an NGN→BTC trade) is proven in the Bitnob sandbox only. It is not wired on the live server ([#168](https://github.com/Djbrl/bitbounty/issues/168)); the payment page offers Lightning only.
+- **Cancelling** a funded bounty marks it `refunded`, but no refund transfer is implemented: returning the money is manual.
 
 ## Bitnob APIs used
-Every call goes through our typed client, [`packages/bitnob`](packages/bitnob) (details and sandbox results: [docs/bitnob-api.md](docs/bitnob-api.md)).
+All calls go through our typed client, [`packages/bitnob`](packages/bitnob). Details and sandbox results: [docs/bitnob-api.md](docs/bitnob-api.md).
 
-| What | Bitnob API |
+| What | Endpoints |
 | --- | --- |
-| **HMAC auth** | `x-auth-client` / `x-auth-timestamp` / `x-auth-nonce` / `x-auth-signature` (HMAC-SHA256) on every request, fresh nonce and signature on each retry; `GET /api/whoami` to check the keys and the environment |
-| **Customers** | `POST /api/customers` (a Lightning invoice and a virtual account both need one) |
-| **Lightning invoices** (funding in sats) | `POST /api/lightning/invoices`, then `GET /api/lightning/invoices/:id` polled until paid (Bitnob sends no Lightning webhook) |
-| **Virtual accounts, NGN** (funding in naira) | `POST /api/virtual-accounts` (a dedicated Nigerian account number), `simulate-deposit` in the sandbox, then `POST /api/trading/quotes` + `POST /api/trading/orders` to convert NGN to BTC |
-| **Rates** | `GET /api/exchange-rates` (USDT ↔ FCFA / NGN) and `GET /api/trading/prices` (BTC ↔ USDT): prices the bounty and converts FCFA to sats |
-| **Lightning pay** (payouts) | `POST /api/lightning/pay` with the invoice from the developer's Lightning Address, sent once per attempt with an idempotent `reference`; `POST /api/lightning/decode` to cross-check our invoice decoding |
-| **Webhooks** | `POST /webhooks/bitnob`, checked with `x-bitnob-signature` (HMAC-SHA512 of the raw body), stored once per `event_id`: `virtual_account.deposit.success`, payout events |
+| HMAC auth | `x-auth-client`, `x-auth-timestamp`, `x-auth-nonce`, `x-auth-signature` (HMAC-SHA256), re-signed on each retry; `GET /api/whoami` |
+| Customers | `POST /api/customers` (needed for invoices and virtual accounts) |
+| Lightning funding | `POST /api/lightning/invoices`, `GET /api/lightning/invoices/:id` polled (no Lightning webhook); sandbox `simulate-payment` |
+| Rates | `GET /api/exchange-rates` (USDT ↔ FCFA / NGN), `GET /api/trading/prices` (BTC ↔ USDT) |
+| Lightning payouts | `POST /api/lightning/pay` with an idempotent `reference`; `POST /api/lightning/decode` to cross-check our invoice decoding |
+| Naira funding (sandbox only) | `POST /api/virtual-accounts`, `simulate-deposit`, `POST /api/trading/quotes` + `/orders` (NGN → BTC) |
+| Webhooks | `POST /webhooks/bitnob`, `x-bitnob-signature` (HMAC-SHA512 of the raw body), stored once per `event_id` |
 
-### How the money moves through Bitnob
-Bitnob holds the money between the funding and the payout. GitHub and Claude only decide *when* a bounty may be paid.
+## Architecture
+- pnpm monorepo, TypeScript, Node 22.
+- [`apps/server`](apps/server): Hono server. GitHub App webhooks and commands, funding, settlement after the merge, payouts, the web API (`/api`) and the agent API (`/v1`).
+- [`apps/web`](apps/web): Next.js 15, Tailwind 4, sign in with GitHub (Auth.js). Runs on Vercel.
+- [`packages/core`](packages/core): the bounty state machine, events, types and money helpers. Only `transition()` changes a bounty's status.
+- [`packages/db`](packages/db): Postgres 16 schema, migrations and demo seed (Drizzle).
+- [`packages/bitnob`](packages/bitnob): typed Bitnob client (HMAC signing, retries, typed errors).
+- [`packages/mcp`](packages/mcp): MCP server that lets an AI agent post and track bounties.
+- Claude (`claude-sonnet-5-5` by default) runs the PR verifier and "Price my backlog". The server, Postgres, a smee relay for GitHub webhooks and a Cloudflare tunnel run with Docker Compose.
 
-```mermaid
-flowchart LR
-  funder["Funder"] -- "sats in" --> bitnob[("Bitnob<br/>holds the sats")]
-  bitnob -- "sats out" --> dev["Developer's wallet"]
-  github["GitHub<br/>claim, PR, merge"] --> server["BitBounty server<br/>decides when to pay"]
-  claude["Claude<br/>advice only"] -.-> server
-  server <-- "funded? / pay now" --> bitnob
-```
-
-## Stack
-- **TypeScript everywhere**, pnpm workspaces, Node 22.
-- **Server** (`apps/server`): Hono, GitHub App webhooks and commands (`@octokit/app`), funding, settlement and payouts, the web API and the `/v1` agent API.
-- **Database**: Postgres 16 with Drizzle ORM (`packages/db`).
-- **Web** (`apps/web`): Next.js 15 (App Router), Tailwind 4, Auth.js (sign in with GitHub), on Vercel.
-- **AI**: Anthropic API, `claude-sonnet-5-5` by default for the PR verifier and "Price my backlog".
-- **Agents**: an MCP server (`packages/mcp`, `@modelcontextprotocol/sdk`) so Claude Code can post and track bounties.
-- **Shared contract** (`packages/core`): the bounty state machine, events, commands parser and money helpers.
-- **Hosting**: the server, Postgres, a smee.io relay for GitHub webhooks and a Cloudflare tunnel run with Docker Compose; the web runs on Vercel.
-- **Tests and lint**: vitest, ESLint.
-
-Diagram and the role of each part: [docs/architecture.md](docs/architecture.md).
+Diagram: [docs/architecture.md](docs/architecture.md).
 
 ## Run it locally
 ```sh
-corepack enable
-pnpm install
+corepack enable && pnpm install
 cp .env.example .env
 docker compose up -d db
 pnpm db:migrate && pnpm db:seed
 pnpm dev          # web on http://localhost:3000, server on http://localhost:8787
 ```
-Without any key, the web runs on demo data and the server on its in-memory stores. The full guide (GitHub App, Bitnob sandbox keys, Claude key, Docker, Vercel) is in [docs/setup.md](docs/setup.md).
+Without keys, the web runs on demo data and the server on in-memory stores. GitHub App, Bitnob and Claude keys: [docs/setup.md](docs/setup.md). Checks: `pnpm lint`, `pnpm test`, `pnpm typecheck`.
 
 ## Built with AI agents
-**Every line of code in this repo was written by AI coding agents. No human wrote code.** Humans chose and sized the tasks, wrote the briefs, reviewed, tested, decided, merged, and did the non-code work (pitch, demo, design, talking to mentors). The rule is part of the team agreement below.
-- **Coding agent:** Claude Code, with **Claude Opus 5.5** (`claude-opus-5-5`). Every PR names the agent and model that wrote it, and agent commits carry the `Co-Authored-By: Claude Opus 5.5` trailer.
-- **Models inside the product:** Claude Sonnet 5.5 (`claude-sonnet-5-5`) for the PR verifier and "Price my backlog" (configurable with `VERIFIER_MODEL` / `BACKLOG_MODEL`).
+Every line of code was written by Claude Code (Claude Opus 5.5, `claude-opus-5-5`); no human wrote code. Humans chose and sized the tasks, wrote the briefs, reviewed, tested, merged, and did the pitch and demo. Each PR names the agent and model, and agent commits carry a `Co-Authored-By` trailer.
 
 ## Team
-| GitHub |
-| --- |
-| [@Djbrl](https://github.com/Djbrl) |
-| [@Rabatou](https://github.com/Rabatou) |
-| [@Kml221-bot](https://github.com/Kml221-bot) |
-| [@cheikhteej](https://github.com/cheikhteej) |
+[@Djbrl](https://github.com/Djbrl) · [@Rabatou](https://github.com/Rabatou) · [@Kml221-bot](https://github.com/Kml221-bot) · [@cheikhteej](https://github.com/cheikhteej)
+
+Who built what, and the final points tally: [CONTRIBUTIONS.md](CONTRIBUTIONS.md).
 
 ## Docs
 | | |
 | --- | --- |
-| [docs/architecture.md](docs/architecture.md) | Architecture diagram: GitHub, server, Postgres, Bitnob, Claude, web, MCP |
-| [docs/setup.md](docs/setup.md) | Run locally, commands, the Docker stack, deploy the web to Vercel |
-| [docs/github-app.md](docs/github-app.md) | The GitHub App: permissions, secrets, local webhooks |
-| [docs/bitnob-api.md](docs/bitnob-api.md) | Bitnob API cheat sheet and our sandbox results |
-| [docs/backlog.md](docs/backlog.md) | "Price my backlog": Claude suggests which issues to fund, with criteria and a price |
-| [docs/agents.md](docs/agents.md) | Agents as funders: `bb_` keys, budgets, the `/v1` API and the MCP server for Claude Code |
-| [docs/api.md](docs/api.md) | Web ↔ server API: routes, loading and error states |
-| [docs/auth.md](docs/auth.md) | Sign in with GitHub (Auth.js) |
-| [docs/product.md](docs/product.md) | Product definition, UX flows, edge cases, positioning |
-| [docs/plan.md](docs/plan.md) | The original implementation plan (stack, contract, data model, timeline) |
-| [TASKS.md](TASKS.md) | The hackathon task board: tasks, points, dependencies, definition of done |
+| [docs/setup.md](docs/setup.md) | Run locally, keys, Docker, deploy the web to Vercel |
+| [docs/architecture.md](docs/architecture.md) | Diagram and the role of each part |
+| [docs/bitnob-api.md](docs/bitnob-api.md) | Bitnob API notes, quirks and our sandbox results |
+| [docs/github-app.md](docs/github-app.md) | The GitHub App: permissions, webhooks, commands, the verification check |
+| [docs/api.md](docs/api.md) | Web ↔ server API |
+| [docs/auth.md](docs/auth.md) | Sign in with GitHub |
+| [docs/agents.md](docs/agents.md) | Agents as funders: `bb_` keys, budgets, `/v1` API, MCP server |
+| [docs/backlog.md](docs/backlog.md) | "Price my backlog" |
+| [docs/product.md](docs/product.md) | Product definition and design rules |
+| [docs/plan.md](docs/plan.md) | The pre-event implementation plan (contract, data model, verifier) |
+| [docs/demo/](docs/demo/demo-repo.md) | The demo repo and the agent demo |
+| [TASKS.md](TASKS.md) | The hackathon task board |
 
 ## License
 [MIT](LICENSE), © 2026 BitBounty contributors.

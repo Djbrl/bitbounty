@@ -1,9 +1,6 @@
-# Agent demo: Claude Code funds a bounty on its own (A5)
+# Agent demo: Claude Code funds a bounty on its own
 
-> **Stage target (Sun 11:45):** our own repo `Djbrl/bitbounty`. The key `claude-demo` now allows `Djbrl/bitbounty-demo` and `Djbrl/bitbounty`. Prompt on stage, from a clone of `Djbrl/bitbounty`:
-> *"CodeRabbit flagged issue #140 on Djbrl/bitbounty: the USDT 'Copy amount' fallback selects nothing. Put a 15 000 FCFA bounty on it with BitBounty, using the issue's 'Done when' as the criteria. Check the budget first, then give me the fund link."* Then: *"Also put 10 000 FCFA on #139."* → refused, 5 000 left. Don't post on #140 or #139 before the demo (one bounty per issue, ever). The `bitbounty-demo` scenario below is the fallback.
-
-Demo step 5. Claude Code, working in the demo repo [`Djbrl/bitbounty-demo`](https://github.com/Djbrl/bitbounty-demo), hits a task it can't do well alone: the **Wolof translation (issue 2)** needs a native speaker. Through the BitBounty MCP server it puts a 15 000 FCFA bounty on the issue, inside the budget its human owner set. Then it asks for more than is left and the server refuses.
+Claude Code, working in the demo repo [`Djbrl/bitbounty-demo`](https://github.com/Djbrl/bitbounty-demo), hits a task it can't do well alone: the **Wolof translation (issue 2)** needs a native speaker. Through the BitBounty MCP server it puts a 15 000 FCFA bounty on the issue, inside the budget its human owner set. Then it asks for more than is left and the server refuses.
 
 Nothing is paid by the agent: the bounty starts **unfunded**, and the human owner pays it in sats over Lightning from the fund link. Agent API and MCP server: [docs/agents.md](../agents.md).
 
@@ -11,7 +8,7 @@ Nothing is paid by the agent: the bounty starts **unfunded**, and the human owne
 - **Issue 6** (no bounty) is the one the agent is refused on.
 - The key: **20 000 FCFA a month, 15 000 FCFA max per task, only `Djbrl/bitbounty-demo`**. After the 15 000 FCFA bounty, 5 000 are left, so the 10 000 FCFA ask is refused by the budget.
 
-## 1. Set up (human, once, before the demo)
+## 1. Set up (human, once)
 
 ### 1a. Create the agent key on the server
 On the Mac that runs the Docker stack, in the bitbounty checkout:
@@ -34,7 +31,7 @@ curl -s "$BITBOUNTY_API_URL/v1/budget" -H "authorization: Bearer $BITBOUNTY_AGEN
 ```
 
 ### 1c. Plug the MCP server into Claude Code
-Build it once, then register it, from the laptop used on stage:
+Build it once, then register it:
 ```sh
 corepack pnpm --filter @bitbounty/mcp build
 claude mcp add bitbounty -e BITBOUNTY_API_URL="$BITBOUNTY_API_URL" -e BITBOUNTY_AGENT_KEY="$BITBOUNTY_AGENT_KEY" -- node "$PWD/packages/mcp/dist/index.js"
@@ -54,26 +51,16 @@ Or, to keep the key out of Claude Code's config, put this `.mcp.json` at the roo
   }
 }
 ```
-In Claude Code, `/mcp` must list `bitbounty` as connected with 4 tools. Allow its tools for the session (or answer "yes" on stage).
+In Claude Code, `/mcp` must list `bitbounty` as connected with 4 tools. Allow its tools for the session.
 
 ### 1d. Rehearse
 - **Without touching the live server** (any time, as often as needed): `corepack pnpm --filter @bitbounty/server agent:demo` plays the whole scenario against a throw-away local server (section 3). Every run starts from scratch.
 - **With Claude Code, locally**: run the server with `pnpm dev` and a key of your own in your local `.env` (1a), point 1c at `http://localhost:8787`, and play section 2. To run it again from scratch, restart `pnpm dev` (no `DATABASE_URL`: the bounties live in memory).
 - **On the live server**, issue 2 can only be funded once. Rehearse there on another issue of a scratch repo, not on the demo repo.
 
-## 2. On stage (≤ 45 s)
+## 2. With Claude Code
 
-Claude Code is open in the clone of `Djbrl/bitbounty-demo`, the issue 2 page is open in a browser tab, the board in another.
-
-| Time | Who | What |
-| --- | --- | --- |
-| 0 s | presenter | Types the prompt below into Claude Code |
-| ~5 s | Claude Code | Calls `get_budget`: 20 000 FCFA left, max 15 000 per task, repo allowed |
-| ~10 s | Claude Code | Calls `post_bounty` on issue 2: 15 000 FCFA, the 5 criteria of the issue. Answers with the bounty (`unfunded`) and the fund link |
-| ~15 s | presenter | Switches to the issue 2 tab and reloads: the bot's status comment "15 000 FCFA · Waiting for funding" with the criteria and **Fund this bounty →** |
-| ~25 s | presenter | Types the second prompt |
-| ~30 s | Claude Code | Calls `post_bounty` on issue 6 for 10 000 FCFA: **refused**, `over_budget`, 5 000 left. Claude says so and asks the owner instead of retrying |
-| ~40 s | presenter | "The agent decides, the owner pays." Clicks **Fund this bounty →**: the Lightning invoice (funding is the next demo step, by the human) |
+Claude Code open in a clone of `Djbrl/bitbounty-demo`. Expected: it calls `get_budget`, then `post_bounty` on issue 2 and returns the bounty (`unfunded`) with its fund link; the bot posts its status comment on the issue. On the second prompt it calls `post_bounty` on issue 6 and is refused with `over_budget` (5 000 FCFA left).
 
 The prompt (paste it as is):
 > Issue #2 of this repo asks for a Wolof translation of the messages, approved by a native Wolof speaker. You can't do that well yourself. Use BitBounty to put a 15 000 FCFA bounty on Djbrl/bitbounty-demo issue #2, with the issue's "Done when" list as the criteria, so a developer in Dakar does it. Check the budget first, then give me the fund link.
@@ -88,10 +75,10 @@ What Claude Code answers (wording varies): the bounty id, status `unfunded`, the
 - **Web**: `/pay/<id>` (the fund link) shows the amount and the Lightning invoice to pay; `/b/<id>` the bounty page. The board lists funded bounties, so the agent's bounty appears there once the owner pays it.
 - **Server**: `docker compose logs server` shows nothing special; the bounty is in Postgres with `funder_kind = agent`.
 
-### If something goes wrong on stage
+### Troubleshooting
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `issue_has_bounty` | issue 2 already had a bounty | Say "already funded" and move on, or use the scripted fallback (section 3) |
+| `issue_has_bounty` | issue 2 already had a bounty | use another issue, or the scripted fallback (section 3) |
 | `unauthorized` | wrong key, or the server wasn't recreated after editing `.env` | `docker compose up -d server`, check with the `curl` of 1b |
 | `network_error … BITBOUNTY_API_URL` | tunnel URL changed, or the network blipped | Read the new URL (1b), redo 1c. A blip during `post_bounty` is safe to retry: the server keeps one bounty per issue, so a retry can't create a second one (it answers `issue_has_bounty` if the first one went through) |
 | No comment on GitHub | GitHub App not installed on the repo, or GitHub down | The bounty is still created (the answer carries a warning). Show `/b/<id>` instead |

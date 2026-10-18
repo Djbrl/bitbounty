@@ -1,4 +1,4 @@
-# Sign in with GitHub (W9)
+# Sign in with GitHub
 
 The web app signs people in with GitHub through **Auth.js v5** (`next-auth@5` beta), using the
 existing GitHub App **BitBounty Dakar** as the OAuth provider (GitHub Apps support user OAuth, so
@@ -24,15 +24,15 @@ const user = sessionToUser(await auth()); // { githubId, login, avatarUrl } | nu
 ```
 
 In middleware / route handlers wrapped with `auth(...)`, use `sessionToUser(req.auth)`.
-`id` and `createdAt` of `User` come from our DB once I1 plugs the real API in (look the user up by `githubId`).
+The server trusts this login only when the web also sends `INTERNAL_API_TOKEN` ([api.md](api.md)).
 
 ## Files
 
 | File | Role |
 |---|---|
 | `apps/web/auth.ts` | Auth.js config: GitHub provider, JWT session (7 days), callbacks that store / expose the fields above |
-| `apps/web/app/api/auth/[...nextauth]/route.ts` | Auth.js endpoints. The static `auth` segment wins over the mock catch-all `app/api/[...path]`, so `/api/me`, `/api/dashboard`... keep serving fixtures |
-| `apps/web/middleware.ts` | Redirects signed-out visitors of `/dashboard`, `/me`, `/welcome` and `/app` (U2 app shell) (and sub-paths) to `/signin?callbackUrl=...`. Everything else is public. The landing CTAs (`/`) point at `/welcome?intent=maintain\|hunt`, so they go through GitHub sign-in first (L1) |
+| `apps/web/app/api/auth/[...nextauth]/route.ts` | Auth.js endpoints (the static `auth` segment wins over the `app/api/[...path]` catch-all) |
+| `apps/web/middleware.ts` | Redirects signed-out visitors of `/dashboard`, `/me`, `/welcome` and `/app` (and sub-paths) to `/signin?callbackUrl=...`. Everything else is public |
 | `apps/web/app/signin/page.tsx` | Sign-in page; also shows Auth.js errors (`?error=OAuthCallbackError` when the user refuses on GitHub) |
 | `apps/web/components/auth/` | `SignInButton`, `SignOutButton`, `UserMenu` (server components, no client JS). Drop `<UserMenu />` in any header |
 | `apps/web/lib/auth/session-user.ts` | Pure mapping profile / token / session → `{ githubId, login, avatarUrl }` (tested) |
@@ -56,12 +56,12 @@ Next.js reads env files from `apps/web/`, not the repo root: put these in `apps/
 | `AUTH_GITHUB_SECRET` | a client secret of the GitHub App (see below), never committed |
 | `AUTH_TRUST_HOST` | `true` only when running `next start` yourself (not needed on Vercel or in `next dev`) |
 
-## One-time setup (owner of the GitHub App)
+## One-time setup (GitHub App owner)
 
 1. **Client secret.** https://github.com/settings/apps/bitbounty-dakar → *Client secrets* →
    *Generate a new client secret*. Copy it once into `AUTH_GITHUB_SECRET` (local `.env.local` and Vercel).
-2. **Callback URLs.** Same page → *Callback URL*: keep `http://localhost:3000/api/auth/callback/github`
-   and **add** `https://bitbounty-app.vercel.app/api/auth/callback/github` (GitHub Apps accept several).
+2. **Callback URLs.** Same page → *Callback URL*: `http://localhost:3000/api/auth/callback/github`
+   and `https://bitbounty-app.vercel.app/api/auth/callback/github` (GitHub Apps accept several).
    GitHub refuses any redirect that is not listed, so a dev server on another port needs its own entry.
 3. **Vercel env.** Set `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` for Production (and Preview
    if wanted; previews have other URLs, so add their callback too or sign-in fails there), then redeploy.

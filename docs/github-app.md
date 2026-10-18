@@ -1,145 +1,63 @@
-# GitHub App: setup and local webhooks (F6)
+# GitHub App
 
-The bot is a GitHub App. It receives webhooks at `POST /webhooks/github` on `apps/server`,
-checks the `X-Hub-Signature-256` HMAC, stores each delivery once in the `events` table
-(dedupe on `X-GitHub-Delivery`), then hands it to the dispatcher (G3, G4, A2 plug in there).
+The bot is the GitHub App **BitBounty Dakar** ([github.com/apps/bitbounty-dakar](https://github.com/apps/bitbounty-dakar), public, owner @Djbrl). It receives webhooks at `POST /webhooks/github` on `apps/server`, checks the `X-Hub-Signature-256` HMAC, stores each delivery once in the `events` table (dedupe on `X-GitHub-Delivery`), then dispatches it.
 
-## 1. The app (already registered)
-
+## Registration
 | Field | Value |
-|---|---|
-| Name / slug | BitBounty Dakar / `bitbounty-dakar` (owner @Djbrl) |
+| --- | --- |
 | App ID | `5360174` → `GITHUB_APP_ID` |
-| Client ID | `Iv23liCkNNOVL2DflyZ1` → `GITHUB_CLIENT_ID` |
-| Visibility | Public (any account can install it) |
-| Webhook URL | our smee channel, kept only in `.env` as `WEBHOOK_PROXY_URL` (ask @Djbrl; never commit it: smee has no auth, the URL alone lets anyone read every payload). The Docker `smee` service forwards it to the server, see [setup.md](setup.md). |
-| Callback URLs (OAuth, W9) | `http://localhost:3000/api/auth/callback/github` · to add: `https://bitbounty-app.vercel.app/api/auth/callback/github` (see [auth.md](auth.md)) |
-| Settings page | https://github.com/settings/apps/bitbounty-dakar |
+| Client ID | `Iv23liCkNNOVL2DflyZ1` → `GITHUB_CLIENT_ID`, also `AUTH_GITHUB_ID` for sign-in ([auth.md](auth.md)) |
+| Webhook URL | a smee channel, kept only in `.env` as `WEBHOOK_PROXY_URL`. Never commit it: smee has no auth, so the URL alone lets anyone read every payload (a test checks no channel URL is committed) |
+| Callback URLs | `http://localhost:3000/api/auth/callback/github`, `https://bitbounty-app.vercel.app/api/auth/callback/github` |
 
-**Repository permissions:** Issues read & write · Pull requests read & write · Checks read & write ·
-Contents read-only · Metadata read-only.
+**Repository permissions:** Issues read & write · Pull requests read & write · Checks read & write · Contents read-only · Metadata read-only.
+**Events:** Issue comment · Issues · Pull request · Pull request review · Check suite (installation events are always sent).
 
-**Subscribed events:** Issue comment · Issues · Pull request · Pull request review · Check suite.
-(`installation` / `installation_repositories` events are always sent to GitHub Apps, no checkbox needed.)
+To run your own copy, register a new app at https://github.com/settings/apps/new with these values, then:
+1. Webhook secret: `openssl rand -hex 32`, in the app settings and in `.env` as `GITHUB_WEBHOOK_SECRET`.
+2. Private key: generate one in the app settings and put it in `.env` as `GITHUB_PRIVATE_KEY`, one line with `\n` or base64.
+3. Install the app on a test repo.
 
-If you ever need to register a new one: https://github.com/settings/apps/new with the values above,
-"Where can this GitHub App be installed?" = Any account.
-
-## 2. Remaining manual steps (owner only, secrets never committed)
-
-1. **Webhook secret.** Generate one: `openssl rand -hex 32`. Paste it in the app settings → *Webhook secret*
-   → Save. Put the same value in your local `.env` (and the server's `.env`) as `GITHUB_WEBHOOK_SECRET`.
-   Share it with the team over a private channel, not in the repo.
-2. **Private key.** App settings → *Private keys* → *Generate a private key* (downloads a `.pem`).
-   Put it in `.env` as `GITHUB_PRIVATE_KEY`, either one line with `\n`:
-   `awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' bitbounty-dakar.*.pem`
-   or base64: `base64 -i bitbounty-dakar.*.pem | tr -d '\n'`. Both forms are accepted.
-3. **Install on the demo repo.** https://github.com/apps/bitbounty-dakar/installations/new →
-   pick the demo repo (only select repositories). Installing sends an `installation` event.
-
-## 3. Receive webhooks locally (smee)
-
-```bash
-cp .env.example .env            # then fill GITHUB_WEBHOOK_SECRET (+ GITHUB_PRIVATE_KEY)
-pnpm install                    # at the repo root
-
-# terminal 1: the receiver (in-memory store, logs each event)
-pnpm --filter @bitbounty/server dev:webhook   # → http://localhost:3001/webhooks/github
-
-# terminal 2: forward smee → local
-export "$(grep '^WEBHOOK_PROXY_URL=' .env)"   # our channel, kept in .env, never in git
-npx smee-client --url "$WEBHOOK_PROXY_URL" --target http://localhost:3001/webhooks/github
+## Receive webhooks locally
+```sh
+npx smee-client --url "$WEBHOOK_PROXY_URL" --target http://localhost:8787/webhooks/github
 ```
+Or, for a receiver that only logs events (in-memory store, port 3001): `pnpm --filter @bitbounty/server dev:webhook`. Only one person should forward a shared channel at a time, or each delivery is processed several times.
 
-The main server (`apps/server/src/app.ts`) mounts `githubWebhookRoutes(...)` with `DrizzleEventStore`
-when `DATABASE_URL` is set, so rows land in the Postgres `events` table; point `--target` at that server's port instead.
+Check: comment `/bounty 10000` on an issue; the event is stored once (`select id, type, action, repo, status from events order by id desc limit 5;`). Redelivering it from the app's *Advanced* tab answers `{"ok":true,"duplicate":true}`. A forged signature gets `401`.
 
-Note: only one person should run the smee client against the shared channel at a time, or
-each delivery gets processed by several laptops.
+A handler that throws marks the event `failed` and returns 500, so GitHub's redelivery retries it; a `processed` event is never re-run.
 
-## 4. Check it works (the F6 "done when")
+## Comment commands (`src/github/wiring/`)
+Active only when `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY` and `GITHUB_WEBHOOK_SECRET` are set.
 
-1. Comment `/bounty 10000` on an issue of the repo where the app is installed.
-2. Terminal 1 prints `[github] #1 issue_comment.created <owner>/<repo> inst=<id> delivery=<uuid> "/bounty 10000"`.
-   With Postgres: `select id, type, action, repo, status from events order by id desc limit 5;` shows it once.
-3. App settings → *Advanced* → *Recent Deliveries* → *Redeliver* the same delivery: response is
-   `{"ok":true,"duplicate":true}` and nothing new is stored.
-4. Forged payload: `curl -X POST localhost:3001/webhooks/github -H 'X-GitHub-Event: issue_comment' -H 'X-GitHub-Delivery: x' -H 'X-Hub-Signature-256: sha256=00' -d '{}'` → `401`.
+| Command | Who | Effect |
+| --- | --- | --- |
+| `/bounty <FCFA>` | write access | creates the bounty (`unfunded`) and the status comment with a fund link |
+| `/claim`, `/unclaim` | anyone | takes or releases the issue (one active claim, `CLAIM_TTL_MINUTES`, default 72 h) |
+| `/extend` | claimant or maintainer | pushes the deadline back by one claim length, once |
+| `/pay [@user]`, `/hold`, `/reject` | write access | approve a payout, stop it, or reopen the bounty for a new claimant |
+| `/cancel` | write access | before any PR: `cancelled` if unfunded, `refunded` if funded (no money is moved automatically) |
+| `/funded` | write access, sandbox keys only | settles the open Lightning invoice with Bitnob's `simulate-payment` |
 
-## 5. For G3 / G4 / A2: plugging in
+The author's real repo permission is read from GitHub, so an org member with write access counts as a maintainer. Every status change goes through `transition()` with a compare-and-set save. The bot keeps **one status comment** per issue, edited in place, plus one `bounty: <status>` label and a `💰 <amount> FCFA` label. Errors get a short `@user …` reply. `/criteria` is parsed but not implemented (it replies so). Env: `WEB_BASE_URL` (links), `BOT_LANG` (`en` | `fr`), optional `GITHUB_BOT_LOGIN`.
 
-```ts
-import { GithubDispatcher, githubWebhookRoutes, createGithubApp } from "./github/index.js";
-import { DrizzleEventStore } from "./github/index.js";  // events table from @bitbounty/db
-
-const gh = createGithubApp();                       // reads GITHUB_APP_ID / _PRIVATE_KEY / _WEBHOOK_SECRET
-const dispatcher = new GithubDispatcher()
-  .on("issue_comment.created", async (e) => { /* G3: parse command */ })
-  .on("pull_request", async (e) => { /* G4: opened/synchronize/closed; A2: check run */ });
-app.route("/", githubWebhookRoutes({ secret: process.env.GITHUB_WEBHOOK_SECRET!, store: new DrizzleEventStore(db), dispatcher }));
-
-// inside a handler, act as the bot on that installation:
-const octokit = await gh.getInstallationOctokit(e.installationId!);
-```
-
-Handler keys: `"*"`, `"<event>"` or `"<event>.<action>"`. A handler that throws marks the event
-`failed` and returns 500, so GitHub's redelivery retries it; a `processed` event is never re-run.
-Keep handlers quick (enqueue to pg-boss for slow work): GitHub times out after 10 s.
-
-## 6. PR detection and merge (G4)
-
-`apps/server/src/github/pr/` registers on `githubDispatcher` for `pull_request` and publishes on
-`eventBus` (exported from `app.ts`; in-memory until pg-boss, same `publish`/`subscribe` interface).
-
+## PR detection and merge (`src/github/pr/`)
 | Webhook | Effect |
-|---|---|
-| `opened` / `edited` / `synchronize` / `reopened`, body or title says `Fixes #n` (or closes/resolves, `owner/repo#n`, full issue URL) | if the bounty on #n is `claimed`/`submitted` and the PR author is the claimant → bounty `submitted`, `pr.linked` (new head sha on each push, verdict reset) |
-| same, PR author isn't the claimant | no link; polite comment on the PR (on `opened`/`reopened` only) |
-| same, bounty `funded` but unclaimed | no link; comment pointing to `/claim` |
-| same, bounty `unfunded` / no bounty / cross-repo ref | ignored |
-| `closed` + `merged` on the linked PR | `pr.merged` with `mergeSha`, `authorLogin`, `mergedByLogin`, `ciGreen` (check runs + statuses on the head sha, our own check excluded) |
-| `closed` + `merged`, not linked (no `Fixes #n`, or by a non-claimant) | comment on the issue: "Is PR #34 the fix for #12? `/pay @awa`" |
-| `closed` without merge | nothing; reopening relinks |
+| --- | --- |
+| PR opened / edited / pushed / reopened with `Fixes #n` (or closes / resolves, `owner/repo#n`, full issue URL), author is the claimant | bounty `submitted`, `pr.linked` (verdict reset on each push) |
+| same, author isn't the claimant | not linked; polite comment on the PR |
+| same, bounty funded but unclaimed | not linked; comment pointing to `/claim` |
+| linked PR merged | `pr.merged` with merge sha, author, merger and whether CI is green (our own check excluded) |
+| merged without a link | comment on the issue: "Is PR #34 the fix for #12? `/pay @awa`" |
 
-Refs inside code, fenced blocks and HTML comments (PR templates) are ignored. One keyword per
-issue, like GitHub: `Fixes #1, fixes #2` links both, `Fixes #1, #2` only #1. Bounty lookups go
-through `BountyRepo` (in-memory until F3). Comments use the App installation when
-`GITHUB_APP_ID`/`GITHUB_PRIVATE_KEY` are set, otherwise they are logged.
+References inside code blocks and HTML comments are ignored.
 
-## 7. Comment commands (G3)
+## Verification check run (`src/ai/check-run/`)
+On PR opened / pushed / reopened, when the PR closes an issue with a live bounty:
+1. creates the check **"BitBounty verification"** `in_progress` on the head sha;
+2. after answering the webhook (GitHub's 10 s limit), fetches the diff and CI status and runs the verifier against the issue's criteria (its "Done when" list when none are stored);
+3. completes it: `pass` → success, `fail` → failure, `unsure` → neutral, listing each criterion with evidence and saying a human decides;
+4. publishes `verify.done`.
 
-`apps/server/src/github/wiring/` registers `issue_comment.created` on `githubDispatcher` (only when
-`GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY` and `GITHUB_WEBHOOK_SECRET` are set):
-
-1. Comments by bots, or without a command line, are dropped before any API call.
-2. The author's real repo permission is read (`GET /repos/{o}/{r}/collaborators/{u}/permission`)
-   and passed to `parseCommand` (G1), so an org member with write access counts as a maintainer.
-3. `/bounty` → `createBounty`; `/claim /unclaim /pay /hold /reject /cancel` → `transition()` (F2); `/funded` (sandbox keys only) → Bitnob simulate-payment on the funding invoice, then the normal `funding.paid` path.
-   The bounty is saved with a compare-and-set on its status (`BountyRepo.update`, in
-   `apps/server/src/bounties/repo.ts`, shared with G4) and the event goes on `eventBus`.
-4. The status comment (G2) is edited in place: by `statusCommentId`, else found by its marker in a
-   bot comment, else posted. The issue keeps exactly one `bounty: <status>` label plus `💰 <amount> FCFA`.
-5. Parser and transition errors get a short `@user …` reply quoting the error. `/bounty` and `/claim`
-   on a closed issue, commands on a PR, and `/extend` / `/criteria` (not wired yet) also get a reply.
-
-Env: `WEB_BASE_URL` (links in the comment), `BOT_LANG` (`en`|`fr`), optional `GITHUB_BOT_LOGIN`.
-All GitHub writes go through `GithubWriter` (`FakeGithubWriter` in tests).
-
-## 7. Verification check run (A2)
-
-`apps/server/src/ai/check-run/` registers on `githubDispatcher` for `pull_request.opened` /
-`synchronize` / `reopened`. If the PR closes (`Fixes #n`) an issue whose bounty is
-`funded`/`claimed`/`submitted`/`verified` (looked up in G4's `BountyRepo`):
-
-1. creates a check run **"BitBounty verification"** `in_progress` on the head sha (inside the webhook);
-2. after answering the webhook (GitHub's 10 s limit), fetches the PR diff (`application/vnd.github.diff`)
-   and CI (check runs + statuses, our own check excluded) and calls A1's `verify()`;
-3. completes it: `pass` → success, `fail` → failure, `unsure` → neutral, with a summary listing each
-   criterion and its evidence, and saying it is advice: a human maintainer decides;
-4. publishes `verify.done` on the shared `eventBus`.
-
-A newer push makes older runs finish as `skipped` ("Superseded") with no verdict and no `verify.done`.
-Verifier down, diff unreadable (GitHub 406 on huge PRs) or any crash → `neutral`, never a false failure.
-The verifier is Claude when `ANTHROPIC_API_KEY` is set, else A1's offline heuristic fake (the check says so).
-Disabled when the GitHub App env is missing. Demo switch until F3 stores bounties:
-`CHECK_RUN_DEMO_LOOKUP=issue` treats any issue a PR closes as funded, criteria from its "Done when".
+A newer push marks older runs `skipped`. Verifier down, diff unreadable or any crash → `neutral`, never a false failure. The verifier is Claude when `ANTHROPIC_API_KEY` is set, else an offline heuristic (the check says so). `CHECK_RUN_DEMO_LOOKUP=issue` is a demo switch that treats any linked issue as funded.

@@ -1,6 +1,6 @@
-# Web components (U0 design system)
+# Web components: the design system
 
-One design system, taken from the landing (`Djbrl/bitbounty-landing`, `styles.css`). Every page builds on it: import from `@/components/ui`, never hard-code hex colours or fonts. Live catalogue, light and dark side by side: **`/dev/ui`** (`pnpm --filter @bitbounty/web dev -p 3100`, then http://localhost:3100/dev/ui; `/dev` redirects there).
+One design system, taken from the original landing page (`Djbrl/bitbounty-landing`). Every page builds on it: import from `@/components/ui`, never hard-code hex colours or fonts. Live catalogue, light and dark side by side: **`/dev/ui`** (`pnpm --filter @bitbounty/web dev -p 3100`, then http://localhost:3100/dev/ui; `/dev` redirects there).
 
 Components are server components unless noted; wrap them in your own client component when you need state.
 
@@ -8,7 +8,7 @@ Components are server components unless noted; wrap them in your own client comp
 
 Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@theme inline`. Use the utilities (`bg-paper`, `text-ink`, `border-rule`…) and dark mode comes for free.
 
-- **Light everywhere** (U6): the app no longer follows the OS dark mode. Green (`money`) = primary actions, success, money; purple (`agent`, `claim`) = secondary accent (claim/PR states, focus rings, highlights). The dark palette only applies under `data-theme="dark"` on an element (`/live`, the dark panel of `/dev/ui`). Give a themed subtree `bg-paper text-ink`.
+- **Light everywhere:** the app no longer follows the OS dark mode. Green (`money`) = primary actions, success, money; purple (`agent`, `claim`) = secondary accent (claim/PR states, focus rings, highlights). The dark palette only applies under `data-theme="dark"` on an element (`/live`, the dark panel of `/dev/ui`). Give a themed subtree `bg-paper text-ink`.
 - **Dark palette** = the landing's dark band: ink page, deep-green (`#13291F`, landing ink-2) cards, line-dark hairlines, mint secondary text.
 - Hex values only appear in `globals.css` and in fixed mockup colours (PhoneFrame bezel/notification, Avatar initials backgrounds).
 
@@ -31,8 +31,8 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | `pending`, `pending-soft` | (amber, text-safe) | `#855800` / `#F2B440` | on hold, warnings |
 | `claim`, `claim-soft` | purple | `#7444D4` on `#F1EBFD` (light) | a developer is on it, PR submitted |
 | `danger`, `danger-soft` | (app only) | red | payout failed, errors |
-| `agent`, `agent-soft`, `agent-strong` | purple | `#8250DF` / `#B392F0` | AI accents (verdict box, agent budget bar). U8: the **agent-funded pill** (`Pill tone="agent"`) is a neutral `chip` + `ink` label with 🤖, so it never looks like the purple claimed pill |
-| `tier-bronze/silver/gold` | | darker in light for 3:1 | Avatar tier rings (U3) |
+| `agent`, `agent-soft`, `agent-strong` | purple | `#8250DF` / `#B392F0` | AI accents (verdict box, agent budget bar). The **agent-funded pill** (`Pill tone="agent"`) is a neutral `chip` + `ink` label with 🤖, so it never looks like the purple claimed pill |
+| `tier-bronze/silver/gold` | | darker in light for 3:1 | Avatar tier rings |
 | `forest`, `on-forest` | ink | `#0B1F17` / `#F4F5F1` (constant) | always-dark surfaces: /live (also forces `data-theme="dark"`), toasts (in dark mode they sit on a same-colour page, outlined by `line-dark`) |
 | `on-solid` | | white / ink | text on a solid `money`/`danger`/`claim` fill |
 | `rounded-[var(--radius-card)]` / `--radius-card-lg` | | 16 px / 22 px | card radius (lg = landing `.card`) |
@@ -57,7 +57,7 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | `ProgressSteps` | `steps: {label, done?, at?}[]`, `current?: number`, `label?` | Numbered steps joined by a rail, ✓ when done, green ring on `current`. Onboarding 1·2·3, bounty lifecycle |
 | `EmptyState` | `title`, children (body), `action?`, `icon?`, `align?: "start" \| "center"` | Dashed "nothing here yet" box |
 | `Skeleton` | `className` (size/shape) | Pulsing placeholder, hidden from screen readers, static with reduced motion |
-| `LoadingState`, `ErrorState` | `label?` / `title?`, `message`, `action?` | Route-level loading and error screens (I1) |
+| `LoadingState`, `ErrorState` | `label?` / `title?`, `message`, `action?` | Route-level loading and error screens |
 | `Toast` | `tone?: "info" \| "success" \| "error"`, `title`, children, `action?`, `onClose?` | Dark notification card (landing `.notif`), `role="alert"` for errors |
 | `ToastProvider` / `useToast()` | `toast({ tone, title, children, action, duration? })` | Client. Provider is mounted in `app/layout.tsx` (polite live region); call `useToast()` from any client component. `duration` ms, default 5000, 0 = sticky; 3 visible max |
 | `Page` | `nav?: AppNavProps`, `width?: "narrow" \| "default" \| "wide"` | Page container, 16 px gutter on phones, optional top nav |
@@ -77,8 +77,8 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 |---|---|---|---|---|
 | unfunded | amber | solid amber (landing tag) | Awaiting funds | En attente de fonds |
 | funded | money | soft green | Funded | Financé |
-| claimed | claim | soft blue | Claimed | Réservé |
-| submitted | claim-solid | solid blue | PR submitted | PR soumise |
+| claimed | claim | soft purple | Claimed | Réservé |
+| submitted | claim-solid | solid purple | PR submitted | PR soumise |
 | verified | bright | bright green (landing ticks), pale green in dark | Verified | Vérifié |
 | paying | ink | ink pill | Paying out | Paiement en cours |
 | paid | money-solid | solid green | Paid | Payé |

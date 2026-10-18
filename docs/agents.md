@@ -1,4 +1,4 @@
-# Agents as funders (A4)
+# Agents as funders
 
 An AI agent can put a bounty on a GitHub issue when it hits work that needs a human (Wolof, a test on a real phone in Dakar, a real-world check). It uses a `bb_...` key and stays inside the budget its **human owner** set. The bounty starts **unfunded**: the owner pays it from the returned `fund_url`. The merge is still done by a human maintainer.
 
