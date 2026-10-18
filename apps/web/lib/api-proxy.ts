@@ -4,6 +4,22 @@ import { sessionLogin } from './session-login';
 
 export const SSE_HEADERS = { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive' };
 
+const isDotSegment = (s: string) => s === '' || s === '.' || s === '..';
+
+/** True if a segment is empty or a dot segment, as given or after (double) percent-decoding. */
+function badSegment(seg: string): boolean {
+  let cur = seg;
+  for (let i = 0; i < 3; i++) {
+    if (isDotSegment(cur)) return true;
+    try {
+      cur = decodeURIComponent(cur);
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Forwards to the server. Path segments are re-encoded so `..` or `?` can't escape `/api/`. */
 export async function proxy(
   req: Request,
@@ -13,6 +29,7 @@ export async function proxy(
   user?: string | null,
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
+  if (path.some(badSegment)) return Response.json({ error: 'bad_path' }, { status: 400 });
   const target = `${base}/api/${path.map(encodeURIComponent).join('/')}${url.search}`;
   const isLive = path[0] === 'live';
   const login = user === undefined ? await sessionLogin() : user;
