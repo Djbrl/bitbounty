@@ -36,14 +36,25 @@ describe("tokens", () => {
     }
   });
 
-  it("redefines the same tokens for dark mode, both from the OS and from data-theme", () => {
-    const light = [...css.matchAll(/^\s+--bb-([\w-]+):/gm)].map((m) => m[1]);
-    const media = css.slice(css.indexOf("@media (prefers-color-scheme: dark)"), css.indexOf('[data-theme="dark"] {'));
+  it("is light whatever the OS says; dark only under data-theme (live projector)", () => {
+    expect(css).not.toContain("prefers-color-scheme");
+    const light = [...css.slice(0, css.indexOf('[data-theme="dark"] {')).matchAll(/^\s+--bb-([\w-]+):/gm)].map((m) => m[1]);
     const forced = css.slice(css.indexOf('[data-theme="dark"] {'), css.indexOf("@theme inline {"));
     const names = (block: string) => [...block.matchAll(/--bb-([\w-]+):/g)].map((m) => m[1]).sort();
-    expect(names(media)).toEqual(names(forced));
-    expect(names(media).length).toBeGreaterThan(15);
-    for (const n of names(media)) expect(light).toContain(n);
+    expect(names(forced).length).toBeGreaterThan(15);
+    for (const n of names(forced)) expect(light).toContain(n);
+  });
+
+  it("uses purple for claim/PR states and focus rings, green stays the primary", () => {
+    expect(css).toContain("--bb-claim: #7444d4;");
+    expect(css).toMatch(/:focus-visible \{\s+outline: 2px solid var\(--bb-agent\)/);
+  });
+
+  it("keeps Verified (bright) and Paid (money-solid) apart in dark mode", () => {
+    const forced = css.slice(css.indexOf('[data-theme="dark"] {'), css.indexOf("@theme inline {"));
+    const value = (name: string) => forced.match(new RegExp(`--bb-${name}: (#[0-9a-f]{6});`))?.[1];
+    expect(value("bright")).toBeDefined();
+    expect(value("bright")).not.toBe(value("money"));
   });
 });
 
@@ -67,6 +78,12 @@ describe("Chip", () => {
   it("is a toggle button with aria-pressed when selected is set", () => {
     expect(html(<Chip selected>All</Chip>)).toMatch(/^<button type="button" aria-pressed="true"[^>]*bg-ink text-paper/);
     expect(html(<Chip selected={false}>Go</Chip>)).toContain('aria-pressed="false"');
+  });
+
+  it("is a plain button, not a toggle, with only onClick", () => {
+    const out = html(<Chip onClick={() => {}}>Clear</Chip>);
+    expect(out.startsWith("<button")).toBe(true);
+    expect(out).not.toContain("aria-pressed");
   });
 });
 

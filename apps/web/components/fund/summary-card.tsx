@@ -13,7 +13,7 @@ export function SummaryCard({ bounty, session, sats }: SummaryCardProps) {
   const { lines, total } = summaryLines(session, sats);
   return (
     <Card as="section" padding="lg" className="grid gap-3" aria-label="Order summary">
-      <span className="break-words font-mono text-xs uppercase text-muted">
+      <span className="break-words font-mono text-xs text-muted">
         {bounty.repoFullName} #{bounty.issueNumber}
       </span>
       <b className="text-[15px] leading-snug">{bounty.issueTitle}</b>
@@ -37,11 +37,7 @@ export function SummaryCard({ bounty, session, sats }: SummaryCardProps) {
         </li>
         <li className="flex gap-2">
           <span aria-hidden>↩︎</span>Refunded if nobody claims or the issue is closed.
-        </li>
-        <li className="flex gap-2">
-          <span aria-hidden>🧾</span>Every payment and payout gets a public reference.
-        </li>
-      </ul>
+        </li>      </ul>
     </Card>
   );
 }

@@ -17,10 +17,7 @@ export function ExploreGrid({ bounties, lang, now, q = "" }: { bounties: BountyS
 
   return (
     <div className="grid min-w-0 content-start gap-4">
-      <div className="grid gap-0.5">
-        <h2 className="text-[1.6rem] font-extrabold tracking-tight">{t.paidIssues}</h2>
-        <p className="text-[13px] text-muted">{t.paidIssuesSub}</p>
-      </div>
+      <h2 className="text-[1.6rem] font-extrabold tracking-tight">{t.paidIssues}</h2>
 
       {bounties.length > 0 ? (
         <div role="group" aria-label={t.filters} className="grid gap-3">
@@ -47,9 +44,9 @@ export function ExploreGrid({ bounties, lang, now, q = "" }: { bounties: BountyS
                 ))}
               </select>
             </label>
-            <label className="grid min-w-0 flex-1 gap-1 text-[12px] text-muted sm:max-w-64">
+            <label className="grid min-w-0 flex-1 basis-full gap-1 text-[12px] text-muted sm:basis-auto sm:max-w-64">
               {t.search}
-              <input type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} className={SELECT} />
+              <input type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} className={`${SELECT} w-full min-w-0`} />
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-1.5" aria-label={t.amount} role="group">

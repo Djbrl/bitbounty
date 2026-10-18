@@ -35,6 +35,7 @@ export interface AmountProps {
   size?: "sm" | "md" | "lg" | "xl";
   /** Money green (landed money). */
   money?: boolean;
+  /** On the big number when it is alone, on the two-line wrapper when a second currency is shown. */
   className?: string;
 }
 

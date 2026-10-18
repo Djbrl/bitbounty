@@ -27,3 +27,6 @@ export function StatusPill({ status, lang = "en", size = "md", className }: Stat
     </Pill>
   );
 }
+
+/** @deprecated W1 name, kept so open branches keep compiling. Use StatusPill. */
+export const StatusBadge = StatusPill;

@@ -34,17 +34,18 @@ export const TONES: readonly Tone[] = [
 
 /** Background + text (+ border for outline), readable in light and dark. */
 export const TONE_PILL: Record<Tone, string> = {
-  neutral: "bg-chip text-muted",
+  neutral: "bg-chip text-ink-soft",
   outline: "border border-rule text-muted",
   money: "bg-money-soft text-money",
   "money-solid": "bg-money text-on-solid",
-  bright: "bg-money-bright text-forest",
+  bright: "bg-bright text-forest",
   pending: "bg-pending-soft text-pending",
   amber: "bg-amber text-on-amber",
   claim: "bg-claim-soft text-claim",
   "claim-solid": "bg-claim text-on-solid",
   danger: "bg-danger-soft text-danger",
-  agent: "bg-agent-soft text-agent",
+  // U8: agent-funded is a neutral ink chip, so it never reads as the purple "claimed" pill.
+  agent: "bg-chip text-ink",
   ink: "bg-ink text-paper",
 };
 
@@ -54,13 +55,13 @@ export const TONE_DOT: Record<Tone, string> = {
   outline: "bg-muted",
   money: "bg-money",
   "money-solid": "bg-money",
-  bright: "bg-money-bright",
+  bright: "bg-bright",
   pending: "bg-pending",
   amber: "bg-amber",
   claim: "bg-claim",
   "claim-solid": "bg-claim",
   danger: "bg-danger",
-  agent: "bg-agent",
+  agent: "bg-ink",
   ink: "bg-ink",
 };
 

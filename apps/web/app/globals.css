@@ -7,9 +7,11 @@
  * utility follows the theme without `dark:` variants.
  * Landing name → token: paper → paper, white → sheet, ink → ink, ink-2 → ink-2, text-2 → ink-soft,
  * muted → muted, line-dark → line-dark, mint → mint, green → money, green-bright → money-bright,
- * amber → amber, purple → agent, chip → chip. Dark mode is the landing's dark band (ink background).
- * Dark mode: follows the OS, or force it with data-theme="dark|light" on <html> or on any element
- * (the /dev/ui page renders a light and a dark panel side by side this way).
+ * amber → amber, purple → agent, chip → chip.
+ * U6: the app is light everywhere, whatever the OS dark-mode setting. Green (money) is for
+ * primary actions, success and money; purple (agent, claim) is the secondary accent: claim/PR states,
+ * focus rings, highlights. The dark palette (the landing's dark band) only applies under data-theme="dark",
+ * set on an element: /live (projector) and the dark panel of /dev/ui.
  */
 :root,
 [data-theme="light"] {
@@ -28,52 +30,28 @@
   --bb-money-strong: #0e5a32;
   --bb-money-soft: #e9f5ee;
   --bb-money-bright: #3cc77e;
+  --bb-bright: #3cc77e;
   --bb-amber: #f2a007;
   --bb-on-amber: #2b1a00;
   --bb-pending: #855800;
   --bb-pending-soft: #fdf1d6;
-  --bb-claim: #2a62d6;
-  --bb-claim-soft: #e4edff;
-  --bb-danger: #c2412d;
+  /* Claim / PR states use the purple accent (agent-strong shade: 5.1:1 on claim-soft, AA). */
+  --bb-claim: #7444d4;
+  --bb-claim-soft: #f1ebfd;
+  --bb-danger: #b13a26;
   --bb-danger-soft: #fde6e1;
   --bb-agent: #8250df;
   --bb-agent-soft: #f1ebfd;
+  --bb-agent-strong: #7444d4;
 
   --bb-tier-bronze: #c2662d;
-  --bb-tier-silver: #8e9a94;
-  --bb-tier-gold: #f2a007;
+  --bb-tier-silver: #7a8781;
+  --bb-tier-gold: #b07000;
 
   --bb-forest: #0b1f17;
   --bb-on-forest: #f4f5f1;
   --bb-on-solid: #ffffff;
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bb-paper: #0b1f17;
-    --bb-sheet: #13291f;
-    --bb-ink: #f4f5f1;
-    --bb-ink-2: #1a3528;
-    --bb-ink-soft: #cfe2d7;
-    --bb-muted: #9dc4ae;
-    --bb-rule: #2b4b3b;
-    --bb-chip: #1f3a2d;
-    --bb-money: #3cc77e;
-    --bb-money-strong: #6ad99c;
-    --bb-money-soft: #133a28;
-    --bb-pending: #f2b440;
-    --bb-pending-soft: #3a2c0b;
-    --bb-claim: #82a8ff;
-    --bb-claim-soft: #172a4a;
-    --bb-danger: #ff8a73;
-    --bb-danger-soft: #45201a;
-    --bb-agent: #b392f0;
-    --bb-agent-soft: #2c2044;
-    --bb-tier-silver: #b9c4be;
-    --bb-on-solid: #0b1f17;
-    color-scheme: dark;
-  }
 }
 
 [data-theme="dark"] {
@@ -88,6 +66,7 @@
   --bb-money: #3cc77e;
   --bb-money-strong: #6ad99c;
   --bb-money-soft: #133a28;
+  --bb-bright: #a7e8c4;
   --bb-pending: #f2b440;
   --bb-pending-soft: #3a2c0b;
   --bb-claim: #82a8ff;
@@ -96,7 +75,9 @@
   --bb-danger-soft: #45201a;
   --bb-agent: #b392f0;
   --bb-agent-soft: #2c2044;
+  --bb-agent-strong: #b392f0;
   --bb-tier-silver: #b9c4be;
+  --bb-tier-gold: #f2a007;
   --bb-on-solid: #0b1f17;
   color-scheme: dark;
 }
@@ -116,6 +97,7 @@
   --color-money-strong: var(--bb-money-strong);
   --color-money-soft: var(--bb-money-soft);
   --color-money-bright: var(--bb-money-bright);
+  --color-bright: var(--bb-bright);
   --color-amber: var(--bb-amber);
   --color-on-amber: var(--bb-on-amber);
   --color-pending: var(--bb-pending);
@@ -126,6 +108,7 @@
   --color-danger-soft: var(--bb-danger-soft);
   --color-agent: var(--bb-agent);
   --color-agent-soft: var(--bb-agent-soft);
+  --color-agent-strong: var(--bb-agent-strong);
   --color-tier-bronze: var(--bb-tier-bronze);
   --color-tier-silver: var(--bb-tier-silver);
   --color-tier-gold: var(--bb-tier-gold);
@@ -171,7 +154,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--bb-money);
+    outline: 2px solid var(--bb-agent);
     outline-offset: 3px;
   }
 }

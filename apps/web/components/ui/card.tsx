@@ -51,17 +51,3 @@ export function StatCard({ label, value, sub, money = false, emphasis = false, c
     </Card>
   );
 }
-
-export interface EyebrowProps {
-  children: ReactNode;
-  className?: string;
-}
-
-/** Small mono uppercase label above a heading. */
-export function Eyebrow({ children, className }: EyebrowProps) {
-  return (
-    <span className={cx("font-mono text-[0.74rem] font-medium uppercase tracking-[0.08em] text-muted", className)}>
-      {children}
-    </span>
-  );
-}

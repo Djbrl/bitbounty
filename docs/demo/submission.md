@@ -47,7 +47,7 @@ TypeScript monorepo: Next.js (Vercel), Hono server, Postgres + Drizzle, GitHub A
 - App: https://bitbounty-app.vercel.app
 - Landing: https://bitbounty-nine.vercel.app
 - Code: https://github.com/Djbrl/bitbounty
-- Demo repo: https://github.com/Djbrl/bitbounty-demo
+- Demo repo: https://github.com/Djbrl/bitbounty (our own repo: its CodeRabbit issues are the demo backlog) · fallback https://github.com/Djbrl/bitbounty-demo
 - GitHub App: https://github.com/apps/bitbounty-dakar
 - Video: **[fill]**
 - Deck: **[fill: shared link]**

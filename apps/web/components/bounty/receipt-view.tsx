@@ -64,7 +64,7 @@ export function ReceiptView({ r }: { r: Receipt }) {
           >
             {r.signature}
           </dd>
-          <dd className="text-[11.5px] text-muted">Empreinte SHA-256 du reçu : la moindre modification la change.</dd>
+          <dd className="text-[11.5px] text-muted">Empreinte SHA-256 du reçu.</dd>
         </div>
       </dl>
 

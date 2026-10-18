@@ -57,7 +57,7 @@ describe("/welcome in fixtures mode", () => {
 
   it("step 1: the three role cards, the landing intent pre-selected", async () => {
     const html = await render({ intent: "maintain" });
-    expect(html).toContain("ÉTAPE 1 / 3");
+    expect(html).toMatch(/<h1[^>]*>Bienvenue @awa-ndiaye. Choisissez votre rôle<\/h1>/);
     expect(html).toContain("Bienvenue @awa-ndiaye");
     expect(html).toMatch(/aria-checked="true"[^>]*data-role="maintain"/);
     expect(html).toContain("Les deux");
@@ -68,7 +68,7 @@ describe("/welcome in fixtures mode", () => {
   it("resumes at the saved step after a reload", async () => {
     post("me/onboarding", { preferences: { role: "both", step: 2 } });
     const html = await render();
-    expect(html).toContain("ÉTAPE 2 / 3");
+    expect(html).toMatch(/<h1[^>]*>Vos préférences<\/h1>/);
     // Hunter part: GitHub languages pre-selected, currency and language.
     expect(html).toMatch(/aria-pressed="true"[^>]*>TypeScript/);
     expect(html).toContain("Naira (₦)");
@@ -93,7 +93,7 @@ describe("/welcome in fixtures mode", () => {
   it("an onboarded user goes straight to /app", async () => {
     post("me/onboarding", { done: true });
     await expect(render()).rejects.toMatchObject({ digest: expect.stringContaining(";/app;") });
-    expect(await render({ again: "1" })).toContain("ÉTAPE");
+    expect(await render({ again: "1" })).toContain('aria-current="step"');
   });
 
   it("the loader returns the mock state, with GitHub languages", async () => {

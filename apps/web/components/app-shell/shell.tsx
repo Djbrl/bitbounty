@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Avatar, Mark, cx } from "../ui";
+import { Avatar, Mark, buttonClass, cx } from "../ui";
 import { greeting, INSTALL_URL, modeOfPath, navFor, shellText, type IconName, type Lang, type ShellNavItem, type UserMode } from "./mode";
 
 export interface ShellUser {
@@ -90,7 +90,7 @@ export function ModeSwitch({
       value={mode}
       aria-pressed={current === mode}
       className={cx(
-        "flex-1 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-money",
+        "flex-1 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agent",
         current === mode ? "bg-ink text-paper" : "text-ink-soft hover:text-ink",
       )}
     >
@@ -152,7 +152,7 @@ function AvatarMenu({ user, lang, canMaintain, authOn, switchMode, mode }: Omit<
         aria-controls={menuId}
         aria-label={t.menu}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full p-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-money"
+        className="flex items-center gap-2 rounded-full p-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agent"
       >
         <Avatar initials={(user.name ?? user.login ?? "?").slice(0, 1).toUpperCase()} src={user.avatarUrl} size="sm" />
       </button>
@@ -164,10 +164,7 @@ function AvatarMenu({ user, lang, canMaintain, authOn, switchMode, mode }: Omit<
               <span className="font-mono text-xs text-muted">@{user.login}</span>
             </div>
           ) : null}
-          <div className="grid gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-muted">{t.workspace}</span>
-            <ModeSwitch current={mode} canMaintain={canMaintain} lang={lang} switchMode={switchMode} />
-          </div>
+          <ModeSwitch current={mode} canMaintain={canMaintain} lang={lang} switchMode={switchMode} />
           <div className="grid gap-1 border-t border-rule pt-2 text-sm">
             <Link href="/me" className="rounded-md px-2 py-1.5 hover:bg-chip">
               {t.settings}
@@ -212,7 +209,7 @@ export function AppShell(props: AppShellProps) {
                     href={item.href}
                     aria-current={current ? "page" : undefined}
                     className={cx(
-                      "flex items-center gap-3 rounded-xl px-3 py-2 text-[14px] text-ink-soft hover:bg-chip hover:text-ink focus-visible:outline-2 focus-visible:outline-money",
+                      "flex items-center gap-3 rounded-xl px-3 py-2 text-[14px] text-ink-soft hover:bg-chip hover:text-ink focus-visible:outline-2 focus-visible:outline-agent",
                       current && "bg-chip font-semibold text-ink",
                     )}
                   >
@@ -247,10 +244,14 @@ export function AppShell(props: AppShellProps) {
               type="search"
               name="q"
               placeholder={t.search}
-              className="w-56 rounded-full border border-rule bg-sheet px-4 py-1.5 text-sm placeholder:text-muted focus-visible:outline-2 focus-visible:outline-money lg:w-72"
+              className="w-56 rounded-full border border-rule bg-sheet px-4 py-1.5 text-sm placeholder:text-muted focus-visible:outline-2 focus-visible:outline-agent lg:w-72"
             />
           </form>
-          <div className="ml-auto sm:ml-0">
+          {/* U6: the header's two CTAs. Pages under /app are signed in, so the account menu stands in for "Se connecter". */}
+          <div className="ml-auto flex items-center gap-2 sm:ml-0">
+            <a href={INSTALL_URL} target="_blank" rel="noopener noreferrer" className={buttonClass({ size: "sm", className: "whitespace-nowrap" })}>
+              {t.install}
+            </a>
             <AvatarMenu {...props} mode={mode} />
           </div>
         </header>
@@ -269,7 +270,7 @@ export function AppShell(props: AppShellProps) {
                   href={item.href}
                   aria-current={current ? "page" : undefined}
                   className={cx(
-                    "flex flex-col items-center gap-0.5 px-1 py-2 text-[10.5px] leading-tight text-muted focus-visible:outline-2 focus-visible:outline-money",
+                    "flex flex-col items-center gap-0.5 px-1 py-2 text-[10.5px] leading-tight text-muted focus-visible:outline-2 focus-visible:outline-agent",
                     current && "font-semibold text-ink",
                   )}
                 >

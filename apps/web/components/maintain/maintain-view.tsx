@@ -77,7 +77,7 @@ export function MaintainView({ data, lang, decide, suggest }: MaintainViewProps)
       </Section>
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-6">
-        <Section id="repos" title={t.repos} description={t.reposDesc} actions={install}>
+        <Section id="repos" title={t.repos} actions={install}>
           {data.repos.length ? (
             <Card padding="none">
               <ul className="divide-y divide-rule text-sm">
@@ -106,7 +106,7 @@ export function MaintainView({ data, lang, decide, suggest }: MaintainViewProps)
         </Section>
       </div>
 
-      <Section id="payouts" title={t.payouts} description={t.payoutsDesc}>
+      <Section id="payouts" title={t.payouts}>
         {data.payouts.length ? (
           <Card padding="none">
             <ul className="divide-y divide-rule text-sm">
@@ -132,7 +132,7 @@ export function MaintainView({ data, lang, decide, suggest }: MaintainViewProps)
                     </span>
                     {p.receiptId ? (
                       <Link href={`/r/${encodeURIComponent(p.receiptId)}`} className={buttonClass({ variant: "ghost", size: "sm" })}>
-                        {t.receipt} →
+                        {t.receipt}
                       </Link>
                     ) : null}
                   </div>

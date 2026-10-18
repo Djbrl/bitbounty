@@ -12,7 +12,7 @@ checks the `X-Hub-Signature-256` HMAC, stores each delivery once in the `events`
 | App ID | `5360174` → `GITHUB_APP_ID` |
 | Client ID | `Iv23liCkNNOVL2DflyZ1` → `GITHUB_CLIENT_ID` |
 | Visibility | Public (any account can install it) |
-| Webhook URL | `https://smee.io/gk8M8VuUD4ZMaO7A` → `WEBHOOK_PROXY_URL` (the Docker `smee` service forwards it to the server, see [setup.md](setup.md)) |
+| Webhook URL | our smee channel, kept only in `.env` as `WEBHOOK_PROXY_URL` (ask @Djbrl; never commit it: smee has no auth, the URL alone lets anyone read every payload). The Docker `smee` service forwards it to the server, see [setup.md](setup.md). |
 | Callback URLs (OAuth, W9) | `http://localhost:3000/api/auth/callback/github` · to add: `https://bitbounty-app.vercel.app/api/auth/callback/github` (see [auth.md](auth.md)) |
 | Settings page | https://github.com/settings/apps/bitbounty-dakar |
 
@@ -47,7 +47,8 @@ pnpm install                    # at the repo root
 pnpm --filter @bitbounty/server dev:webhook   # → http://localhost:3001/webhooks/github
 
 # terminal 2: forward smee → local
-npx smee-client --url https://smee.io/gk8M8VuUD4ZMaO7A --target http://localhost:3001/webhooks/github
+export "$(grep '^WEBHOOK_PROXY_URL=' .env)"   # our channel, kept in .env, never in git
+npx smee-client --url "$WEBHOOK_PROXY_URL" --target http://localhost:3001/webhooks/github
 ```
 
 The main server (`apps/server/src/app.ts`) mounts `githubWebhookRoutes(...)` with `DrizzleEventStore`

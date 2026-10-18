@@ -12,6 +12,14 @@ if (!baseUrl || !agentKey) {
   process.exit(1);
 }
 
-const server = createBitbountyServer(new BitbountyApi({ baseUrl, agentKey }));
+let api: BitbountyApi;
+try {
+  api = new BitbountyApi({ baseUrl, agentKey });
+} catch (err) {
+  console.error(`bitbounty-mcp: ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+}
+
+const server = createBitbountyServer(api);
 await server.connect(new StdioServerTransport());
 console.error(`bitbounty-mcp: connected (API ${baseUrl})`);

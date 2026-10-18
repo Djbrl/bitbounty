@@ -1,7 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { BitbountyApi } from "./api.js";
+import { BitbountyApi, assertSafeBaseUrl } from "./api.js";
 import { createBitbountyServer } from "./server.js";
 
 interface Seen {
@@ -34,7 +34,7 @@ afterEach(async () => {
 });
 
 async function connect(fetchImpl: typeof fetch) {
-  const api = new BitbountyApi({ baseUrl: "http://api.test/", agentKey: "bb_test", fetchImpl });
+  const api = new BitbountyApi({ baseUrl: "https://api.test/", agentKey: "bb_test", fetchImpl });
   const server = createBitbountyServer(api);
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   client = new Client({ name: "test", version: "1.0.0" });
@@ -64,7 +64,7 @@ describe("bitbounty MCP server", () => {
     expect(text(res)).toContain("https://w/pay/b1");
     expect(seen[0]).toEqual({
       method: "POST",
-      url: "http://api.test/v1/bounties",
+      url: "https://api.test/v1/bounties",
       auth: "Bearer bb_test",
       body: { repo: "galsen-oss/wolof-i18n", issue_number: 12, amount_xof: 10_000, criteria: ["Wolof strings added"] },
     });
@@ -103,9 +103,9 @@ describe("bitbounty MCP server", () => {
     await c.callTool({ name: "cancel_bounty", arguments: { id: "b1", reason: "done in-house" } });
     await c.callTool({ name: "get_budget", arguments: {} });
     expect(seen.map((s) => `${s.method} ${s.url}`)).toEqual([
-      "GET http://api.test/v1/bounties/b%2F..%2F1",
-      "DELETE http://api.test/v1/bounties/b1",
-      "GET http://api.test/v1/budget",
+      "GET https://api.test/v1/bounties/b%2F..%2F1",
+      "DELETE https://api.test/v1/bounties/b1",
+      "GET https://api.test/v1/budget",
     ]);
     expect(seen[1]!.body).toEqual({ reason: "done in-house" });
   });
@@ -118,5 +118,50 @@ describe("bitbounty MCP server", () => {
     const res = await c.callTool({ name: "get_budget", arguments: {} });
     expect(res.isError).toBe(true);
     expect(text(res)).toMatch(/network_error[\s\S]*BITBOUNTY_API_URL/);
+  });
+});
+
+describe("BITBOUNTY_API_URL safety (the agent key is a bearer token)", () => {
+  it.each([
+    "https://api.example.com",
+    "https://xxxx.trycloudflare.com/",
+    "http://localhost:8787",
+    "http://127.0.0.1:8787/",
+    "http://[::1]:8787",
+    "HTTP://LOCALHOST:8787",
+  ])("accepts %s", (baseUrl) => {
+    expect(() => assertSafeBaseUrl(baseUrl)).not.toThrow();
+  });
+
+  it.each([
+    "http://api.example.com",
+    "http://192.168.1.10:8787",
+    "http://localhost.evil.com",
+    "http://localhost@evil.com",
+    "http://127.0.0.1.evil.com",
+    "ftp://localhost",
+    "ws://localhost:8787",
+    "localhost:8787",
+    "not a url",
+    "",
+  ])("rejects %s", (baseUrl) => {
+    expect(() => assertSafeBaseUrl(baseUrl)).toThrow(/BITBOUNTY_API_URL/);
+  });
+
+  it("refuses to build a client for plain http on a public host, so the key is never sent", () => {
+    const { impl, seen } = fakeFetch(() => ({ status: 200, body: {} }));
+    expect(() => new BitbountyApi({ baseUrl: "http://api.example.com", agentKey: "bb_secret", fetchImpl: impl })).toThrow(/https/);
+    expect(seen).toHaveLength(0);
+  });
+
+  it("does not echo the key or credentials in the error", () => {
+    expect(() => assertSafeBaseUrl("http://user:pass@api.example.com")).toThrow(/http:\/\/api\.example\.com$/);
+  });
+
+  it("still talks to a local http server with the key", async () => {
+    const { impl, seen } = fakeFetch(() => ({ status: 200, body: { remaining_xof: 1 } }));
+    const res = await new BitbountyApi({ baseUrl: "http://localhost:8787/", agentKey: "bb_test", fetchImpl: impl }).getBudget();
+    expect(res.ok).toBe(true);
+    expect(seen[0]).toMatchObject({ url: "http://localhost:8787/v1/budget", auth: "Bearer bb_test" });
   });
 });

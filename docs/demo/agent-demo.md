@@ -1,5 +1,8 @@
 # Agent demo: Claude Code funds a bounty on its own (A5)
 
+> **Stage target (Sun 11:45):** our own repo `Djbrl/bitbounty`. The key `claude-demo` now allows `Djbrl/bitbounty-demo` and `Djbrl/bitbounty`. Prompt on stage, from a clone of `Djbrl/bitbounty`:
+> *"CodeRabbit flagged issue #140 on Djbrl/bitbounty: the USDT 'Copy amount' fallback selects nothing. Put a 15 000 FCFA bounty on it with BitBounty, using the issue's 'Done when' as the criteria. Check the budget first, then give me the fund link."* Then: *"Also put 10 000 FCFA on #139."* → refused, 5 000 left. Don't post on #140 or #139 before the demo (one bounty per issue, ever). The `bitbounty-demo` scenario below is the fallback.
+
 Demo step 5. Claude Code, working in the demo repo [`Djbrl/bitbounty-demo`](https://github.com/Djbrl/bitbounty-demo), hits a task it can't do well alone: the **Wolof translation (issue 2)** needs a native speaker. Through the BitBounty MCP server it puts a 15 000 FCFA bounty on the issue, inside the budget its human owner set. Then it asks for more than is left and the server refuses.
 
 Nothing is paid by the agent: the bounty starts **unfunded**, and the human owner pays it in sats over Lightning from the fund link. Agent API and MCP server: [docs/agents.md](../agents.md).

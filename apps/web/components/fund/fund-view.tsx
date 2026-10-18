@@ -223,9 +223,7 @@ function RailPanel({ session, now }: { session: FundingSession; now: number }) {
       <Card padding="lg" className="grid gap-4">
         <div className="grid gap-1">
           <span className="font-display text-[1.7rem] font-extrabold leading-tight tabular-nums">{sourceAmount(session)}</span>
-          <span className="text-sm text-muted">
-            Bank transfer to your own account number: deposits are matched to this bounty automatically.
-          </span>
+          <span className="text-sm text-muted">Transfer this amount to the account below. It is matched to this bounty automatically.</span>
         </div>
         <dl className="grid gap-3 text-sm sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-x-5">
           <dt className="text-muted">Bank</dt>
@@ -309,20 +307,19 @@ function FundedPanel({ bounty, outcome }: { bounty: FundBounty; outcome: FundOut
       <span className="grid size-12 place-items-center rounded-full bg-money text-2xl text-on-solid" aria-hidden>
         ✓
       </span>
-      <b className="font-display text-[1.7rem] font-extrabold leading-tight text-money">Funded</b>
       <p className="text-sm text-muted">
         {formatXof(bounty.amountXof)} is held by Bitnob for {issue}.{" "}
         {outcome === "open" ? (
           <>
-            The bot updates the status comment on the issue; anyone can now <span className="font-mono text-ink">/claim</span> it.
+            Developers can now <span className="font-mono text-ink">/claim</span> it on GitHub.
           </>
         ) : (
-          "Someone is already working on it: follow the progress on the bounty page."
+          "Someone is already working on it. Follow it on the bounty page."
         )}
       </p>
       <div className="flex flex-wrap gap-2">
         <Link href={`/b/${bounty.id}`} className={buttonClass({ size: "sm" })}>
-          View the bounty
+          View bounty
         </Link>
         <Link href="/dashboard" className={buttonClass({ variant: "secondary", size: "sm" })}>
           Back to dashboard

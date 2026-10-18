@@ -163,7 +163,7 @@ describe("fund page", () => {
 
   it("renders the funded state for a funded bounty", () => {
     const html = renderToStaticMarkup(<FundView bounty={getFundBounty("b-102")!} />);
-    expect(html).toContain("Funded");
+    expect(html).toContain("Bounty funded");
     expect(html).not.toContain('role="tab"');
     expect(html).toContain('data-pay-state="paid"');
   });
@@ -171,7 +171,7 @@ describe("fund page", () => {
   describe("only claims what is true for each status (CR6)", () => {
     const render = (status: BountyStatus) =>
       sp(renderToStaticMarkup(<FundView bounty={{ ...getFundBounty("b-102")!, status }} />));
-    const CLAIM = "anyone can now";
+    const CLAIM = "Developers can now";
 
     it("maps every status to an outcome", () => {
       const expected: Record<BountyStatus, FundOutcome> = {

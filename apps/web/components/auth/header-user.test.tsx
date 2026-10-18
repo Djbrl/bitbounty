@@ -23,11 +23,15 @@ describe("header sign-in", () => {
     expect(await loadHeaderSession(vi.fn(async () => Response.json({ user, expires: "x" })))).toEqual({ kind: "in", user });
   });
 
-  it("renders nothing when off or loading, a sign-in link when out, the user when in", () => {
-    expect(renderToStaticMarkup(<HeaderUserView session={null} />)).toBe("");
-    expect(renderToStaticMarkup(<HeaderUserView session={{ kind: "off" }} />)).toBe("");
+  it("holds the place while loading, Se connecter when out or off, the user when in", () => {
+    const loading = renderToStaticMarkup(<HeaderUserView session={null} />);
+    expect(loading).toContain('aria-hidden="true"');
+    expect(loading).toContain("invisible");
+    expect(loading).not.toContain("<a");
+    expect(renderToStaticMarkup(<HeaderUserView session={{ kind: "off" }} />)).toContain('href="/signin?callbackUrl=%2F"');
     const out = renderToStaticMarkup(<HeaderUserView session={{ kind: "out" }} path="/pay/b-101?batch=a,b" />);
-    expect(out).toContain("Sign in with GitHub");
+    expect(out).toContain(">Se connecter</a>");
+    expect(out).toContain("border-rule"); // secondary pill
     expect(out).toContain(`href="/signin?callbackUrl=%2Fpay%2Fb-101%3Fbatch%3Da%2Cb"`);
     const signedIn = renderToStaticMarkup(
       <HeaderUserView session={{ kind: "in", user: { githubId: 1, login: "awa-ndiaye", avatarUrl: null } }} />,
@@ -47,6 +51,21 @@ describe("header sign-in", () => {
       </Page>,
     );
     expect(html).toContain("Board");
-    expect(html).not.toContain("Sign in");
+    expect(html).not.toContain('href="/signin');
+  });
+
+  it("Page's header has exactly two CTAs: Installer sur GitHub (primary, new tab), then Se connecter", () => {
+    const html = renderToStaticMarkup(
+      <Page nav={{ items: [{ href: "/explore", label: "Board" }], initials: "AN", right: <HeaderUserView session={{ kind: "out" }} /> }}>
+        <p>hi</p>
+      </Page>,
+    );
+    const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+    const pills = [...header.matchAll(/<a [^>]*rounded-full[^>]*>([^<]*)<\/a>/g)];
+    expect(pills.map((m) => m[1])).toEqual(["Installer sur GitHub", "Se connecter"]);
+    expect(pills[0]![0]).toContain('href="https://github.com/apps/bitbounty-dakar"');
+    expect(pills[0]![0]).toContain('target="_blank"');
+    expect(pills[0]![0]).toContain("bg-money");
+    expect(header).not.toContain(">AN<"); // no stand-in avatar next to the CTAs
   });
 });

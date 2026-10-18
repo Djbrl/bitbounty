@@ -32,7 +32,9 @@ export function BountyCard({ b, lang, now }: { b: BountySummary; lang: Lang; now
         {langs.map((l) => (
           <Tag key={l}>{l}</Tag>
         ))}
-        {b.funderKind === "agent" ? <Tag className="bg-agent-soft text-agent">🤖 {t.byAgent}</Tag> : null}
+        {b.funderKind === "agent" ? <Tag className="font-semibold text-ink">
+            <span aria-hidden>🤖</span> {t.byAgent}
+          </Tag> : null}
         {displayLabels(b).map((l) => (
           <Tag key={l}>{l}</Tag>
         ))}
