@@ -9,6 +9,11 @@ export interface FunderCustomers {
   customerId(funderId: string, identity?: Partial<CreateCustomerInput>): Promise<string>;
 }
 
+/** Funder ids look like `github:Djbrl`; Bitnob refuses a `:` in an email ("Email must be a valid email address"). */
+export function safePart(id: string): string {
+  return id.replace(/[^A-Za-z0-9._-]/g, "-");
+}
+
 export class BitnobFunderCustomers implements FunderCustomers {
   private ids = new Map<string, Promise<string>>();
   /** B4: funders with a KYC'd customer (naira accounts need one; a Lightning-only customer has just an email). */
@@ -17,7 +22,7 @@ export class BitnobFunderCustomers implements FunderCustomers {
   constructor(
     private client: Pick<BitnobClient, "createCustomer">,
     /** Placeholder emails until funders sign in with a real one (W9). */
-    private emailFor: (funderId: string) => string = (id) => `funder-${id}@bitbounty.invalid`,
+    private emailFor: (funderId: string) => string = (id) => `funder-${safePart(id)}@bitbounty.invalid`,
   ) {}
 
   customerId(funderId: string, identity: Partial<CreateCustomerInput> = {}) {
@@ -30,7 +35,7 @@ export class BitnobFunderCustomers implements FunderCustomers {
         .createCustomer({
           email: this.emailFor(funderId),
           customer_type: "individual",
-          reference: `funder-${funderId}`,
+          reference: `funder-${safePart(funderId)}`,
           ...identity,
         })
         .then((c) => c.id);
@@ -46,7 +51,7 @@ export class BitnobFunderCustomers implements FunderCustomers {
       // Already have an email-only customer: Bitnob may refuse the same email/reference twice.
       const upgrade = this.ids.has(funderId);
       const email = upgrade ? this.emailFor(funderId).replace("@", "+kyc@") : this.emailFor(funderId);
-      const reference = upgrade ? `funder-${funderId}-kyc` : `funder-${funderId}`;
+      const reference = upgrade ? `funder-${safePart(funderId)}-kyc` : `funder-${safePart(funderId)}`;
       id = this.client
         .createCustomer({ email, customer_type: "individual", reference, ...identity })
         .then((c) => c.id);
