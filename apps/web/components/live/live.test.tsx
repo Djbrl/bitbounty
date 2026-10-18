@@ -142,7 +142,7 @@ describe("live render", () => {
     for (const c of fx.cards) expect(html).toContain(`data-card="${c.bountyId}"`);
     expect(html).toContain(formatXof(10_000));
     expect(html).toContain(`₦${formatXof(29_000).replace(/\s*F$/, "")}<`);
-    expect(html).toContain("Lagos → Dakar");
+    expect(html).toContain("bank transfer · Lagos");
   });
 
   it("serves the page from fixtures with ?speed", async () => {

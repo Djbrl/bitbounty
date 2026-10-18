@@ -130,7 +130,6 @@ function ConnectionPill({ conn }: { conn: LiveConnection }) {
     >
       <i aria-hidden className={cx("inline-block size-2.5 shrink-0 animate-pulse rounded-full", live ? "bg-money-bright" : "bg-pending")} />
       {live ? "Live" : conn === "connecting" ? "Connecting…" : "Reconnecting…"}
-      <span className="text-muted/80 normal-case tracking-normal">· Code &amp; Chain Dakar</span>
     </span>
   );
 }
@@ -201,7 +200,6 @@ function RoutePanel({ route, stage }: { route: LiveRoute; stage: 0 | 1 | 2 }) {
   ];
   return (
     <div className="grid gap-3 rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(12px,1vw,20px)]">
-      <span className="font-mono text-[clamp(0.75rem,0.8vw,1rem)] font-medium uppercase tracking-[0.08em] text-muted">Lagos → Dakar</span>
       <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-2">
         {nodes.map((n, i) => (
           <RouteNode key={n.small} big={n.big} small={n.small} on={i <= stage} seg={i < nodes.length - 1} segOn={i < stage} />
@@ -262,7 +260,6 @@ function PayoutToast({ toast }: { toast: Toast }) {
         styles.toast,
       )}
     >
-      <span className="font-mono text-[clamp(0.75rem,0.85vw,1.05rem)] uppercase tracking-[0.08em] text-money-bright">Payout sent</span>
       <b className="font-display text-[clamp(2rem,3.4vw,4.4rem)] font-extrabold leading-none tabular-nums text-money-bright">
         +{formatXof(card.amountXof)}
       </b>

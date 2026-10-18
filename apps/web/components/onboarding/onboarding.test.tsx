@@ -74,7 +74,7 @@ describe("<Onboarding /> and /me", () => {
 
   it("asks for a Lightning Address when there is none, never for a phone number", () => {
     const page = html("new");
-    expect(page).toContain("Où veux-tu être payé ?");
+    expect(page).toContain("Ajoute ta Lightning Address");
     expect(page).toContain("@awa-ndiaye");
     expect(page).toContain('placeholder="toi@blink.sv"');
     expect(page).toContain("Vérifier et enregistrer");
@@ -92,7 +92,7 @@ describe("<Onboarding /> and /me", () => {
 
   it("serves /me with ?state= and falls back to the default state", async () => {
     const page = async (state?: string) => renderToStaticMarkup(await MePage({ searchParams: Promise.resolve({ state }) }));
-    expect(await page("new")).toContain("Où veux-tu être payé ?");
+    expect(await page("new")).toContain("Ajoute ta Lightning Address");
     expect(await page("bogus")).toContain("aw***@blink.sv");
   });
 });

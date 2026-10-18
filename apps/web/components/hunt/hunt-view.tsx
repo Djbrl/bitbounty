@@ -202,7 +202,7 @@ function ForYouSection({ data, t, lang, now }: { data: HuntData; t: HuntText; la
       description={desc}
       actions={
         <Link href="/explore" className={buttonClass({ size: "sm", variant: "ghost" })}>
-          {t.seeAll} →
+          {t.seeAll}
         </Link>
       }
     >

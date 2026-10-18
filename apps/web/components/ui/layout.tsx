@@ -80,7 +80,6 @@ export function Page({ children, nav, width = "default", className }: PageProps)
 }
 
 export interface SectionProps {
-  eyebrow?: ReactNode;
   title?: ReactNode;
   description?: ReactNode;
   /** Right-aligned slot next to the heading (buttons). */
@@ -89,16 +88,13 @@ export interface SectionProps {
   id?: string;
 }
 
-/** Heading block (eyebrow, h2, muted description, actions) + content. */
-export function Section({ eyebrow, title, description, actions, children, id }: SectionProps) {
+/** Heading block (h2, muted description, actions) + content. */
+export function Section({ title, description, actions, children, id }: SectionProps) {
   return (
     <section id={id} className="grid min-w-0 gap-4">
-      {(eyebrow || title || description || actions) && (
+      {(title || description || actions) && (
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="grid gap-1.5">
-            {eyebrow && (
-              <span className="font-mono text-[0.74rem] font-medium uppercase tracking-[0.08em] text-muted">{eyebrow}</span>
-            )}
             {title && <h2 className="text-[clamp(1.4rem,3vw,2rem)] font-extrabold tracking-tight">{title}</h2>}
             {description && <p className="max-w-[68ch] text-muted">{description}</p>}
           </div>

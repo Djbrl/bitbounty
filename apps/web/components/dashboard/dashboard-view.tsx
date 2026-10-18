@@ -43,7 +43,7 @@ export function DashboardContent({ data }: { data: DashboardData }) {
           value={formatXof(stats.spentXof)}
           sub={`${plural(stats.paidCount, "merged PR")} · budget ${formatXof(stats.budgetXof)}`}
         />
-        <StatCard label="Median merge → paid" value={`${stats.medianMinutesMergeToPay} min`} sub="in sats, straight to a Lightning Address" />
+        <StatCard label="Median merge → paid" value={`${stats.medianMinutesMergeToPay} min`} />
       </div>
 
       <Section
@@ -58,7 +58,7 @@ export function DashboardContent({ data }: { data: DashboardData }) {
                 in <b className="text-ink">{backlogRepos.join(", ")}</b>
               </>
             )}{" "}
-            and suggests {backlog.length}. The rest are too vague or need a design decision first.
+            and suggests {backlog.length} to fund.
           </>
         }
         actions={
@@ -71,14 +71,14 @@ export function DashboardContent({ data }: { data: DashboardData }) {
       </Section>
 
       {needsAction.length > 0 && (
-        <Section title="Needs you" description="Things only the maintainer can unblock.">
+        <Section title="Needs you">
           <Card padding="none" as="section">
             <ul className="divide-y divide-rule text-sm">
               {needsAction.map((a, i) => (
                 <li key={`${a.bountyId}-${a.action}-${i}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                   <span className="min-w-0">{a.text}</span>
                   <Link href={`/b/${a.bountyId}`} className="text-[13px] font-semibold text-claim hover:underline">
-                    Open
+                    View bounty
                   </Link>
                 </li>
               ))}
@@ -87,7 +87,7 @@ export function DashboardContent({ data }: { data: DashboardData }) {
         </Section>
       )}
 
-      <Section id="review" title="Active bounties" description={`${plural(active.length, "bounty", "bounties")} in flight across your repos.`}>
+      <Section id="review" title="Active bounties">
         {active.length ? (
           <Table className="min-w-[620px]">
             <THead>

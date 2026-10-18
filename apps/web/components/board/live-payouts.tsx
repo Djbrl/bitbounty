@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Avatar, cx, Dot, Eyebrow, formatXof } from "../ui";
+import { Avatar, cx, Dot, formatXof } from "../ui";
 import { initialLiveState, onSnapshot, onTransition, type LiveEvent, type LiveState, type PayoutRow } from "./shape";
 
 export interface LivePayoutsProps {
@@ -38,14 +38,14 @@ export function LivePayouts({ initial, issues, src = "/api/live" }: LivePayoutsP
       className="grid min-w-0 content-start gap-2.5 rounded-[var(--radius-card)] border border-rule bg-sheet p-3.5"
     >
       <div className="flex items-center justify-between gap-2">
-        <Eyebrow>Live payouts</Eyebrow>
+        <h2 className="text-sm font-semibold">Live payouts</h2>
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted">
           <Dot tone={connected ? "money" : "neutral"} pulse={connected} />
           {connected ? "live" : "connecting"}
         </span>
       </div>
       {state.payouts.length === 0 ? (
-        <p className="text-[12.5px] text-muted">No payouts yet. They appear here the moment they land.</p>
+        <p className="text-[12.5px] text-muted">No payouts yet. New payouts show up here.</p>
       ) : (
         <ul className="grid gap-2.5" aria-live="polite">
           {state.payouts.map((p) => (

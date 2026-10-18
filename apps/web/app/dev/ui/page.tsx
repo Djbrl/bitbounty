@@ -10,7 +10,6 @@ import {
   Chip,
   Dot,
   EmptyState,
-  Eyebrow,
   Page,
   PhoneFrame,
   PhoneNotification,
@@ -73,7 +72,6 @@ export default function DesignSystemPage() {
   return (
     <Page width="wide" nav={{ items: [{ href: "/dev/ui", label: "Design system" }], active: "/dev/ui" }}>
       <header className="grid gap-3">
-        <Eyebrow>U0 · /dev/ui</Eyebrow>
         <h1 className="text-[clamp(2.2rem,6vw,3.6rem)] tracking-[-0.035em]">Design system</h1>
         <p className="max-w-[68ch] text-lg text-ink-soft">
           Tokens, fonts and components taken from the landing. Import from{" "}
@@ -100,7 +98,7 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
       data-panel={theme}
       className="grid min-w-0 gap-10 rounded-[var(--radius-card-lg)] border border-rule bg-paper p-4 text-ink sm:p-6"
     >
-      <Eyebrow>{theme === "light" ? "Light" : "Dark"}</Eyebrow>
+      <h2 className="text-sm font-semibold text-muted">{theme === "light" ? "Light" : "Dark"}</h2>
       <Showcase />
     </div>
   );

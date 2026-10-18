@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import type { Me } from "../../../../fixtures/types";
-import { Button, buttonClass, Card, Eyebrow } from "../ui";
+import { Button, buttonClass, Card } from "../ui";
 import { payoutAccountApi, type PayoutAccountApi } from "./api";
 import { addressError, checkAddressInput, savedAddress } from "./logic";
 
@@ -55,7 +55,7 @@ export function LightningAddressForm({ onSaved, api = payoutAccountApi, submitLa
           className="w-full min-w-0 rounded-[10px] border border-rule bg-sheet px-3 py-2.5 font-mono text-[15px] outline-none focus:border-money"
         />
         <span id="ln-address-help" className="text-xs text-muted">
-          Tu la trouves dans ton wallet Lightning (Blink, Wallet of Satoshi, Phoenix…). Tes bounties arrivent en sats, en quelques secondes.
+          Tu la trouves dans ton wallet Lightning (Blink, Wallet of Satoshi, Phoenix…).
         </span>
       </label>
       {error && (
@@ -90,12 +90,11 @@ export function Onboarding({ me, api }: OnboardingProps) {
 
   return (
     <Card padding="lg" as="section" className="grid gap-4" lang="fr">
-      <Eyebrow>Compte de paiement</Eyebrow>
       {address && !editing ? (
         <>
-          <h1 className="text-[1.35rem] font-extrabold leading-tight">Tu es prêt à être payé</h1>
+          <h1 className="text-[1.35rem] font-extrabold leading-tight">Compte de paiement</h1>
           <div role="status" className="flex items-center gap-2 rounded-[10px] bg-money-soft px-3 py-2.5 text-[13px] font-semibold text-money">
-            <span aria-hidden>✓</span> Lightning Address vérifiée · prête à recevoir des bounties
+            <span aria-hidden>✓</span> Lightning Address vérifiée
           </div>
           <dl className="grid gap-2 rounded-[10px] border border-rule px-3 py-2.5 text-[13px]">
             <div className="flex justify-between gap-3">
@@ -107,7 +106,7 @@ export function Onboarding({ me, api }: OnboardingProps) {
               <dd className="font-medium">@{me.user.login}</dd>
             </div>
           </dl>
-          <p className="text-xs leading-snug text-muted">Les paiements partent en sats sur Lightning dès que la PR est mergée et vérifiée.</p>
+          <p className="text-xs leading-snug text-muted">Tes bounties sont payées en sats sur cette adresse quand ta PR est mergée et vérifiée.</p>
           <div className="flex flex-wrap gap-2">
             <Link href="/explore" className={buttonClass()}>
               Voir les bounties ouvertes
@@ -119,9 +118,9 @@ export function Onboarding({ me, api }: OnboardingProps) {
         </>
       ) : (
         <>
-          <h1 className="text-[1.35rem] font-extrabold leading-tight">Où veux-tu être payé ?</h1>
+          <h1 className="text-[1.35rem] font-extrabold leading-tight">Ajoute ta Lightning Address</h1>
           <p className="text-[13px] leading-[1.45] text-muted">
-            Connecté en tant que <b className="text-ink">@{me.user.login}</b>. Ton adresse ne sera jamais affichée en entier sur GitHub ni sur les reçus.
+            Connecté en tant que <b className="text-ink">@{me.user.login}</b>. Ton adresse n&apos;est jamais affichée en entier sur GitHub ni sur les reçus.
           </p>
           <LightningAddressForm
             api={api}

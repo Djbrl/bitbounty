@@ -21,7 +21,7 @@ export function BacklogTable({ backlog, selected, onToggle, onToggleAll, disable
   if (!backlog.length) {
     return (
       <EmptyState title="No suggestions yet">
-        Claude found no issue clear and testable enough to price. Try <b>Re-scan</b> after tidying a few issues.
+        Claude found no issue clear enough to price. Add a clear &quot;Done when&quot; list to a few issues, then check back.
       </EmptyState>
     );
   }

@@ -116,7 +116,7 @@ function ReviewCard({ item, lang, decide }: { item: ReviewItem; lang: Lang; deci
 
       <div className="grid gap-2 border-t border-rule px-4 py-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[0.72rem] uppercase tracking-[0.08em] text-muted">{t.criteria}</span>
+          <span className="text-sm font-semibold">{t.criteria}</span>
           {hasReport ? (
             <span className="font-mono text-xs text-muted">
               {met}/{item.criteria.length}
