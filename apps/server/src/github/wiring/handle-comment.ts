@@ -215,7 +215,13 @@ async function run(ctx: Ctx, command: Command, role: Role): Promise<CommentOutco
       return apply(
         ctx,
         bounty,
-        transition(bounty, { ...base, type: "maintainer.pay", actorLogin: login, ...(command.user ? { toLogin: command.user } : {}) }),
+        transition(bounty, {
+          ...base,
+          type: "maintainer.pay",
+          actorLogin: login,
+          ...(command.user ? { toLogin: command.user } : {}),
+          ...(command.now ? { now: true } : {}),
+        }),
         command.name,
       );
     case "hold":

@@ -5,6 +5,8 @@ import { InMemoryEventBus } from "../pr/fakes.js";
 import { GithubDispatcher } from "../dispatcher.js";
 import type { StoredEvent } from "../event-store.js";
 import { isStatusComment, statusMarker } from "../status-comment/index.js";
+import { Settlement } from "../../settlement/index.js";
+import type { PayoutRequest } from "../../payouts/service.js";
 import { FakeGithubWriter, handleIssueComment, registerCommentWiring, type WiringDeps } from "./index.js";
 
 const REPO = "bitbounty-demo/sandbox";
@@ -246,6 +248,59 @@ describe("/claim and friends", () => {
     const out = await run("/claim", { login: "awa" });
     expect(out.kind).toBe("replied");
     expect(replies()[0]!.body).toContain("no bounty on this issue");
+  });
+});
+
+describe("/pay (CR2: /pay now skips the objection window)", () => {
+  const WINDOW_MS = 24 * 60 * 60_000;
+  /** /bounty → funded → /claim by awa, plus Settlement on the same bus with timers the test inspects. */
+  async function claimedWithSettlement() {
+    const timers: Array<{ fn: () => void; ms: number }> = [];
+    const started: PayoutRequest[] = [];
+    new Settlement({
+      repo,
+      bus,
+      startPayout: async (req) => void started.push(req),
+      objectionMs: WINDOW_MS,
+      schedule: (fn, ms) => void timers.push({ fn, ms }),
+      log: { info() {}, warn() {}, error() {} },
+    }).register();
+    await run("/bounty 10000");
+    await fund();
+    await run("/claim", { login: "awa" });
+    const fire = async () => {
+      for (const t of timers.splice(0)) t.fn();
+      for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));
+    };
+    return { timers, started, fire };
+  }
+
+  it("/pay now publishes maintainer.pay with now: true and starts the payout without waiting", async () => {
+    const s = await claimedWithSettlement();
+    expect((await run("/pay now")).kind).toBe("applied");
+    expect(bus.published.at(-1)).toMatchObject({ type: "maintainer.pay", actorLogin: "maintainer-demo", now: true });
+    expect(s.timers.map((t) => t.ms)).toEqual([0]);
+    await s.fire();
+    expect(s.started).toEqual([{ bountyId: repo.all()[0]!.id, userId: "github:awa", amountXof: 10000 }]);
+  });
+
+  it("plain /pay still waits OBJECTION_WINDOW_MINUTES", async () => {
+    const s = await claimedWithSettlement();
+    expect((await run("/pay")).kind).toBe("applied");
+    const ev = bus.published.at(-1)!;
+    expect(ev.type).toBe("maintainer.pay");
+    expect("now" in ev).toBe(false);
+    expect(s.timers.map((t) => t.ms)).toEqual([WINDOW_MS]);
+    expect(s.started).toHaveLength(0);
+  });
+
+  it("/pay now then /hold before the timer runs: nothing is paid", async () => {
+    const s = await claimedWithSettlement();
+    await run("/pay now");
+    await run("/hold");
+    await s.fire();
+    expect(s.started).toHaveLength(0);
+    expect(repo.all()[0]!.status).toBe("on_hold");
   });
 });
 
