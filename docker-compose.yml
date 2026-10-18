@@ -1,0 +1,47 @@
+# Local "production": Postgres + server + public URLs, on the always-on Mac.
+#   docker compose up -d --build
+#   docker compose logs tunnel | grep trycloudflare   # public API URL for Vercel
+# See docs/setup.md "Run the server with Docker".
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bitbounty
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bitbounty"]
+      interval: 5s
+      retries: 10
+
+  server:
+    build: .
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      PORT: "8787"
+      DATABASE_URL: postgres://postgres:postgres@db:5432/bitbounty
+    ports: ["8787:8787"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  # GitHub App webhooks: the smee URL is stable, so the app settings never change.
+  smee:
+    image: node:22-alpine
+    restart: unless-stopped
+    command: ["npx", "-y", "smee-client@2.0.4", "--url", "https://smee.io/gk8M8VuUD4ZMaO7A", "--target", "http://server:8787/webhooks/github"]
+    depends_on: [server]
+
+  # Public HTTPS URL for the web app and Bitnob webhooks (Cloudflare quick tunnel, no account).
+  # The URL changes when this container restarts: update NEXT_PUBLIC_API_URL on Vercel then.
+  tunnel:
+    image: cloudflare/cloudflared:2024.12.2
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", "http://server:8787"]
+    depends_on: [server]
+
+volumes:
+  pgdata:

@@ -1,0 +1,149 @@
+{
+  "action": "synchronize",
+  "number": 43,
+  "before": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+  "after": "b2c3d4e5f60718293a4b5c6d7e8f9012345678a1",
+  "pull_request": {
+    "url": "https://api.github.com/repos/bitbounty-demo/sandbox/pulls/43",
+    "id": 2100000043,
+    "node_id": "PR_kwDOMx43",
+    "html_url": "https://github.com/bitbounty-demo/sandbox/pull/43",
+    "diff_url": "https://github.com/bitbounty-demo/sandbox/pull/43.diff",
+    "patch_url": "https://github.com/bitbounty-demo/sandbox/pull/43.patch",
+    "issue_url": "https://api.github.com/repos/bitbounty-demo/sandbox/issues/43",
+    "number": 43,
+    "state": "open",
+    "locked": false,
+    "title": "Translate the README into Wolof",
+    "user": {
+      "login": "awa-dev",
+      "id": 1000010,
+      "node_id": "U_1000010",
+      "type": "User",
+      "site_admin": false,
+      "html_url": "https://github.com/awa-dev"
+    },
+    "body": "Wolof translation of the README.\r\n\r\nFixes #42",
+    "created_at": "2026-10-17T17:00:00Z",
+    "updated_at": "2026-10-17T17:05:00Z",
+    "closed_at": null,
+    "merged_at": null,
+    "merge_commit_sha": null,
+    "assignee": null,
+    "assignees": [],
+    "requested_reviewers": [],
+    "labels": [],
+    "milestone": null,
+    "draft": false,
+    "head": {
+      "label": "awa-dev:wolof-readme",
+      "ref": "wolof-readme",
+      "sha": "b2c3d4e5f60718293a4b5c6d7e8f9012345678a1",
+      "user": {
+        "login": "awa-dev",
+        "id": 1000010,
+        "node_id": "U_1000010",
+        "type": "User",
+        "site_admin": false,
+        "html_url": "https://github.com/awa-dev"
+      },
+      "repo": {
+        "id": 871000011,
+        "node_id": "R_fork_1000010",
+        "name": "sandbox",
+        "full_name": "awa-dev/sandbox",
+        "private": false,
+        "owner": {
+          "login": "awa-dev",
+          "id": 1000010,
+          "node_id": "U_1000010",
+          "type": "User",
+          "site_admin": false,
+          "html_url": "https://github.com/awa-dev"
+        },
+        "html_url": "https://github.com/awa-dev/sandbox",
+        "fork": true,
+        "default_branch": "main",
+        "visibility": "public"
+      }
+    },
+    "base": {
+      "label": "bitbounty-demo:main",
+      "ref": "main",
+      "sha": "1111111111111111111111111111111111111111",
+      "user": {
+        "login": "bitbounty-demo",
+        "id": 1000002,
+        "node_id": "O_kgDOBitBnty",
+        "type": "Organization",
+        "site_admin": false,
+        "html_url": "https://github.com/bitbounty-demo"
+      },
+      "repo": {
+        "id": 870000001,
+        "node_id": "R_kgDOMx0001",
+        "name": "sandbox",
+        "full_name": "bitbounty-demo/sandbox",
+        "private": false,
+        "owner": {
+          "login": "bitbounty-demo",
+          "id": 1000002,
+          "node_id": "O_kgDOBitBnty",
+          "type": "Organization",
+          "site_admin": false,
+          "html_url": "https://github.com/bitbounty-demo"
+        },
+        "html_url": "https://github.com/bitbounty-demo/sandbox",
+        "fork": false,
+        "default_branch": "main",
+        "visibility": "public"
+      }
+    },
+    "author_association": "CONTRIBUTOR",
+    "auto_merge": null,
+    "active_lock_reason": null,
+    "merged": false,
+    "mergeable": null,
+    "rebaseable": null,
+    "mergeable_state": "unknown",
+    "merged_by": null,
+    "comments": 0,
+    "review_comments": 0,
+    "maintainer_can_modify": true,
+    "commits": 2,
+    "additions": 40,
+    "deletions": 3,
+    "changed_files": 1
+  },
+  "repository": {
+    "id": 870000001,
+    "node_id": "R_kgDOMx0001",
+    "name": "sandbox",
+    "full_name": "bitbounty-demo/sandbox",
+    "private": false,
+    "owner": {
+      "login": "bitbounty-demo",
+      "id": 1000002,
+      "node_id": "O_kgDOBitBnty",
+      "type": "Organization",
+      "site_admin": false,
+      "html_url": "https://github.com/bitbounty-demo"
+    },
+    "html_url": "https://github.com/bitbounty-demo/sandbox",
+    "fork": false,
+    "default_branch": "main",
+    "visibility": "public"
+  },
+  "sender": {
+    "login": "awa-dev",
+    "id": 1000010,
+    "node_id": "U_1000010",
+    "type": "User",
+    "site_admin": false,
+    "html_url": "https://github.com/awa-dev"
+  },
+  "installation": {
+    "id": 55500001,
+    "node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNTU1MDAwMDE="
+  }
+}

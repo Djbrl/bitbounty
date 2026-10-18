@@ -1,0 +1,625 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderStatusComment snapshots > cancelled · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ✖ Cancelled
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+This bounty was cancelled before it was funded.
+
+**Next:** nothing. This bounty is closed.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > cancelled · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ✖ Annulée
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+Cette prime a été annulée avant d'être financée.
+
+**Prochaine étape :** rien. Cette prime est close.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > claimed · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 🔒 Claimed
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ● **PR** · ○ Validated · ○ Paid
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+@awa-sow is on it, claim held until **Mon 19 Oct, 18:42 UTC**.
+
+**Next:** @awa-sow, open a PR with \`Fixes #12\` before the deadline. Need more time? \`/extend\` (once). Giving up? \`/unclaim\`.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > claimed · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 🔒 Réservée
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ● **PR** · ○ Validée · ○ Payée
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+@awa-sow s'en occupe, réservation jusqu'à **lun. 19 oct. à 18:42 UTC**.
+
+**Prochaine étape :** @awa-sow, ouvrez une PR avec \`Fixes #12\` avant l'échéance. Besoin de plus de temps ? \`/extend\` (une fois). Vous abandonnez ? \`/unclaim\`.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > funded · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ✅ Funded · held in escrow
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ● **Claimed** · ○ PR · ○ Validated · ○ Paid
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+**10 000 FCFA** held in escrow (27 140 sats) · paid via Lightning · Sat 17 Oct, 18:42 UTC.
+
+**Next:** comment \`/claim\` to take it. You need a Lightning Address on your payout account at https://bitbounty.app/me. Paid in sats over Lightning within minutes of the merge.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > funded · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ✅ Financée · fonds bloqués
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ● **Réservée** · ○ PR · ○ Validée · ○ Payée
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+**10 000 FCFA** bloqués en séquestre (27 140 sats) · payé via Lightning · sam. 17 oct. à 18:42 UTC.
+
+**Prochaine étape :** commentez \`/claim\` pour la prendre. Il faut une adresse Lightning sur votre compte de paiement (https://bitbounty.app/me). Payé en sats via Lightning quelques minutes après le merge.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > on_hold · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ⏸ On hold
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ✓ PR · ⏸ **Validated** · ○ Paid
+
+- ✅ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ✅ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ✅ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) by @awa-sow is linked to this issue.
+
+🤖 **Claude:** ✅ looks like every criterion is met.
+
+> Retries 3x with backoff and reuses the reference; test mocks 503 then 200\\.
+
+_Claude's verdict is a signal only. The maintainer decides._
+
+Payment is paused until the maintainer decides.
+
+Reason: CI is red on main
+
+**Next:** maintainer, \`/pay\` to release the money or \`/reject <reason>\` to reopen the bounty for claims.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > on_hold · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ⏸ En pause
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ✓ PR · ⏸ **Validée** · ○ Payée
+
+- ✅ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ✅ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ✅ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) de @awa-sow est liée à cette issue.
+
+🤖 **Claude :** ✅ tous les critères semblent remplis.
+
+> Retries 3x with backoff and reuses the reference; test mocks 503 then 200\\.
+
+_L'avis de Claude n'est qu'un signal. C'est le mainteneur qui décide._
+
+Le paiement est en pause jusqu'à la décision du mainteneur.
+
+Motif : CI is red on main
+
+**Prochaine étape :** mainteneur, \`/pay\` pour débloquer l'argent ou \`/reject <motif>\` pour rouvrir la prime aux réservations.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > paid · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 💸 Paid
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ✓ PR · ✓ Validated · ✓ Paid
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+**10 000 FCFA** (16 180 sats) paid to @awa-sow over Lightning (\`aw***@blink.sv\`) · Ref \`pay-bb_7Hc2\` · **[Receipt →](https://bitbounty.app/r/rc_9Q1)**
+
+**Next:** nothing. Done, thank you @awa-sow!
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > paid · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 💸 Payée
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ✓ PR · ✓ Validée · ✓ Payée
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+**10 000 FCFA** (16 180 sats) payés à @awa-sow via Lightning (\`aw***@blink.sv\`) · Réf. \`pay-bb_7Hc2\` · **[Reçu →](https://bitbounty.app/r/rc_9Q1)**
+
+**Prochaine étape :** rien. C'est fini, merci @awa-sow !
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > paying · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 💸 Paying
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ✓ PR · ✓ Validated · ● **Paid**
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+Sending **10 000 FCFA** (16 180 sats) to @awa-sow over Lightning (\`aw***@blink.sv\`)…
+
+**Next:** nothing to do. This comment updates when the money lands.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > paying · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 💸 Paiement en cours
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ✓ PR · ✓ Validée · ● **Payée**
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+Envoi de **10 000 FCFA** (16 180 sats) à @awa-sow via Lightning (\`aw***@blink.sv\`)…
+
+**Prochaine étape :** rien à faire. Ce commentaire se met à jour dès que l'argent arrive.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > payout_failed · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ⚠️ Payout failed
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ✓ PR · ✓ Validated · ⚠️ **Paid**
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+The payout to @awa-sow didn't go through. The money stays reserved for them.
+
+Last error (attempt 3): Invalid account number
+
+**Next:** nothing to do. We retry automatically.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > payout_failed · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ⚠️ Échec du paiement
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ✓ PR · ✓ Validée · ⚠️ **Payée**
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+Le paiement à @awa-sow n'est pas passé. L'argent lui reste réservé.
+
+Dernière erreur (tentative 3) : Invalid account number
+
+**Prochaine étape :** rien à faire. Nous réessayons automatiquement.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > refunded · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ↩️ Refunded
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+**10 000 FCFA** went back to the funder.
+
+**Next:** nothing. This bounty is closed.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > refunded · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ↩️ Remboursée
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+**10 000 FCFA** rendus au financeur.
+
+**Prochaine étape :** rien. Cette prime est close.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > submitted · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 📝 Submitted
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ✓ PR · ● **Validated** · ○ Paid
+
+- ✅ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ✅ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ✅ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) by @awa-sow is linked to this issue.
+
+🤖 **Claude:** ✅ looks like every criterion is met.
+
+> Retries 3x with backoff and reuses the reference; test mocks 503 then 200\\.
+
+_Claude's verdict is a signal only. The maintainer decides._
+
+**Next:** maintainer, merge [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) to pay automatically (needs Claude ✅ and CI green), or decide yourself: \`/pay\`, \`/hold\` or \`/reject <reason>\`.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > submitted · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 📝 PR soumise
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ✓ PR · ● **Validée** · ○ Payée
+
+- ✅ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ✅ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ✅ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) de @awa-sow est liée à cette issue.
+
+🤖 **Claude :** ✅ tous les critères semblent remplis.
+
+> Retries 3x with backoff and reuses the reference; test mocks 503 then 200\\.
+
+_L'avis de Claude n'est qu'un signal. C'est le mainteneur qui décide._
+
+**Prochaine étape :** mainteneur, mergez [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) pour payer automatiquement (Claude ✅ et CI verte), ou décidez vous-même : \`/pay\`, \`/hold\` ou \`/reject <motif>\`.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > submitted, Claude says fail with flags · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 📝 Submitted
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ✓ PR · ● **Validated** · ○ Paid
+
+- ✅ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ✅ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ❌ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) by @awa-sow is linked to this issue.
+
+🤖 **Claude:** ❌ at least one criterion looks unmet.
+
+> No test for the 5xx case\\.
+
+Flags: large unrelated diff
+
+_Claude's verdict is a signal only. The maintainer decides._
+
+**Next:** maintainer, merge [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) to pay automatically (needs Claude ✅ and CI green), or decide yourself: \`/pay\`, \`/hold\` or \`/reject <reason>\`.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > submitted, Claude says fail with flags · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 📝 PR soumise
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ✓ PR · ● **Validée** · ○ Payée
+
+- ✅ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ✅ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ❌ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) de @awa-sow est liée à cette issue.
+
+🤖 **Claude :** ❌ au moins un critère semble non rempli.
+
+> No test for the 5xx case\\.
+
+Alertes : large unrelated diff
+
+_L'avis de Claude n'est qu'un signal. C'est le mainteneur qui décide._
+
+**Prochaine étape :** mainteneur, mergez [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) pour payer automatiquement (Claude ✅ et CI verte), ou décidez vous-même : \`/pay\`, \`/hold\` ou \`/reject <motif>\`.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > submitted, Claude still checking · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 📝 Submitted
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ✓ PR · ● **Validated** · ○ Paid
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) by @awa-sow is linked to this issue.
+
+🤖 **Claude:** checking the PR against the criteria…
+
+_Claude's verdict is a signal only. The maintainer decides._
+
+**Next:** maintainer, review [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34). Merging it pays automatically if Claude says ✅ and CI is green. Otherwise \`/pay\`, \`/hold\` or \`/reject <reason>\`.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > submitted, Claude still checking · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · 📝 PR soumise
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ✓ PR · ● **Validée** · ○ Payée
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) de @awa-sow est liée à cette issue.
+
+🤖 **Claude :** vérification de la PR par rapport aux critères…
+
+_L'avis de Claude n'est qu'un signal. C'est le mainteneur qui décide._
+
+**Prochaine étape :** mainteneur, relisez [PR #34](https://github.com/bitnob-community/bitnob-js/pull/34). Le merge paie automatiquement si Claude dit ✅ et que la CI est verte. Sinon \`/pay\`, \`/hold\` ou \`/reject <motif>\`.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > unfunded without criteria · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ⏳ Waiting for funding
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+● **Funded** · ○ Claimed · ○ PR · ○ Validated · ○ Paid
+
+_Acceptance criteria: the issue's **Done when** list. Claude checks the PR against it._
+
+**[Fund this bounty →](https://bitbounty.app/pay/bb_7Hc2)**
+
+**Next:** fund it with the link above (list the acceptance criteria under **Done when** in the issue). Developers can \`/claim\` once the money is held.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > unfunded without criteria · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ⏳ En attente de financement
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+● **Financée** · ○ Réservée · ○ PR · ○ Validée · ○ Payée
+
+_Critères d'acceptation : la liste **Done when** de l'issue. Claude vérifie la PR par rapport à elle._
+
+**[Financer cette prime →](https://bitbounty.app/pay/bb_7Hc2)**
+
+**Prochaine étape :** financez-la avec le lien ci-dessus (listez les critères d'acceptation sous **Done when** dans l'issue). Les devs pourront faire \`/claim\` dès que l'argent est bloqué.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > unfunded · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ⏳ Waiting for funding
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+● **Funded** · ○ Claimed · ○ PR · ○ Validated · ○ Paid
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+**[Fund this bounty →](https://bitbounty.app/pay/bb_7Hc2)**
+
+**Next:** fund it with the link above. Developers can \`/claim\` once the money is held.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > unfunded · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ⏳ En attente de financement
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+● **Financée** · ○ Réservée · ○ PR · ○ Validée · ○ Payée
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+**[Financer cette prime →](https://bitbounty.app/pay/bb_7Hc2)**
+
+**Prochaine étape :** financez-la avec le lien ci-dessus. Les devs pourront faire \`/claim\` dès que l'argent est bloqué.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > verified · en 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ✔ Validated
+
+Bounty on **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Funded · ✓ Claimed · ✓ PR · ✓ Validated · ● **Paid**
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) by @awa-sow is linked to this issue.
+
+Merged and validated. Objection window until **Tue 20 Oct, 19:00 UTC**.
+
+**Next:** nothing to do, the payout leaves after the window. Maintainer: \`/pay now\` to skip the wait, \`/hold\` to stop it.
+
+<sub>BitBounty · bounties in FCFA, paid in sats over Lightning · [Bounty page](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;
+
+exports[`renderStatusComment snapshots > verified · fr 1`] = `
+"<!-- bitbounty:status bb_7Hc2 -->
+
+### 💰 10 000 FCFA · ✔ Validée
+
+Prime sur **#12** · Add retry with exponential backoff to payouts\\.finalize\\(\\)
+
+✓ Financée · ✓ Réservée · ✓ PR · ✓ Validée · ● **Payée**
+
+- ☐ finalize\\(\\) retries up to 3 times on 5xx with exponential backoff
+- ☐ The same \\\`reference\\\` is reused on every retry \\(no double payout\\)
+- ☐ A test covers a 5xx followed by success
+
+[PR #34](https://github.com/bitnob-community/bitnob-js/pull/34) de @awa-sow est liée à cette issue.
+
+Mergée et validée. Délai d'objection jusqu'à **mar. 20 oct. à 19:00 UTC**.
+
+**Prochaine étape :** rien à faire, le paiement part après le délai. Mainteneur : \`/pay now\` pour ne pas attendre, \`/hold\` pour l'arrêter.
+
+<sub>BitBounty · primes en FCFA, payées en sats via Lightning · [Page de la prime](https://bitbounty.app/b/bb_7Hc2)</sub>
+"
+`;

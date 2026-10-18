@@ -1,0 +1,44 @@
+{
+  "name": "fail: email validation asked, button color changed",
+  "expected": [
+    "fail"
+  ],
+  "input": {
+    "issue": {
+      "title": "Validate email on signup",
+      "body": "Signups with garbage emails get through. Reject them server-side."
+    },
+    "criteria": [
+      {
+        "text": "POST /signup rejects an invalid email with HTTP 400"
+      },
+      {
+        "text": "The error body says \"invalid email\""
+      }
+    ],
+    "diff": "diff --git a/web/src/components/SignupButton.tsx b/web/src/components/SignupButton.tsx\nindex 1111111..2222222 100644\n--- a/web/src/components/SignupButton.tsx\n+++ b/web/src/components/SignupButton.tsx\n@@ -3,7 +3,7 @@ export function SignupButton() {\n   return (\n-    <button className=\"bg-blue-500\">Sign up</button>\n+    <button className=\"bg-green-600\">Sign up</button>\n   );\n }\ndiff --git a/server/src/signup.ts b/server/src/signup.ts\nindex 3333333..4444444 100644\n--- a/server/src/signup.ts\n+++ b/server/src/signup.ts\n@@ -10,6 +10,7 @@ export async function signup(req: Request) {\n   const { email, password } = await req.json();\n+  console.log(\"signup\", email);\n   const user = await db.users.create({ email, password: await hash(password) });\n   return Response.json(user, { status: 201 });\n }\n",
+    "ci": {
+      "status": "success"
+    }
+  },
+  "fakeAnswer": {
+    "criteria": [
+      {
+        "text": "POST /signup rejects an invalid email with HTTP 400",
+        "met": false,
+        "evidence": "server/src/signup.ts only adds a console.log; no validation, still returns 201"
+      },
+      {
+        "text": "The error body says \"invalid email\"",
+        "met": false,
+        "evidence": "No error path added anywhere in the diff"
+      }
+    ],
+    "verdict": "fail",
+    "summary": "The PR changes a button color and adds a log line; email validation is not implemented.",
+    "risk_flags": [
+      "touches unrelated files",
+      "logs user email"
+    ]
+  }
+}
