@@ -43,6 +43,18 @@ Every call goes through our typed client, [`packages/bitnob`](packages/bitnob) (
 | **Lightning pay** (payouts) | `POST /api/lightning/pay` with the invoice from the developer's Lightning Address, sent once per attempt with an idempotent `reference`; `POST /api/lightning/decode` to cross-check our invoice decoding |
 | **Webhooks** | `POST /webhooks/bitnob`, checked with `x-bitnob-signature` (HMAC-SHA512 of the raw body), stored once per `event_id`: `virtual_account.deposit.success`, payout events |
 
+### How the money moves through Bitnob
+Bitnob holds the money between the funding and the payout. GitHub and Claude only decide *when* a bounty may be paid.
+
+```mermaid
+flowchart LR
+  funder["Funder"] -- "sats in" --> bitnob[("Bitnob<br/>holds the sats")]
+  bitnob -- "sats out" --> dev["Developer's wallet"]
+  github["GitHub<br/>claim, PR, merge"] --> server["BitBounty server<br/>decides when to pay"]
+  claude["Claude<br/>advice only"] -.-> server
+  server <-- "funded? / pay now" --> bitnob
+```
+
 ## Stack
 - **TypeScript everywhere**, pnpm workspaces, Node 22.
 - **Server** (`apps/server`): Hono, GitHub App webhooks and commands (`@octokit/app`), funding, settlement and payouts, the web API and the `/v1` agent API.
