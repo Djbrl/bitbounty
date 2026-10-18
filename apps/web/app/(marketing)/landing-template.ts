@@ -18,9 +18,7 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
 
 <main>
   <section id="top" class="hero">
-    <span class="product">BitBounty</span>
     <h1>Faites-vous payer<br>pour contribuer.</h1>
-    <p class="sub">Des issues GitHub financées, payées en sats sur votre Lightning Address dès le merge.</p>
     <div class="ctas">
       {{HERO_CTAS}}
     </div>
@@ -52,7 +50,7 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
         <svg class="graph-svg" id="graphSvg" aria-hidden="true"></svg>
 
         <div class="g-stop" data-stop="post">
-          <div class="g-text"><span class="g-branch mono">main</span><h3>Publier une bounty.</h3><p>Un seul commentaire sur l'issue.</p></div>
+          <div class="g-text"><span class="g-branch mono">main</span><h3>Une bounty.<br>Un commentaire.</h3><p>Tapez /bounty sur l'issue. C'est tout.</p><p class="g-note">Ou laissez votre agent IA la publier, via le serveur <b>MCP BitBounty</b>.</p></div>
           <div class="g-visual">
             <div class="v-card">
               <div class="v-comment"><span class="avatar xs" style="background:#C2662D">M</span><span><b>Le mainteneur</b> a commenté</span></div>
@@ -63,8 +61,12 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
         </div>
 
         <div class="g-stop" data-stop="fund">
-          <div class="g-text"><span class="g-branch mono">bounty/fund</span><h3>Financée en sats.</h3><p>Depuis Paris, en une seconde environ.</p></div>
-          <div class="g-visual">
+          <div class="g-text"><span class="g-branch mono">bounty/fund</span><h3>Financée en sats.</h3><p>Un lien, une facture Lightning. Payée en une seconde.</p></div>
+          <div class="g-visual v-stack">
+            <div class="v-card v-card-sm">
+              <div class="v-bot v-bot-head"><span class="v-botmark"><svg width="14" height="14" viewBox="0 0 30 30" aria-hidden="true"><path d="M8 4v22" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M8 9c0 6 4 9 10.5 9.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="21.5" cy="18.5" r="5.2" fill="#F2A007"/></svg></span><span><b>bitbounty</b> a répondu</span></div>
+              <div class="v-reply"><b>Prime sur #1</b> · 10 000 FCFA<span class="v-btn">Financer cette prime →</span></div>
+            </div>
             <div class="v-flow">
               <span class="tag amber big"><svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true"><path d="M8 1L2 9h4l-1 6 6-8H7l1-6z" fill="currentColor"/></svg>16 820 sats</span>
               <svg class="v-arrow" width="24" height="34" viewBox="0 0 24 34" aria-hidden="true"><path d="M12 2v26M6 22l6 6 6-6" stroke="#0B1F17" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -76,8 +78,13 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
         </div>
 
         <div class="g-stop" data-stop="claim">
-          <div class="g-text"><span class="g-branch mono">main</span><h3>Réclamée à Dakar.</h3><p>La communauté de développeurs qui grandit le plus vite au monde.</p></div>
-          <div class="g-visual">
+          <div class="g-text"><span class="g-branch mono">main</span><h3>Réclamée à Dakar.</h3><p>Awa tape /claim. La bounty est à elle.</p></div>
+          <div class="g-visual v-stack">
+            <div class="v-card v-card-sm">
+              <div class="v-comment"><span class="avatar xs" style="background:#1F9D55">AS</span><span><b>Awa</b> · développeuse à Dakar</span></div>
+              <code class="v-code">/claim</code>
+              <div class="v-bot"><span class="v-botmark"><svg width="14" height="14" viewBox="0 0 30 30" aria-hidden="true"><path d="M8 4v22" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M8 9c0 6 4 9 10.5 9.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="21.5" cy="18.5" r="5.2" fill="#F2A007"/></svg></span><span><b>bitbounty</b> · Réservée · @awa s'en occupe</span></div>
+            </div>
             <div class="v-map">
               <svg class="africa" viewBox="0 0 460 476" role="img" aria-label="Carte de l'Afrique : des centaines de points représentent les développeurs, Dakar est mis en avant">
   <path class="af-borders" d="M225.6,284.2 L233.1,298.3 L243.1,297.8 L245.7,292.4 L250.0,291.1 L253.3,291.0 L252.8,293.4 L260.6,293.3 L261.6,307.8 L263.7,310.2 L263.4,317.9 L274.8,316.9 L275.5,329.7 L262.0,329.6 L261.7,350.2 L270.3,359.6 L258.4,362.2 L242.7,361.3 L238.2,358.2 L210.9,358.9 L207.1,356.0 L195.9,358.1 L195.3,354.1 L198.7,339.7 L202.4,331.2 L208.2,324.1 L208.9,319.3 L203.3,305.5 L205.6,301.5 L202.3,291.0 L199.1,286.9 L206.5,284.1 L225.6,284.2ZM200.6,280.1 L198.8,283.6 L197.1,278.7 L201.6,274.8 L204.1,277.1 L200.6,280.1ZM309.9,275.2 L307.9,264.5 L311.8,265.0 L313.8,261.3 L317.3,261.7 L319.1,267.9 L312.6,274.9 L309.9,275.2ZM137.3,205.6 L131.9,206.3 L130.3,201.8 L130.6,187.0 L129.1,182.5 L124.9,178.3 L129.2,171.3 L138.3,166.9 L143.3,170.6 L144.5,176.6 L143.9,180.9 L137.5,191.0 L137.3,205.6ZM101.5,183.6 L97.1,182.0 L91.8,183.9 L88.9,182.5 L84.8,178.9 L86.0,170.2 L91.2,164.9 L93.9,158.8 L99.8,158.4 L106.9,151.8 L113.0,149.1 L122.3,149.4 L122.6,155.5 L126.3,159.7 L126.5,162.9 L134.0,164.3 L133.8,168.8 L125.7,174.9 L100.8,175.1 L101.5,183.6ZM282.4,360.5 L296.7,378.2 L299.5,378.9 L301.4,385.2 L310.5,389.2 L295.6,398.8 L291.5,405.5 L287.9,406.0 L286.1,411.2 L276.7,412.3 L270.9,409.7 L259.8,419.2 L255.2,419.8 L254.4,413.6 L248.8,406.5 L248.8,387.6 L255.1,387.4 L255.3,364.3 L270.1,361.8 L272.6,364.5 L282.4,360.5ZM218.9,198.0 L236.3,195.0 L242.4,190.2 L241.7,187.9 L249.8,187.7 L255.9,184.7 L260.6,177.7 L268.0,173.9 L272.5,180.8 L271.8,188.1 L282.6,195.4 L282.6,197.5 L289.7,203.7 L291.3,207.6 L297.2,212.2 L286.0,212.1 L280.6,214.4 L278.0,213.0 L270.8,216.2 L267.8,215.6 L265.0,220.0 L255.4,218.1 L246.0,213.5 L240.0,218.9 L239.4,223.4 L230.9,222.0 L223.6,231.4 L222.6,226.6 L213.7,215.4 L214.0,205.8 L218.9,198.0ZM101.4,213.8 L89.7,212.6 L69.9,217.8 L70.8,209.1 L64.1,204.2 L66.1,192.2 L69.1,190.6 L66.5,180.5 L75.5,180.4 L79.7,177.9 L80.7,180.7 L84.8,178.9 L91.8,183.9 L97.1,182.0 L101.5,183.6 L103.3,192.9 L98.8,205.6 L101.4,213.8ZM212.8,231.7 L182.4,231.3 L183.3,226.2 L174.9,215.2 L179.7,204.4 L185.4,200.5 L191.5,203.1 L196.0,200.9 L207.8,176.2 L213.3,171.2 L214.3,167.8 L211.7,165.2 L213.8,162.8 L216.4,167.0 L216.5,175.6 L220.1,181.4 L211.7,181.2 L210.3,184.3 L216.9,189.1 L219.9,196.3 L214.0,205.8 L213.7,215.4 L222.6,226.6 L223.1,234.9 L212.8,231.7ZM319.6,223.4 L319.2,230.9 L321.8,231.8 L313.4,242.2 L307.9,264.5 L309.5,267.4 L310.5,284.6 L319.0,300.1 L307.8,300.5 L304.2,305.4 L305.6,308.3 L303.7,322.5 L310.0,326.1 L311.7,325.0 L312.3,332.0 L307.3,331.9 L302.3,325.6 L297.3,324.7 L295.9,321.3 L291.9,323.3 L286.7,322.4 L284.5,319.5 L277.4,319.0 L277.0,317.0 L263.4,317.9 L263.7,310.2 L261.6,307.8 L260.6,293.3 L252.8,293.4 L253.3,291.0 L250.0,291.1 L245.7,292.4 L243.1,297.8 L233.1,298.3 L225.6,284.2 L199.7,285.6 L198.8,283.6 L201.7,278.4 L205.8,277.7 L208.0,275.2 L211.5,275.3 L214.3,278.3 L223.6,269.0 L223.3,263.7 L226.2,257.4 L234.1,248.8 L240.0,218.9 L246.0,213.5 L255.4,218.1 L265.0,220.0 L267.8,215.6 L270.8,216.2 L278.0,213.0 L280.6,214.4 L286.0,212.1 L297.2,212.2 L301.1,217.5 L312.4,216.3 L319.6,223.4ZM204.1,277.1 L201.6,274.8 L197.1,278.7 L191.7,271.9 L196.7,268.3 L194.2,264.0 L200.8,261.6 L201.3,258.7 L204.8,261.8 L210.5,262.1 L212.5,259.0 L212.6,249.7 L209.5,245.8 L212.4,238.3 L205.9,237.6 L204.6,231.4 L212.8,231.7 L223.1,234.9 L227.0,225.4 L230.9,222.0 L239.4,223.4 L235.8,234.8 L234.1,248.8 L226.2,257.4 L223.3,263.7 L223.6,269.0 L214.3,278.3 L211.5,275.3 L204.1,277.1ZM399.0,163.8 L400.3,168.5 L396.6,170.1 L399.4,171.9 L397.0,175.3 L390.4,174.5 L389.8,170.8 L394.2,164.9 L399.0,163.8ZM197.6,94.1 L156.6,119.2 L140.3,122.7 L140.2,118.6 L133.2,115.7 L131.7,112.6 L63.6,68.7 L63.7,59.3 L74.1,54.5 L85.9,51.8 L88.4,48.6 L95.9,46.0 L96.2,41.2 L111.4,37.2 L112.6,34.6 L105.8,18.3 L112.0,14.8 L129.4,9.0 L154.3,8.3 L160.4,5.8 L174.4,6.8 L172.6,21.7 L168.6,25.3 L169.2,30.2 L178.5,38.2 L183.4,55.5 L182.8,74.4 L180.2,77.1 L186.6,88.2 L189.6,87.0 L197.6,94.1ZM346.1,55.0 L339.6,67.0 L329.3,53.4 L340.8,76.8 L351.1,91.1 L350.0,96.5 L358.7,103.6 L281.8,103.6 L281.8,56.7 L279.9,51.5 L281.6,47.5 L280.6,44.8 L282.9,41.6 L291.5,41.5 L307.2,46.2 L314.8,42.3 L320.6,41.7 L325.2,42.6 L326.9,45.8 L328.4,43.6 L338.7,45.5 L341.9,43.9 L346.1,55.0ZM394.2,164.9 L384.8,154.7 L379.2,152.1 L373.2,150.6 L369.4,152.2 L365.4,149.2 L363.4,154.0 L355.9,152.7 L358.6,136.3 L365.4,133.2 L368.7,129.5 L374.3,143.0 L399.0,163.8 L394.2,164.9ZM365.4,149.2 L369.4,152.2 L373.2,150.6 L379.2,152.1 L389.4,159.0 L394.2,164.9 L389.8,170.8 L390.4,174.5 L397.0,175.3 L395.6,177.6 L402.8,186.6 L424.0,194.3 L429.5,194.3 L411.2,213.7 L402.7,214.0 L391.0,220.7 L386.6,220.7 L384.0,218.5 L376.2,223.9 L366.8,222.8 L358.6,217.3 L354.1,217.3 L351.9,215.2 L351.9,211.5 L348.6,210.4 L344.7,203.4 L337.3,196.1 L333.4,195.7 L335.6,192.0 L339.0,191.8 L341.8,177.3 L344.9,175.4 L348.3,167.8 L352.2,164.6 L355.9,152.7 L363.4,154.0 L365.4,149.2ZM191.7,271.9 L180.8,260.0 L177.1,251.1 L181.4,239.6 L193.0,239.2 L192.9,231.5 L203.8,231.1 L205.9,237.6 L212.4,238.3 L209.5,245.8 L212.6,249.7 L212.5,259.0 L210.5,262.1 L204.8,261.8 L201.3,258.7 L200.8,261.6 L194.2,264.0 L196.7,268.3 L191.7,271.9ZM126.7,207.7 L107.1,215.6 L101.4,213.8 L98.8,205.6 L103.3,192.9 L100.8,175.1 L120.0,174.7 L124.5,192.3 L123.6,201.3 L126.7,207.7ZM65.2,196.3 L60.2,198.7 L56.7,190.8 L51.8,192.0 L51.0,186.1 L47.8,181.0 L39.4,182.4 L34.0,188.4 L21.8,174.6 L24.7,171.4 L30.8,169.6 L31.1,164.6 L45.3,165.5 L45.6,167.9 L48.4,167.0 L54.0,169.4 L60.7,166.4 L65.6,172.3 L64.0,176.1 L66.2,176.2 L67.8,180.0 L66.0,182.7 L69.1,190.6 L66.1,192.2 L65.2,196.3ZM10.7,160.9 L11.6,158.1 L18.6,157.9 L20.1,156.3 L24.7,157.8 L28.9,156.8 L30.2,158.6 L10.7,160.9ZM21.8,174.6 L15.6,171.5 L11.8,165.9 L31.1,164.6 L30.8,169.6 L24.7,171.4 L21.8,174.6ZM193.0,239.2 L180.1,238.6 L182.4,231.3 L192.9,231.5 L193.0,239.2ZM385.4,251.7 L389.3,257.0 L380.7,262.8 L376.5,274.2 L373.8,276.4 L364.5,269.9 L364.1,266.2 L339.5,252.2 L339.5,245.4 L346.9,233.8 L340.2,218.6 L348.6,210.4 L351.9,211.5 L351.9,215.2 L354.1,217.3 L358.6,217.3 L366.8,222.8 L376.2,223.9 L384.0,218.5 L386.6,220.7 L391.0,220.7 L385.4,228.1 L385.4,251.7ZM69.9,217.8 L61.5,214.8 L45.7,202.1 L53.6,191.7 L56.7,190.8 L60.2,198.7 L65.2,196.3 L64.1,204.2 L70.8,209.1 L69.9,217.8ZM222.6,94.5 L211.5,100.4 L207.9,96.9 L197.6,94.1 L189.6,87.0 L186.6,88.2 L180.2,77.1 L182.8,74.4 L183.7,58.5 L181.3,49.8 L184.5,48.3 L184.3,42.9 L193.9,36.5 L194.3,31.5 L218.6,37.1 L221.7,42.9 L243.5,50.1 L249.8,45.4 L248.3,40.5 L255.0,34.3 L268.2,34.7 L270.4,37.6 L281.3,39.5 L282.9,41.6 L280.6,44.8 L281.6,47.5 L279.9,51.5 L281.8,56.7 L281.8,116.6 L274.4,116.6 L274.3,119.3 L222.6,94.5ZM304.8,431.6 L309.9,435.6 L306.8,440.8 L302.0,443.9 L299.6,444.6 L294.8,439.6 L301.7,432.9 L304.8,431.6ZM86.2,14.5 L90.1,17.3 L105.8,18.3 L112.6,34.6 L111.4,37.2 L96.2,41.2 L95.9,46.0 L88.4,48.6 L85.9,51.8 L74.1,54.5 L63.7,59.3 L62.9,70.5 L46.0,72.0 L38.9,85.7 L29.9,92.7 L27.7,101.6 L24.3,106.9 L9.6,107.4 L16.3,92.5 L22.1,87.3 L26.3,76.1 L30.6,73.7 L38.1,64.5 L44.1,63.8 L57.9,52.2 L56.3,44.2 L59.6,35.2 L63.8,30.8 L75.1,25.2 L81.4,14.5 L86.2,14.5ZM438.6,324.1 L444.2,333.9 L446.2,347.8 L445.1,349.7 L442.9,345.9 L441.7,347.8 L442.3,355.4 L440.6,356.9 L440.1,362.4 L425.0,407.6 L414.1,411.9 L405.2,407.9 L400.7,393.6 L401.3,384.3 L404.2,383.2 L407.9,372.0 L404.7,358.8 L407.8,351.1 L419.9,348.3 L428.9,340.6 L430.9,337.4 L430.0,334.6 L432.7,335.4 L438.6,324.1ZM41.0,151.4 L43.2,150.3 L44.3,146.4 L50.9,148.1 L58.0,145.8 L84.0,145.7 L85.4,141.2 L78.0,84.5 L88.0,84.4 L131.7,112.6 L133.2,115.7 L140.2,118.6 L140.3,122.7 L147.5,122.0 L147.5,137.0 L144.0,141.3 L143.4,145.3 L128.8,146.9 L126.4,149.2 L113.0,149.1 L106.9,151.8 L99.8,158.4 L93.9,158.8 L91.2,164.9 L86.0,170.2 L84.8,178.9 L80.7,180.7 L79.7,177.9 L75.5,180.4 L67.8,180.0 L66.2,176.2 L64.0,176.1 L65.6,172.3 L60.7,166.4 L54.0,169.4 L48.4,167.0 L45.6,167.9 L45.0,161.0 L42.6,159.2 L41.0,151.4ZM343.8,320.7 L362.6,321.0 L375.9,316.7 L381.1,312.9 L384.0,341.2 L379.6,350.4 L375.5,354.4 L362.2,360.0 L345.2,374.2 L344.7,378.8 L350.3,389.2 L349.6,402.3 L333.7,410.3 L330.9,412.7 L333.1,415.9 L332.6,419.3 L327.6,419.2 L325.6,411.1 L326.7,403.9 L321.9,390.2 L331.5,377.6 L332.7,354.3 L321.8,348.8 L316.4,348.9 L315.4,341.9 L335.0,336.6 L343.1,340.7 L342.6,350.9 L346.8,354.9 L348.8,350.4 L351.6,349.0 L351.1,340.7 L348.4,336.0 L343.8,334.0 L342.0,325.6 L343.8,320.7ZM41.0,151.4 L32.8,142.2 L25.4,138.6 L15.4,139.5 L13.2,141.6 L15.2,128.8 L14.4,116.0 L9.3,110.1 L10.7,107.9 L36.1,108.0 L34.9,98.6 L36.4,95.3 L42.5,94.7 L42.3,78.1 L63.6,78.5 L63.6,68.7 L88.0,84.4 L78.0,84.5 L85.4,141.2 L84.0,145.7 L58.0,145.8 L50.9,148.1 L44.3,146.4 L43.2,150.3 L41.0,151.4ZM343.8,320.7 L342.0,325.6 L343.8,334.0 L348.4,336.0 L351.1,340.7 L351.6,349.0 L348.8,350.4 L346.8,354.9 L342.6,350.9 L343.1,340.7 L331.6,334.9 L335.6,326.6 L334.4,321.3 L336.8,314.3 L335.2,308.8 L332.1,305.9 L338.5,307.1 L342.0,311.9 L343.8,320.7ZM225.8,431.2 L218.4,421.5 L212.2,389.3 L206.4,381.3 L201.5,369.4 L196.3,363.1 L195.9,358.1 L207.1,356.0 L210.9,358.9 L238.2,358.2 L242.7,361.3 L258.4,362.2 L275.6,358.1 L282.3,359.9 L272.6,364.5 L270.1,361.8 L255.3,364.3 L255.1,387.4 L248.8,387.6 L248.8,430.4 L239.5,434.2 L232.5,432.5 L228.9,428.0 L225.8,431.2ZM133.8,168.8 L134.0,164.3 L126.5,162.9 L126.3,159.7 L122.6,155.5 L122.3,149.4 L126.4,149.2 L128.8,146.9 L143.4,145.3 L144.0,141.3 L147.5,137.0 L147.5,122.0 L156.6,119.2 L197.6,94.1 L207.9,96.9 L211.5,100.4 L216.1,98.0 L217.7,108.1 L222.9,114.1 L218.6,138.4 L210.4,144.5 L207.6,153.1 L210.3,155.5 L210.3,159.6 L214.4,159.8 L211.7,165.2 L204.6,158.0 L199.6,161.7 L191.1,159.4 L178.3,163.0 L170.4,159.7 L164.0,161.2 L155.1,156.3 L146.5,158.5 L143.3,170.6 L138.3,166.9 L133.8,168.8ZM174.9,215.2 L158.1,218.5 L147.9,205.5 L137.3,205.6 L137.5,191.0 L143.9,180.9 L143.7,164.8 L146.5,158.5 L155.1,156.3 L164.0,161.2 L170.4,159.7 L178.3,163.0 L191.1,159.4 L199.6,161.7 L206.1,158.3 L210.5,165.4 L214.3,167.8 L213.3,171.2 L207.8,176.2 L196.0,200.9 L191.5,203.1 L185.4,200.5 L179.7,204.4 L174.9,215.2ZM316.9,253.4 L319.5,257.1 L319.1,260.9 L313.8,261.3 L311.8,265.0 L307.9,264.5 L309.6,256.6 L316.9,253.4ZM62.9,70.5 L63.7,67.0 L63.6,78.5 L42.3,78.1 L42.5,94.7 L36.4,95.3 L34.9,98.6 L36.1,108.0 L10.7,107.9 L9.3,110.1 L9.6,107.4 L24.3,106.9 L27.7,101.6 L29.9,92.7 L38.9,85.7 L41.9,77.5 L43.9,77.0 L46.0,72.0 L62.9,70.5ZM339.9,184.8 L338.3,179.2 L335.0,176.7 L335.0,167.2 L332.0,166.8 L331.6,168.2 L327.7,168.6 L329.8,174.3 L323.0,182.6 L319.7,183.2 L314.2,179.4 L307.5,185.2 L295.5,183.7 L293.2,184.8 L287.0,178.7 L282.3,179.6 L278.8,188.3 L274.6,190.3 L271.8,188.1 L272.5,180.8 L268.7,176.7 L264.3,164.2 L262.0,164.6 L264.3,159.5 L263.6,156.8 L265.7,154.8 L264.4,153.3 L269.0,144.5 L274.6,145.0 L274.4,116.6 L281.8,116.6 L281.8,103.6 L358.7,103.6 L362.7,125.5 L368.7,129.5 L365.4,133.2 L358.6,136.3 L354.8,158.3 L344.9,175.4 L341.8,177.3 L339.9,184.8ZM339.9,184.8 L339.0,191.8 L335.6,192.0 L333.4,195.7 L337.3,196.1 L340.6,199.3 L348.6,210.4 L336.2,221.6 L326.4,223.1 L322.3,221.6 L319.6,223.4 L312.4,216.3 L301.1,217.5 L296.2,210.1 L291.3,207.6 L289.7,203.7 L282.6,197.5 L282.6,195.4 L274.6,190.3 L278.8,188.3 L282.3,179.6 L287.0,178.7 L293.2,184.8 L295.5,183.7 L307.5,185.2 L314.2,179.4 L319.7,183.2 L323.0,182.6 L329.8,174.3 L327.7,168.6 L331.6,168.2 L332.0,166.8 L335.0,167.2 L335.0,176.7 L338.3,179.2 L339.9,184.8ZM11.6,158.1 L5.7,150.7 L8.5,149.5 L15.4,139.5 L25.4,138.6 L32.8,142.2 L41.0,151.4 L45.3,165.5 L19.1,164.3 L11.8,165.9 L10.7,160.9 L30.2,158.6 L28.9,156.8 L24.7,157.8 L22.1,156.2 L11.6,158.1ZM45.7,202.1 L36.0,195.6 L34.0,188.4 L42.6,181.0 L47.8,181.0 L51.0,186.1 L51.8,192.0 L53.6,191.7 L45.7,202.1ZM436.9,184.9 L429.5,194.3 L424.0,194.3 L402.8,186.6 L395.6,177.6 L399.4,171.9 L405.7,178.4 L437.0,172.2 L436.9,184.9ZM436.9,172.3 L451.0,168.2 L450.6,177.2 L444.3,193.8 L434.7,211.5 L421.5,227.6 L399.3,244.2 L389.3,257.0 L385.4,251.7 L385.4,228.1 L392.8,218.7 L397.0,218.6 L402.7,214.0 L411.2,213.7 L436.9,184.9 L436.9,172.3ZM327.6,419.2 L326.3,422.1 L322.5,422.8 L318.7,419.3 L321.0,412.7 L326.1,413.5 L327.6,419.2ZM213.8,162.8 L214.4,159.8 L210.3,159.6 L210.3,155.5 L207.6,153.1 L210.4,144.5 L218.6,138.4 L222.9,114.1 L217.7,108.1 L216.1,98.0 L222.6,94.5 L274.3,119.3 L274.6,145.0 L269.0,144.5 L264.4,153.3 L265.7,154.8 L263.6,156.8 L264.3,159.5 L262.0,164.6 L264.3,164.2 L268.0,173.9 L260.6,177.7 L255.9,184.7 L249.8,187.7 L241.7,187.9 L242.4,190.2 L236.3,195.0 L218.9,198.0 L219.9,196.3 L216.9,189.1 L210.3,184.3 L211.7,181.2 L220.1,181.4 L216.5,175.6 L216.4,167.0 L213.8,162.8ZM131.9,206.3 L126.7,207.7 L123.6,201.3 L124.5,192.3 L120.0,174.7 L125.7,174.9 L124.9,178.3 L129.1,182.5 L131.9,206.3ZM181.3,49.8 L178.5,38.2 L169.2,30.2 L168.6,25.3 L172.6,21.7 L174.4,6.8 L181.5,4.2 L186.0,5.0 L185.8,8.3 L191.3,5.9 L188.5,10.3 L188.5,13.3 L190.7,14.9 L189.9,20.5 L185.6,23.8 L186.8,27.3 L190.2,27.4 L194.3,31.5 L193.9,36.5 L184.3,42.9 L184.5,48.3 L181.3,49.8ZM339.5,252.2 L364.1,266.2 L364.5,269.9 L373.8,276.4 L370.9,284.4 L371.2,288.0 L375.4,290.4 L373.7,301.0 L378.7,311.5 L381.1,312.9 L375.9,316.7 L356.4,322.0 L343.8,320.7 L342.0,311.9 L338.5,307.1 L319.0,300.1 L315.5,291.9 L311.8,288.3 L309.9,275.2 L312.6,274.9 L319.1,267.9 L317.3,261.7 L319.1,260.9 L319.5,257.1 L316.9,253.4 L339.5,252.2ZM339.5,252.2 L311.5,254.8 L313.4,242.2 L321.8,231.8 L319.2,230.9 L319.6,223.4 L322.3,221.6 L326.4,223.1 L336.2,221.6 L340.2,218.6 L346.9,233.8 L339.5,245.4 L339.5,252.2ZM330.2,429.4 L314.6,447.8 L297.8,461.3 L287.7,464.1 L286.9,465.9 L266.1,465.4 L247.0,471.6 L238.9,467.2 L236.0,457.3 L238.1,456.1 L237.9,451.1 L225.8,431.2 L228.9,428.0 L232.5,432.5 L239.5,434.2 L248.8,430.4 L248.8,406.5 L254.4,413.6 L255.2,419.8 L259.8,419.2 L270.9,409.7 L276.7,412.3 L286.1,411.2 L287.9,406.0 L291.5,405.5 L295.6,398.8 L301.4,393.9 L313.2,389.2 L321.9,390.2 L326.7,403.9 L326.1,413.5 L321.0,412.7 L318.7,419.3 L322.5,422.8 L326.3,422.1 L327.6,419.2 L332.6,419.3 L330.2,429.4ZM309.9,435.6 L304.8,431.6 L301.7,432.9 L294.8,439.6 L299.6,444.6 L302.0,443.9 L306.8,440.8 L309.9,435.6ZM332.1,305.9 L335.2,308.8 L336.8,314.3 L334.4,321.3 L335.6,326.6 L331.6,334.9 L335.0,336.6 L315.4,341.9 L316.0,346.5 L307.4,350.0 L295.1,362.3 L283.5,361.0 L279.8,358.5 L270.3,359.6 L261.7,350.2 L262.0,329.6 L275.5,329.7 L274.8,316.9 L277.0,317.0 L277.4,319.0 L284.5,319.5 L286.7,322.4 L291.9,323.3 L295.9,321.3 L297.3,324.7 L302.3,325.6 L307.3,331.9 L312.3,332.0 L311.7,325.0 L310.0,326.1 L303.7,322.5 L305.6,308.3 L304.2,305.4 L306.0,301.3 L316.5,299.4 L332.1,305.9ZM321.9,390.2 L310.5,389.2 L301.4,385.2 L299.5,378.9 L289.4,371.0 L283.5,361.0 L295.1,362.3 L307.4,350.0 L316.0,346.5 L316.4,348.9 L321.8,348.8 L332.7,354.3 L331.5,377.6 L321.9,390.2Z"/>
@@ -87,46 +94,50 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
   <circle class="af-pin" cx="6.8" cy="150.9" r="6.5"/>
   <text class="af-label" x="18.8" y="140.9">Dakar</text>
 </svg>
-              <div class="v-mapfoot"><span class="avatar xs" style="background:#C2662D">AS</span><span><b>Awa</b> · développeuse à Dakar</span><code>/claim</code></div>
               <div class="v-stat"><b>+3,4 M</b><span>nouveaux développeurs sur GitHub en Afrique et au Moyen-Orient, en un an</span><small>GitHub Octoverse 2025</small></div>
             </div>
           </div>
         </div>
 
-        <div class="g-stop" data-stop="push">
-          <div class="g-text"><span class="g-branch mono purple-t">fix-thousands</span><h3>Correctif poussé.</h3><p>Un vrai correctif, sur un vrai dépôt.</p></div>
+        <div class="g-stop" data-stop="pr">
+          <div class="g-text"><span class="g-branch mono purple-t">fix-thousands</span><h3>La PR est ouverte.</h3><p>« Fixes #1 » dans la description. Le lien est fait.</p></div>
           <div class="g-visual">
-            <div class="v-diff">
-              <div class="v-diff-head mono">src/fcfa.js · test/fcfa.test.js <span>+3 −1</span></div>
-              <pre class="mono"><span class="del">- .replace(/\B(?=(\d{3})+(?!\d))/, " ")</span>
-<span class="add">+ .replace(/\B(?=(\d{3})+(?!\d))/g, " ")</span>
-<span class="add">+ expect(formatXof(1500000)).toBe("1 500 000 FCFA")</span>
-<span class="add">+ expect(formatSats(12345678)).toBe("12 345 678 sats")</span></pre>
+            <div class="v-pr">
+              <div class="v-pr-head"><span class="v-pr-open"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4" cy="3.5" r="1.8" stroke="#fff" stroke-width="1.6" fill="none"/><circle cx="4" cy="12.5" r="1.8" stroke="#fff" stroke-width="1.6" fill="none"/><circle cx="12" cy="12.5" r="1.8" stroke="#fff" stroke-width="1.6" fill="none"/><path d="M4 5.3v5.4M12 10.7V6.5c0-1.2-.8-2-2-2H7.5M9 3l-1.5 1.5L9 6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Open</span><span class="v-pr-num mono">#9</span></div>
+              <b class="v-pr-title">Group every thousand in formatXof</b>
+              <div class="v-pr-meta"><span class="avatar xs" style="background:#1F9D55">AS</span><span><b>awa</b> veut merger dans <code>main</code> depuis <code>fix-thousands</code></span></div>
+              <div class="v-pr-body mono">Fixes #1</div>
+              <ul class="v-pr-checks">
+                <li><i class="spin"></i><span><b>BitBounty verification</b> · Claude relit les critères…</span></li>
+                <li><i class="spin"></i><span><b>CI</b> · tests en cours</span></li>
+              </ul>
             </div>
           </div>
         </div>
 
         <div class="g-stop" data-stop="review">
-          <div class="g-text"><span class="g-branch mono purple-t">fix-thousands</span><h3>Vérifiée par l'IA.<br>Validée par un humain.</h3><p>L'IA vérifie chaque critère. Le mainteneur a le dernier mot.</p></div>
+          <div class="g-text"><span class="g-branch mono purple-t">fix-thousands</span><h3>Vérifiée par Claude.<br>Validée par vous.</h3><p>Claude coche chaque critère d'acceptation. Le mainteneur a le dernier mot.</p></div>
           <div class="g-visual">
             <ul class="v-checks">
+              <li class="v-checks-head"><span class="v-botmark"><svg width="14" height="14" viewBox="0 0 30 30" aria-hidden="true"><path d="M8 4v22" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M8 9c0 6 4 9 10.5 9.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="21.5" cy="18.5" r="5.2" fill="#F2A007"/></svg></span><span><b>BitBounty verification</b> · Claude</span></li>
               <li><i></i>formatXof(1500000) donne « 1 500 000 FCFA »</li>
               <li><i></i>formatSats(12345678) donne « 12 345 678 sats »</li>
               <li><i></i>Un test couvre le million et plus</li>
               <li class="v-checks-foot mono">3/3 critères · 21 s</li>
               <li class="v-human"><span class="avatar xs" style="background:#C2662D">M</span><span><b>Le mainteneur</b> a approuvé</span><span class="v-approved">Approuvé</span></li>
-              <li class="v-integr">Intégration possible avec votre outil de revue, comme <b>CodeRabbit</b>.</li>
+              <li class="v-integr">Votre relecteur IA, comme <b>CodeRabbit</b>, est intégrable à côté de Claude.</li>
             </ul>
           </div>
         </div>
 
         <div class="g-stop" data-stop="merge">
-          <div class="g-text"><span class="g-branch mono purple-t">main</span><h3>Mergée.</h3><p>Le mainteneur relit et merge, comme d'habitude.</p></div>
-          <div class="g-visual">
+          <div class="g-text"><span class="g-branch mono purple-t">main</span><h3>Mergée.</h3><p>Le merge déclenche le paiement. Rien d'autre à faire.</p></div>
+          <div class="g-visual v-stack">
             <div class="v-merged">
               <span class="v-merged-icon"><svg width="22" height="22" viewBox="0 0 18 18" aria-hidden="true"><circle cx="4.5" cy="3.5" r="2" stroke="#fff" stroke-width="1.8" fill="none"/><circle cx="4.5" cy="14.5" r="2" stroke="#fff" stroke-width="1.8" fill="none"/><circle cx="13.5" cy="9" r="2" stroke="#fff" stroke-width="1.8" fill="none"/><path d="M4.5 5.5v7M4.5 5.5c0 3 3 3.5 7 3.5" stroke="#fff" stroke-width="1.8" fill="none"/></svg></span>
               <span><b>Pull request mergée avec succès</b><small>#9 Group every thousand in formatXof · Fixes #1</small></span>
             </div>
+            <div class="v-cmds"><span>Ou décidez en un commentaire</span><code>/pay</code><code>/hold</code><code>/reject</code></div>
           </div>
         </div>
 
@@ -146,10 +157,32 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
   </section>
 
   <section class="tiles">
+    <div class="tile light">
+      <h2>Construit sur Bitnob.</h2>
+      <p>Du financement au paiement, tout passe en sats.</p>
+      <div class="flow">
+        <span class="tag amber lg">sats · USDT · ₦</span>
+        <svg width="24" height="30" viewBox="0 0 24 30" aria-hidden="true"><path d="M12 2v22M6 18l6 6 6-6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="tag ink xl2">Bitnob</span>
+        <svg width="24" height="30" viewBox="0 0 24 30" aria-hidden="true"><path d="M12 2v22M6 18l6 6 6-6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="tag greenbg lg">Lightning · sats</span>
+      </div>
+    </div>
+
+    <div class="tile light">
+      <h2>Là où les autres s'arrêtent.</h2>
+      <p>Payé depuis Dakar. Dès aujourd'hui.</p>
+      <ul class="versus">
+        <li><span>PayPal</span><svg width="22" height="22" viewBox="0 0 20 20" role="img" aria-label="non"><path d="M5 5l10 10M15 5L5 15" stroke="#B4412B" stroke-width="2.4" stroke-linecap="round"/></svg></li>
+        <li><span>Bounties via Stripe</span><svg width="22" height="22" viewBox="0 0 20 20" role="img" aria-label="non"><path d="M5 5l10 10M15 5L5 15" stroke="#B4412B" stroke-width="2.4" stroke-linecap="round"/></svg></li>
+        <li class="win"><span>BitBounty</span><svg width="22" height="22" viewBox="0 0 20 20" role="img" aria-label="oui"><path d="M4 10.5l4 4 8-9" stroke="var(--green)" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></li>
+      </ul>
+    </div>
+
     <div id="bounties" class="tile light">
-      <h2>Des issues qui paient.</h2>
-      <p>Déjà financées. Payées en sats sur Lightning.</p>
-      <a class="link" href="/explore">Parcourir les issues payées ›</a>
+      <h2>Des PRs qui paient.</h2>
+      <p>Votre PR est mergée, vos sats arrivent sur Lightning.</p>
+      <a class="link" href="/explore">Voir les issues financées ›</a>
       <ul class="list">
         <li><span><b>Grouper les millions dans formatXof</b><small>bitbounty-demo #1</small></span><em>10 000 F</em></li>
         <li><span><b>Traduction en wolof</b><small>bitbounty-demo #2</small></span><em>15 000 F</em></li>
@@ -159,35 +192,13 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
     </div>
 
     <div id="maintainers" class="tile dark">
-      <h2>Votre backlog, corrigé.</h2>
-      <p>Ne payez que ce que vous mergez.</p>
+      <h2>Vos issues, enfin résolues.</h2>
+      <p>Vous ne payez que ce que vous mergez.</p>
       <a class="link green-t" href="{{GITHUB_APP_URL}}" target="_blank" rel="noopener">Installer sur GitHub ›</a>
       <div class="cmd">
         <code>/bounty 10000</code>
         <svg width="24" height="40" viewBox="0 0 24 40" aria-hidden="true"><path d="M12 2v32M5 28l7 7 7-7" stroke="var(--green-bright)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="tag bright">Financée · bloquée jusqu'au merge</span>
-      </div>
-    </div>
-
-    <div class="tile light">
-      <h2>Là où les autres s'arrêtent.</h2>
-      <p>Se faire payer depuis Dakar, aujourd'hui.</p>
-      <ul class="versus">
-        <li><span>PayPal</span><svg width="22" height="22" viewBox="0 0 20 20" role="img" aria-label="non"><path d="M5 5l10 10M15 5L5 15" stroke="#B4412B" stroke-width="2.4" stroke-linecap="round"/></svg></li>
-        <li><span>Bounties via Stripe</span><svg width="22" height="22" viewBox="0 0 20 20" role="img" aria-label="non"><path d="M5 5l10 10M15 5L5 15" stroke="#B4412B" stroke-width="2.4" stroke-linecap="round"/></svg></li>
-        <li class="win"><span>BitBounty</span><svg width="22" height="22" viewBox="0 0 20 20" role="img" aria-label="oui"><path d="M4 10.5l4 4 8-9" stroke="var(--green)" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></li>
-      </ul>
-    </div>
-
-    <div class="tile light">
-      <h2>Construit sur Bitnob.</h2>
-      <p>Des sats, du financement au paiement.</p>
-      <div class="flow">
-        <span class="tag amber lg">sats · USDT · ₦</span>
-        <svg width="24" height="30" viewBox="0 0 24 30" aria-hidden="true"><path d="M12 2v22M6 18l6 6 6-6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="tag ink xl2">Bitnob</span>
-        <svg width="24" height="30" viewBox="0 0 24 30" aria-hidden="true"><path d="M12 2v22M6 18l6 6 6-6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="tag greenbg lg">Lightning · sats</span>
+        <span class="tag bright">Financée · versée au merge</span>
       </div>
     </div>
   </section>
@@ -200,7 +211,7 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
         <span>Première au Demo Day, dimanche 15 h</span>
       </div>
     </div>
-    <a class="pill green" href="/explore">Ouvrir la démo en direct</a>
+    <a class="pill green" href="/explore">Essayer la démo en direct</a>
   </section>
 
   <section class="closing">
@@ -214,6 +225,6 @@ export const LANDING_TEMPLATE = String.raw`<header class="nav">
 <footer>
   <div class="foot-in">
     <span>BitBounty · Code &amp; Chain Dakar 2026 · paiements par <a href="https://bitnob.dev" rel="noopener">Bitnob</a></span>
-    <span><a href="{{REPO_URL}}" rel="noopener">GitHub</a> · montants et noms donnés à titre d'exemple</span>
+    <span><a href="{{REPO_URL}}" rel="noopener">GitHub</a> · montants et noms fictifs</span>
   </div>
 </footer>`;
