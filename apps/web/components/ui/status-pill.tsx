@@ -2,7 +2,7 @@ import type { BountyStatus } from "@bitbounty/core";
 import { Pill } from "./pill";
 import { STATUS_META } from "./status";
 
-export interface StatusBadgeProps {
+export interface StatusPillProps {
   status: BountyStatus;
   /** "en" for maintainer pages, "fr" for developer pages. */
   lang?: "en" | "fr";
@@ -10,8 +10,8 @@ export interface StatusBadgeProps {
   className?: string;
 }
 
-/** Bounty status pill. Colour and label come from STATUS_META (one entry per F2 status). */
-export function StatusBadge({ status, lang = "en", size = "md", className }: StatusBadgeProps) {
+/** Bounty status pill. Colour and label come from STATUS_META (one distinct colour per F2 status). */
+export function StatusPill({ status, lang = "en", size = "md", className }: StatusPillProps) {
   const meta = STATUS_META[status];
   return (
     <Pill
