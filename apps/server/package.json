@@ -13,7 +13,7 @@
     "verify:fixtures": "tsx --env-file-if-exists=../../.env src/ai/verifier/run-fixtures.ts",
     "backlog": "tsx --env-file-if-exists=../../.env src/ai/backlog/cli.ts",
     "agent:create": "tsx src/agents/cli.ts",
-    "payout:smoke": "tsx --env-file-if-exists=../../.env scripts/payout-smoke.ts",
+    "payout:smoke": "tsx --env-file-if-exists=../../.env scripts/lightning-payout-smoke.ts",
     "lightning:smoke": "tsx --env-file-if-exists=../../.env scripts/lightning-smoke.ts",
     "test-payout:smoke": "tsx --env-file-if-exists=../../.env scripts/test-payout-smoke.ts",
     "ngn:smoke": "tsx --env-file-if-exists=../../.env scripts/ngn-smoke.ts",

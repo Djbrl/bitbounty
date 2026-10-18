@@ -46,6 +46,20 @@ export function placeholderGithubId(kind: string, name: string): number {
   return -(parseInt(h.slice(0, 12), 16) + 1);
 }
 
+/** `users.id` for a GitHub login, inserting the user (placeholder GitHub id) the first time. Shared with the payout store. */
+export async function ensureUserId(db: Database, login: string): Promise<string> {
+  const find = async () => (await db.select({ id: users.id }).from(users).where(lowerEq(users.login, login)).limit(1))[0]?.id;
+  const found = await find();
+  if (found) return found;
+  await db
+    .insert(users)
+    .values({ login, githubId: placeholderGithubId("user", login) })
+    .onConflictDoNothing();
+  const id = await find();
+  if (!id) throw new Error(`user ${login} could not be stored`);
+  return id;
+}
+
 const GITHUB_PREFIX = "github:";
 const userIdFor = (login: string) => `${GITHUB_PREFIX}${login}`;
 
@@ -262,18 +276,8 @@ export class DrizzleBountyRepo implements BountyRepo {
     throw new Error(`unsupported user id ${JSON.stringify(id)}: expected github:<login> or a uuid`);
   }
 
-  private async ensureUser(login: string): Promise<string> {
-    const find = async () =>
-      (await this.db.select({ id: users.id }).from(users).where(lowerEq(users.login, login)).limit(1))[0]?.id;
-    const found = await find();
-    if (found) return found;
-    await this.db
-      .insert(users)
-      .values({ login, githubId: placeholderGithubId("user", login) })
-      .onConflictDoNothing();
-    const id = await find();
-    if (!id) throw new Error(`user ${login} could not be stored`);
-    return id;
+  private ensureUser(login: string): Promise<string> {
+    return ensureUserId(this.db, login);
   }
 
   private async ensureRepo(fullName: string): Promise<string> {

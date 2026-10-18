@@ -5,9 +5,12 @@ import type {
   CreateLightningInvoiceInput,
   CreateVirtualAccountInput,
   Customer,
+  DecodedLightningInvoice,
   ExchangeRate,
   InitializePayoutInput,
   LightningInvoice,
+  LightningPayment,
+  PayLightningInput,
   Payout,
   PayoutQuote,
   PayoutQuoteInput,
@@ -269,6 +272,44 @@ export class BitnobClient {
     const data = await this.request<{ invoice?: LightningInvoice } & LightningInvoice>(
       "GET",
       `/api/lightning/invoices/${encodeURIComponent(id)}`,
+    );
+    return data.invoice ?? data;
+  }
+
+  /**
+   * Pays a BOLT11 invoice from our BTC balance. **Moves money.** Payout code passes
+   * `{ retries: 0 }`: after a timeout the payment may have gone through, and the caller must
+   * find out instead of blindly replaying (see apps/server/src/payouts/README.md).
+   */
+  async payLightningInvoice(input: PayLightningInput, opts?: RequestOptions): Promise<LightningPayment> {
+    const data = await this.request<({ payment?: LightningPayment; transaction?: LightningPayment } & LightningPayment) | undefined>(
+      "POST",
+      "/api/lightning/pay",
+      input,
+      opts,
+    );
+    return data?.payment ?? data?.transaction ?? data ?? {};
+  }
+
+  /**
+   * A Lightning payment or invoice by Bitnob id. Bitnob lists outgoing payments with the
+   * invoices (`direction`), so this reads `/api/lightning/invoices/:id` (unverified for payments:
+   * the sandbox refuses `send_lightning` on our account).
+   */
+  async getLightningPayment(id: string): Promise<LightningPayment> {
+    const data = await this.request<{ invoice?: LightningPayment; payment?: LightningPayment } & LightningPayment>(
+      "GET",
+      `/api/lightning/invoices/${encodeURIComponent(id)}`,
+    );
+    return data.payment ?? data.invoice ?? data;
+  }
+
+  /** Structural decode of a BOLT11 (amount, expiry, payment hash). Pays nothing. */
+  async decodeLightningInvoice(request: string): Promise<DecodedLightningInvoice> {
+    const data = await this.request<{ invoice?: DecodedLightningInvoice } & DecodedLightningInvoice>(
+      "POST",
+      "/api/lightning/decode",
+      { request },
     );
     return data.invoice ?? data;
   }

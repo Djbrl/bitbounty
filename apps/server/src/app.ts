@@ -2,7 +2,7 @@ import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
 import { ActivityLog, readApiRoutes } from "./api/index.js";
-import { DrizzleFundingReader, DrizzlePayoutReader, mergeFundings } from "./api/drizzle-read.js";
+import { DrizzleFundingReader, mergeFundings } from "./api/drizzle-read.js";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
 import { bitnobProxyRoutes } from "./dev/bitnob-proxy.js";
 import { GithubDispatcher } from "./github/dispatcher.js";
@@ -32,8 +32,15 @@ import {
   InMemoryFundingStore,
   LightningFunding,
 } from "./funding/index.js";
-import { InMemoryPayoutStore, PayoutService, readBankCodeFallback } from "./payouts/index.js";
-import { beneficiaryFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement } from "./settlement/index.js";
+import {
+  DrizzlePayoutStore,
+  HttpLnurlResolver,
+  InMemoryPayoutStore,
+  PayoutService,
+  readLightningNetwork,
+  type PayoutStore,
+} from "./payouts/index.js";
+import { payeeFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement } from "./settlement/index.js";
 import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
@@ -192,9 +199,15 @@ export const lightningFunding =
     : null;
 
 // I2: settlement, the glue after the PR. verify.done → verdict on the bounty; merge or /pay that
-// verified it → B2 payout after OBJECTION_WINDOW_MINUTES (0 by default, the demo); payout events →
-// paying / paid / payout_failed; funding, PR and payout events re-render the status comment.
-// Payouts need Bitnob keys; where to pay comes from PAYOUT_ACCOUNTS until W4/B3 store accounts.
+// verified it → B6 Lightning payout after OBJECTION_WINDOW_MINUTES (0 by default, the demo); payout
+// events → paying / paid / payout_failed; funding, PR and payout events re-render the status comment.
+// Payouts need Bitnob keys; where to pay (a Lightning Address per GitHub login) comes from
+// PAYOUT_ACCOUNTS until W4/B7 store accounts.
+/** B6: payouts in Postgres when DATABASE_URL is set (a restart resumes them), else in memory. */
+export const payoutStore: PayoutStore = database ? new DrizzlePayoutStore(database.db) : new InMemoryPayoutStore();
+// Validated at boot: a typo refuses to start instead of accepting invoices for the wrong chain.
+const lightningNetwork = readLightningNetwork();
+const payoutAccounts = readPayoutAccounts();
 let payoutService: PayoutService | null = null;
 export const settlement = new Settlement({
   repo: bountyRepo,
@@ -209,19 +222,20 @@ export const settlement = new Settlement({
 }).register();
 
 if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
+  const client = new BitnobClient(readBitnobConfig());
   payoutService = new PayoutService({
-    rails: new BitnobClient(readBitnobConfig()),
-    // In-memory until a Drizzle PayoutStore lands (keep update() a compare-and-set, see payouts/README.md).
-    store: new InMemoryPayoutStore(),
+    rails: client,
+    resolver: new HttpLnurlResolver({ network: lightningNetwork }),
+    rates: new BitnobRates(client),
+    store: payoutStore,
     emit: settlement.applyPayoutEvent,
-    getBeneficiary: beneficiaryFromAccounts(readPayoutAccounts()),
-    callbackUrl: process.env.BITNOB_CALLBACK_URL || "https://example.com/webhooks/bitnob",
-    fromAsset: process.env.BITNOB_PAYOUT_ASSET === "BTC" ? "BTC" : "USDT",
-    bankCodes: readBankCodeFallback(),
+    getPayee: payeeFromAccounts(payoutAccounts),
+    customerId: process.env.BITNOB_PAYOUT_CUSTOMER_ID?.trim() || undefined,
   });
   payoutService.register(bitnobDispatcher);
   void payoutService.resume();
   payoutService.startPolling();
+  console.log(`[payouts] Lightning payouts on ${lightningNetwork}, ${payoutAccounts.size} account(s) in PAYOUT_ACCOUNTS, store ${database ? "Postgres" : "in memory"}`);
 }
 // I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
 // Timelines and the live feed come from the internal events (ActivityLog, in memory).
@@ -233,8 +247,8 @@ app.route(
     activity: activityLog,
     // Live fundings from memory, plus whatever is in Postgres (seed, later the Drizzle stores).
     fundings: database ? mergeFundings(fundingStore, new DrizzleFundingReader(database.db)) : fundingStore,
-    // The payout service (B2) isn't wired into app.ts yet: show the payouts table when there is one.
-    payouts: database ? new DrizzlePayoutReader(database.db) : undefined,
+    // B6: the same store the payout service writes (Postgres), so live payouts and the seed both show.
+    payouts: database ? payoutStore : undefined,
     lightning: lightningFunding,
     internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
   }),

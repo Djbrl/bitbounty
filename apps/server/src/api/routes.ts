@@ -237,6 +237,10 @@ export function readApiRoutes(deps: ReadApiDeps) {
       paidAt: p.paidAt,
       minutesMergeToPay: Math.max(0, Math.round((Date.parse(p.paidAt) - Date.parse(sub.mergedAt)) / 60_000)),
       bitnobReference: p.bitnobPayoutId ?? p.reference,
+      // B6: paid in sats over Lightning, at the rate stored on the payout row.
+      ...(p.rail === "lightning"
+        ? { paidWith: { rail: "lightning" as const, amountSats: p.amountSats ?? null, xofPerBtc: p.xofPerBtc ?? null, paymentHash: p.paymentHash ?? null } }
+        : {}),
     };
     // Anyone can recompute it from the fields: same receipt → same digest.
     const signature = `sha256:${createHash("sha256").update(JSON.stringify(receipt)).digest("hex")}`;

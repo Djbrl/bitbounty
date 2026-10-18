@@ -1,4 +1,4 @@
-import type { Bounty, BountyStatus, Payout, Submission } from "@bitbounty/core";
+import { maskLightningAddress, type Bounty, type BountyStatus, type Payout, type Submission } from "@bitbounty/core";
 import type { ClaimRecord } from "../bounties/repo.js";
 import type { FundingRecord } from "../funding/store.js";
 import type { ActivityEntry } from "./activity.js";
@@ -99,8 +99,33 @@ export function submissionView(
   return { ...s, prUrl: `https://github.com/${b.repoFullName}/pull/${s.prNumber}`, ci, createdAt };
 }
 
+/**
+ * Public payout view. Lists fields explicitly: the Lightning Address is masked, and the BOLT11
+ * and preimage of a Lightning payout (B6) are never sent to the pages.
+ */
 export function payoutView(p: Payout, createdAt: string): NonNullable<BountyDetail["payout"]> {
-  return { ...p, userLogin: loginOf(p.userId) ?? p.userId, provider: "wave", phoneMasked: MASKED_PHONE, createdAt };
+  return {
+    id: p.id,
+    bountyId: p.bountyId,
+    userId: p.userId,
+    amountXof: p.amountXof,
+    quoteId: p.quoteId,
+    bitnobPayoutId: p.bitnobPayoutId,
+    reference: p.reference,
+    status: p.status,
+    attempts: p.attempts,
+    lastError: p.lastError,
+    paidAt: p.paidAt,
+    ...(p.rail ? { rail: p.rail } : {}),
+    ...(p.lightningAddress ? { lightningAddress: maskLightningAddress(p.lightningAddress) } : {}),
+    ...(p.amountSats != null ? { amountSats: p.amountSats } : {}),
+    ...(p.xofPerBtc != null ? { xofPerBtc: p.xofPerBtc } : {}),
+    ...(p.paymentHash ? { paymentHash: p.paymentHash } : {}),
+    userLogin: loginOf(p.userId) ?? p.userId,
+    provider: "wave",
+    phoneMasked: MASKED_PHONE,
+    createdAt,
+  };
 }
 
 export function median(xs: number[]): number {

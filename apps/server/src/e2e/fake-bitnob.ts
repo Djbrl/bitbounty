@@ -1,5 +1,6 @@
-import type { Bank, LightningInvoice, Payout, TradingOrder, TradingQuote, VirtualAccount } from "@bitbounty/bitnob";
+import { BitnobError, type Bank, type LightningInvoice, type LightningPayment, type Payout, type TradingOrder, type TradingQuote, type VirtualAccount } from "@bitbounty/bitnob";
 import type { Rates } from "../funding/pricing.js";
+import type { LnurlResolver } from "../payouts/lnurl.js";
 
 /**
  * In-memory Bitnob for the offline end-to-end run: every call the funding (B1, B4) and
@@ -92,7 +93,55 @@ export class FakeBitnob {
     return o;
   }
 
-  // B2
+  // B6: Lightning payouts. `payLightningInvoice` is idempotent on `reference` (as Bitnob documents)
+  // and a BOLT11 settles at most once (as Lightning guarantees): `settled` counts real payments.
+  lnPayments = new Map<string, LightningPayment>();
+  /** Payment hash (here: the BOLT11 itself) → reference of the one payment that settled it. */
+  settled = new Map<string, string>();
+  /** Status a new payment starts in. */
+  lnInitialStatus: "pending" | "paid" = "pending";
+  async payLightningInvoice(input: { request: string; reference: string }): Promise<LightningPayment> {
+    const existing = this.lnPayments.get(input.reference);
+    if (existing) return { ...existing };
+    const p: LightningPayment = { id: this.id("lnpay"), status: "pending", reference: input.reference, request: input.request };
+    this.lnPayments.set(input.reference, p);
+    if (this.lnInitialStatus === "paid") this.settleLightning(input.reference);
+    return { ...p };
+  }
+  async getLightningPayment(id: string): Promise<LightningPayment> {
+    for (const p of this.lnPayments.values()) if (p.id === id) return { ...p };
+    throw new BitnobError(`GET /api/lightning/invoices/${id} failed: 404`, 404, "NOT_FOUND");
+  }
+  /** The Lightning network delivers (or refuses) the payment. */
+  settleLightning(reference: string, status: "paid" | "failed" = "paid") {
+    const p = this.lnPayments.get(reference);
+    if (!p) throw new Error(`no payment ${reference}`);
+    const request = String(p.request);
+    if (status === "paid" && this.settled.has(request) && this.settled.get(request) !== reference) {
+      p.status = "failed"; // already paid by another payment: Lightning refuses a second settlement
+      return;
+    }
+    p.status = status;
+    if (status === "paid") {
+      this.settled.set(request, reference);
+      p.preimage = "ab".repeat(32);
+    }
+  }
+
+  /** LNURL-pay for the e2e run: every Lightning Address answers with a fake invoice for the exact amount. */
+  readonly lnurl: LnurlResolver = {
+    invoiceFor: async (address: string, amountMsat: number) => {
+      const n = ++this.n;
+      return {
+        bolt11: `lntb${amountMsat / 1000}0n1fake${n}${address.replace(/[^a-z0-9]/g, "")}`,
+        paymentHash: n.toString(16).padStart(64, "0"),
+        amountMsat,
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      };
+    },
+  };
+
+  // B2 (mobile money, legacy: still used by B3's test payout)
   async getBanks(): Promise<Bank[]> {
     return [
       { bank_name: "Wave", bank_code: "WAVE_SN" },

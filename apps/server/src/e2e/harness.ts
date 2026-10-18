@@ -24,7 +24,7 @@ import { signPayload } from "../github/signature.js";
 import { labelFor } from "../github/status-comment/index.js";
 import { githubWebhookRoutes } from "../github/webhook.js";
 import { FakeGithubWriter, registerCommentWiring, syncIssue } from "../github/wiring/index.js";
-import { InMemoryPayoutStore, PayoutService, type Beneficiary, type PayoutRails } from "../payouts/index.js";
+import { HttpLnurlResolver, InMemoryPayoutStore, PayoutService, type LightningRails, type LnurlResolver } from "../payouts/index.js";
 import { Settlement } from "../settlement/index.js";
 import { FakeBitnob } from "./fake-bitnob.js";
 
@@ -42,8 +42,10 @@ export interface HappyPathOptions {
   bitnob?: BitnobClient;
   /** How the bounty is funded. Sandbox Lightning needs someone to pay the printed invoice. */
   fund?: "lightning" | "ngn";
-  /** Where the developer is paid (sandbox mode needs a number Bitnob accepts). */
-  beneficiary?: Beneficiary;
+  /** The developer's Lightning Address (B6). Default `awa@blink.sv` (offline: the fake resolver answers). */
+  lightningAddress?: string;
+  /** LNURL-pay resolver. Default: the fake's (offline) or the real HTTP one on testnet (sandbox). */
+  lnurl?: LnurlResolver;
   amountXof?: number;
   /** Max wait for each asynchronous step (funding, payout) in sandbox mode. */
   timeoutMs?: number;
@@ -152,7 +154,7 @@ export async function runHappyPath(opts: HappyPathOptions = {}): Promise<HappyPa
     log: quiet,
   });
 
-  const beneficiary: Beneficiary = opts.beneficiary ?? { provider: "wave", phoneE164: "+221771234567", accountName: "Awa Diop", country: "SN" };
+  const lightningAddress = opts.lightningAddress ?? "awa@blink.sv";
   const settlement = new Settlement({
     repo,
     bus,
@@ -162,14 +164,15 @@ export async function runHappyPath(opts: HappyPathOptions = {}): Promise<HappyPa
     log: quiet,
   }).register();
   const payouts: PayoutService = new PayoutService({
-    rails: (client ?? fake) as unknown as PayoutRails,
+    rails: (client ?? fake) as LightningRails,
+    resolver: opts.lnurl ?? (client ? new HttpLnurlResolver({ network: "testnet" }) : fake.lnurl),
+    rates,
     store: new InMemoryPayoutStore(),
     emit: settlement.applyPayoutEvent,
-    getBeneficiary: async (userId) => {
+    getPayee: async (userId) => {
       if (userId !== `github:${DEVELOPER}`) throw new Error(`no payout account for ${userId}`);
-      return beneficiary;
+      return { lightningAddress };
     },
-    callbackUrl: "https://bitbounty.test/webhooks/bitnob",
     retryDelaysMs: [sandbox ? 3_000 : 0],
     log: quiet,
   });
@@ -298,26 +301,17 @@ export async function runHappyPath(opts: HappyPathOptions = {}): Promise<HappyPa
     throw new E2eError(`merge: expected verified, got ${merged.status}`, report());
   }
 
-  // Payout: the fake answers `processing`, then Bitnob's success webhook arrives (signed, through B5).
-  // In the sandbox we poll Bitnob, which is also the fallback when webhooks don't come.
+  // Payout (B6): LNURL-pay → invoice → Bitnob /lightning/pay answers `pending`; then the payment
+  // settles and the poll (Lightning has no documented webhook) marks it paid.
   await waitFor(
     "the payout",
     async () => (await bounty()).status === "paid" || (await bounty()).status === "payout_failed",
     async () => {
-      if (sandbox) return payouts.poll();
-      for (const p of fake.payouts.values()) {
-        if (p.status !== "processing") continue;
-        p.status = "success";
-        const body = JSON.stringify({
-          event: "payouts.withdrawal.success",
-          event_id: `${run}-${p.id}`,
-          data: { id: p.id, quote_id: p.quote_id, reference: p.reference, status: "success" },
-        });
-        await app.request("/webhooks/bitnob", { method: "POST", body, headers: { "x-bitnob-signature": signBitnobPayload(BN_SECRET, body) } });
-      }
+      if (!sandbox) for (const [ref, p] of fake.lnPayments) if (p.status === "pending") fake.settleLightning(ref);
+      await payouts.poll();
     },
   );
-  await expectStatus("developer is paid on mobile money", "paid", `${amountXof} FCFA to ${beneficiary.provider}`);
+  await expectStatus("developer is paid over Lightning", "paid", `${amountXof} FCFA in sats to ${lightningAddress.replace(/^(.{2}).*@/, "$1***@")}`);
 
   const final = await bounty();
   const statusComment = final.statusCommentId ? writer.comments.get(final.statusCommentId)?.body ?? "" : "";

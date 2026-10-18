@@ -230,8 +230,27 @@ function defineSuite(connect: () => Promise<Target>) {
       ["a test amount outside 100-199", `update payout_accounts set test_amount_xof = 5000 where user_id = '${SEED_IDS.awa}'`],
       ["a zero funding amount", `update fundings set source_amount = 0 where bounty_id = '${SEED_IDS.bounty("funded")}'`],
       ["a negative agent budget", `update agents set monthly_budget_xof = -1 where id = '${SEED_IDS.agent}'`],
+      // B6
+      ["a Lightning Address that isn't user@domain", `update payout_accounts set lightning_address = 'awa' where user_id = '${SEED_IDS.awa}'`],
+      ["an upper-case Lightning Address", `update payout_accounts set lightning_address = 'Awa@Blink.sv' where user_id = '${SEED_IDS.awa}'`],
+      ["a payout account with nowhere to pay", `update payout_accounts set phone_e164 = null where user_id = '${SEED_IDS.awa}'`],
+      ["a zero sats payout", `update payouts set amount_sats = 0 where bounty_id = '${SEED_IDS.bounty("paid")}'`],
+      ["an unknown payout rail", `update payouts set rail = 'carrier_pigeon' where bounty_id = '${SEED_IDS.bounty("paid")}'`],
     ])("refuses %s", async (_label, query) => {
       await expect(client.query(query)).rejects.toThrow();
+    });
+
+    it("B6: a payout account can be a Lightning Address only, and a payout row keeps its Lightning details", async () => {
+      await client.query(
+        `update payout_accounts set lightning_address = 'awa@blink.sv', phone_e164 = null, provider = null, account_name = null where user_id = '${SEED_IDS.awa}'`,
+      );
+      const [acc] = await db.select().from(payoutAccounts).where(eq(payoutAccounts.userId, SEED_IDS.awa));
+      expect(acc).toMatchObject({ lightningAddress: "awa@blink.sv", phoneE164: null });
+      await client.query(
+        `update payouts set rail = 'lightning', amount_sats = 2217, xof_per_btc = 45100000.5, payment_hash = 'ab' where bounty_id = '${SEED_IDS.bounty("paid")}'`,
+      );
+      const [p] = await db.select().from(payouts).where(eq(payouts.bountyId, SEED_IDS.bounty("paid")));
+      expect(p).toMatchObject({ rail: "lightning", amountSats: 2217, xofPerBtc: 45100000.5 });
     });
 
     it("refuses two bounties on the same issue", async () => {
