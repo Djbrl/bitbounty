@@ -49,24 +49,28 @@ describe("board page (/explore)", () => {
 });
 
 describe("live snapshot (/live)", () => {
-  const summary = (id: string, status: string) => ({ id, status, repoFullName: "a/b", issueTitle: id, amountXof: 1000, claimedBy: null });
+  const card = (bountyId: string, status: string) => ({ bountyId, status, repoFullName: "a/b", issueTitle: bountyId, amountXof: 300, who: null, city: null });
+  const PATH = "/api/live?format=json";
 
-  it("skips a failed detail call and keeps the cards", async () => {
-    responses.set("/api/bounties", [summary("b-1", "paid"), summary("b-2", "paid"), summary("b-3", "funded")]);
-    responses.set("/api/bounties/b-2", {
-      id: "b-2",
-      fundings: [{ sourceCurrency: "NGN", status: "paid", sourceAmount: 500000 }],
-      payout: { amountXof: 1000, amountSats: 42 },
-    });
-    failing = (p) => p === "/api/bounties/b-1";
+  it("reads the server's snapshot, Lagos route included (I4)", async () => {
+    const route = { bountyId: "b-2", ngn: 810, satsBought: 540, xof: 300, feeXof: 15, bufferXof: 9, sats: 500, xofPerBtc: 60_000_000 };
+    responses.set(PATH, { columns: ["funded", "paid"], cards: [card("b-1", "funded"), card("b-2", "paid")], route });
     const snap = await fetchLiveSnapshot();
-    expect(snap.cards.map((c) => c.bountyId)).toEqual(["b-1", "b-2", "b-3"]);
-    expect(snap.route?.bountyId).toBe("b-2");
-    expect(warn).toHaveBeenCalledTimes(1);
+    expect(snap.columns).toEqual(["funded", "paid"]);
+    expect(snap.cards.map((c) => c.bountyId)).toEqual(["b-1", "b-2"]);
+    expect(snap.route).toEqual(route);
   });
 
-  it("still fails when the bounty list fails", async () => {
-    failing = (p) => p === "/api/bounties";
+  it("keeps the board when the route is missing or unreadable", async () => {
+    responses.set(PATH, { cards: [card("b-1", "funded")], route: { bountyId: "b-1", ngn: "lots" } });
+    const snap = await fetchLiveSnapshot();
+    expect(snap.columns).toHaveLength(6);
+    expect(snap.cards).toHaveLength(1);
+    expect(snap.route).toBeNull();
+  });
+
+  it("still fails when the snapshot fails", async () => {
+    failing = (p) => p === PATH;
     await expect(fetchLiveSnapshot()).rejects.toBeInstanceOf(ApiError);
   });
 });

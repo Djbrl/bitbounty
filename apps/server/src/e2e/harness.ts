@@ -4,6 +4,7 @@ import type { Bounty, BountyStatus } from "@bitbounty/core";
 import { Hono } from "hono";
 import { FakeCheckRunGithub, registerCheckRun, RepoBountyLookup } from "../ai/check-run/index.js";
 import { FakeVerifierClient } from "../ai/verifier/index.js";
+import { ActivityLog, readApiRoutes, type LiveRoute } from "../api/index.js";
 import { bitnobWebhookRoutes } from "../bitnob/webhook.js";
 import { InMemoryBountyRepo } from "../bounties/repo.js";
 import {
@@ -50,6 +51,33 @@ export interface HappyPathOptions {
   timeoutMs?: number;
   /** Progress lines. */
   log?: (line: string) => void;
+  /** Database + read API shared by several runs (so one served /live shows them all). Default: a fresh one. */
+  readSide?: ReadSide;
+  /** Pause after each step, so a watched /live has time to animate. Default 0. */
+  stepDelayMs?: number;
+}
+
+/**
+ * What the web reads: the bounty repo, the funding / naira / payout stores and I1's read API over
+ * them (with I4's Lagos route). Runs attach their own event bus to `activity`.
+ */
+export interface ReadSide {
+  repo: InMemoryBountyRepo;
+  fundings: InMemoryFundingStore;
+  ngnAccounts: InMemoryNgnAccountStore;
+  payoutStore: InMemoryPayoutStore;
+  activity: ActivityLog;
+  api: Hono;
+}
+
+export function createReadSide(): ReadSide {
+  const repo = new InMemoryBountyRepo();
+  const fundings = new InMemoryFundingStore();
+  const ngnAccounts = new InMemoryNgnAccountStore();
+  const payoutStore = new InMemoryPayoutStore();
+  const activity = new ActivityLog(repo);
+  const api = new Hono().route("/", readApiRoutes({ repo, activity, fundings, ngnAccounts, payouts: payoutStore }));
+  return { repo, fundings, ngnAccounts, payoutStore, activity, api };
 }
 
 export interface HappyPathStep {
@@ -67,6 +95,8 @@ export interface HappyPathReport {
   events: string[];
   statusComment: string;
   labels: string[];
+  /** I4: the Lagos route /live shows for this bounty (`GET /api/live?format=json`); null unless funded in naira. */
+  route: LiveRoute | null;
 }
 
 const ISSUE_BODY = [
@@ -119,8 +149,10 @@ export async function runHappyPath(opts: HappyPathOptions = {}): Promise<HappyPa
   const rates: Rates = client ? new BitnobRates(client) : fake.rates;
   const customers = new BitnobFunderCustomers(client ?? fake, (id) => `e2e-${run}-${id.replace(/\W/g, "")}@bitbounty.invalid`);
 
-  const repo = new InMemoryBountyRepo();
+  const side = opts.readSide ?? createReadSide();
+  const { repo } = side;
   const bus = new InMemoryEventBus();
+  side.activity.attach(bus);
   const writer = new FakeGithubWriter();
   writer.permissions.set(MAINTAINER, "admin");
   const githubDispatcher = new GithubDispatcher();
@@ -166,7 +198,7 @@ export async function runHappyPath(opts: HappyPathOptions = {}): Promise<HappyPa
     rails: (client ?? fake) as LightningRails,
     resolver: opts.lnurl ?? (client ? new HttpLnurlResolver({ network: "testnet" }) : fake.lnurl),
     rates,
-    store: new InMemoryPayoutStore(),
+    store: side.payoutStore,
     emit: settlement.applyPayoutEvent,
     getPayee: async (userId) => {
       if (userId !== `github:${DEVELOPER}`) throw new Error(`no payout account for ${userId}`);
@@ -178,11 +210,11 @@ export async function runHappyPath(opts: HappyPathOptions = {}): Promise<HappyPa
   payouts.register(bitnobDispatcher);
 
   const emitFunding = applyFundingPaid(repo, bus, quiet);
-  const lightning = new LightningFunding({ client: client ?? fake, store: new InMemoryFundingStore(), rates, customers, bounties: repo, emit: emitFunding, log: quiet });
+  const lightning = new LightningFunding({ client: client ?? fake, store: side.fundings, rates, customers, bounties: repo, emit: emitFunding, log: quiet });
   const ngn = new NgnFunding({
     client: client ?? fake,
-    fundings: new InMemoryFundingStore(),
-    accounts: new InMemoryNgnAccountStore(),
+    fundings: side.fundings,
+    accounts: side.ngnAccounts,
     rates,
     customers,
     emit: emitFunding,
@@ -205,6 +237,7 @@ export async function runHappyPath(opts: HappyPathOptions = {}): Promise<HappyPa
     steps.push({ name, status: b.status, ms: Date.now() - t0, detail });
     say(`  ${b.status === want ? "✓" : "✗"} ${name}: ${b.status}${detail ? ` (${detail})` : ""}`);
     if (b.status !== want) throw new E2eError(`${name}: expected ${want}, got ${b.status}`, report());
+    if (opts.stepDelayMs) await new Promise((r) => setTimeout(r, opts.stepDelayMs));
   };
   const waitFor = async (what: string, until: () => Promise<boolean>, tick: () => Promise<unknown> = async () => {}) => {
     const end = Date.now() + timeoutMs;
@@ -318,7 +351,10 @@ export async function runHappyPath(opts: HappyPathOptions = {}): Promise<HappyPa
   if (!labels.includes(labelFor("paid").name)) {
     throw new E2eError(`status label is ${labels.join(", ")}, expected ${labelFor("paid").name}`, report());
   }
-  return { ...(report() as HappyPathReport), statusComment, labels };
+  // What /live shows: the read API's snapshot, as the web fetches it.
+  const live = (await (await side.api.request("/api/live?format=json")).json()) as { route: LiveRoute | null };
+  const route = live.route?.bountyId === bountyId ? live.route : null;
+  return { ...(report() as HappyPathReport), statusComment, labels, route };
 }
 
 /** The order the internal events must come in for a clean run. */

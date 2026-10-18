@@ -25,7 +25,8 @@ The web pages were built on `fixtures/*.json` (F4). The server now serves the sa
 | `GET /api/users/:login` | `Profile` | paid work (payouts) and active claims; 404 when none |
 | `GET /api/receipts/:id` | `Receipt` | a succeeded payout (`id` = payout id) with merge and funding; `signature` = SHA-256 of the receipt fields |
 | `GET /api/me` | `Me` | needs the session (above) |
-| `GET /api/live` | SSE: `snapshot` then `transition` events | live columns; every internal event as it happens |
+| `GET /api/live` | SSE: `snapshot` `{columns, cards, route}` then `transition` events | live columns; every internal event as it happens. I4: `route` is the Lagos route of the newest naira-funded bounty on the board (null if none); a transition of a naira-funded bounty carries its `route` too, with the legs known so far |
+| `GET /api/live?format=json` | the same snapshot as JSON | the `/live` page's first paint (server render) |
 | `POST /api/bounties/:id/funding {rail}` | `FundingSession` | Lightning invoice through B1 (`503` without Bitnob keys, `501` for usdt/ngn) |
 | `GET /api/bounties/:id/funding` | `{status: pending\|paid, bountyStatus}` | |
 | `POST /api/backlog/fund`, `POST /api/me/payout-account` | `501` with a hint | not wired yet |
@@ -35,6 +36,19 @@ Where the data comes from:
 - fundings: B1's store (memory) plus the `fundings` table;
 - payouts: the `payouts` table (B2's service isn't wired into `app.ts` yet);
 - timelines and the live feed: `ActivityLog`, which records every internal event. It's in memory: after a restart a bounty's timeline starts with its creation date.
+
+## Lagos route on `/live` (I4)
+`apps/server/src/api/live-route.ts` builds it from stored records only (no rate is re-fetched, so the numbers match the funding and payout rows):
+
+| Field | Source |
+| --- | --- |
+| `ngn` | the paid NGN funding's `sourceAmount / 100` (kobo → ₦). B4 asked for `max(₦500, ceil((xof + fee + buffer) × NGN/USDT ÷ XOF/USDT))` with Bitnob's rates at funding time |
+| `feeXof`, `bufferXof` | the funding row: `ceil(5% × xof)`, `ceil(3% × xof)`; null when the row has no breakdown (Postgres rows read by `DrizzleFundingReader`) |
+| `satsBought` | the NGN→BTC order's receive quantity × 1e8 (`NgnAccount.btcReceived`, needs the `ngnAccounts` dep), for the bounty's share: `floor(orderSats × sourceAmount ÷ claimedKobo)`, since B4 sells everything received and credits the over-deposit back. Null when unknown |
+| `xof` | the bounty amount (what the developer receives) |
+| `sats`, `xofPerBtc` | the Lightning payout row (B6): `sats = floor(xof × 1e8 ÷ xofPerBtc)`; null before the payout exists or when it failed |
+
+`routeChecks(route)` redoes the sums (fee and buffer, the payout formula, sats bought ≥ sats paid); the e2e script prints them and fails a naira run when one is off. Example (offline fakes, 10 000 F bounty): ₦27 000 paid for 10 800 F = 10 000 + 500 fee + 300 buffer → 18 000 sats bought → paid 16 666 sats at 60 000 000 F/BTC, 1 334 sats (≈ 800 F) kept as fee + buffer. `app.ts` doesn't build B4's `NgnFunding` yet, so on the real server `satsBought` stays null until it does (pass its account store as `ngnAccounts`).
 
 ## Known gaps (follow-ups)
 - `/me` onboarding (payout account, SMS, test payout) needs B3's routes wired into the server; the page shows the account as not linked.

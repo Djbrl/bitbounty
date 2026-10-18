@@ -4,10 +4,12 @@ import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { BountyRepo } from "../bounties/repo.js";
 import { FundingError, type FundingTarget } from "../funding/lightning.js";
+import type { NgnAccountStore } from "../funding/ngn.js";
 import type { FundingRecord, FundingStore } from "../funding/store.js";
 import type { PayoutStore } from "../payouts/store.js";
 import type { ActivityEntry, ActivityLog } from "./activity.js";
 import { groupThousands } from "./format.js";
+import { buildLiveRoute, paidNairaFunding, type LiveRoute } from "./live-route.js";
 import {
   bountySummary,
   bountyView,
@@ -27,6 +29,8 @@ export interface ReadApiDeps {
   activity: ActivityLog;
   fundings?: Pick<FundingStore, "listByBounty">;
   payouts?: Pick<PayoutStore, "get" | "getByBounty" | "listByStatus">;
+  /** B4 naira accounts: how much bitcoin the naira bought, for the Lagos route on /live (I4). */
+  ngnAccounts?: Pick<NgnAccountStore, "getByFunding">;
   /** B1 Lightning funding (null when Bitnob keys aren't set). */
   lightning?: { invoice(target: FundingTarget): Promise<FundingRecord>; watch(fundingId: string): void } | null;
   /**
@@ -317,6 +321,15 @@ export function readApiRoutes(deps: ReadApiDeps) {
     return c.json({ status: b.status === "unfunded" ? "pending" : "paid", bountyStatus: b.status });
   });
 
+  /** I4: the Lagos route of a bounty, null unless it was funded in naira. */
+  async function liveRoute(b: Bounty): Promise<LiveRoute | null> {
+    const fundings = (await deps.fundings?.listByBounty(b.id)) ?? [];
+    const f = paidNairaFunding(fundings);
+    if (!f) return null;
+    const [payout, account] = await Promise.all([deps.payouts?.getByBounty(b.id), deps.ngnAccounts?.getByFunding(f.id)]);
+    return buildLiveRoute(b, fundings, payout, account);
+  }
+
   api.get("/api/live", async (c) => {
     const snapshot = async () => {
       const list = (await repo.list(200)).filter((b) => LIVE_COLUMNS.includes(b.status)).slice(0, 40);
@@ -331,7 +344,18 @@ export function readApiRoutes(deps: ReadApiDeps) {
           city: null,
         })),
       );
-      return { columns: LIVE_COLUMNS, cards };
+      // The newest naira-funded bounty on the board (repo.list is newest first).
+      let route: LiveRoute | null = null;
+      for (const b of list) if ((route = await liveRoute(b))) break;
+      return { columns: LIVE_COLUMNS, cards, route };
+    };
+    // The page's first paint (server render) reads the same snapshot as JSON.
+    if (c.req.query("format") === "json") return c.json(await snapshot());
+    /** A transition of a naira-funded bounty carries its route, with the legs known so far. */
+    const transitionOf = async (e: ActivityEntry) => {
+      const b = await repo.findById(e.bountyId);
+      const route = b ? await liveRoute(b) : null;
+      return { delayMs: 0, bountyId: e.bountyId, event: e.type, from: e.from ?? "unfunded", to: e.to, text: e.text, ...(route ? { route } : {}) };
     };
     return streamSSE(c, async (stream) => {
       const queue: ActivityEntry[] = [];
@@ -349,10 +373,7 @@ export function readApiRoutes(deps: ReadApiDeps) {
         while (!stream.aborted) {
           const e = queue.shift();
           if (e) {
-            await stream.writeSSE({
-              event: "transition",
-              data: JSON.stringify({ delayMs: 0, bountyId: e.bountyId, event: e.type, from: e.from ?? "unfunded", to: e.to, text: e.text }),
-            });
+            await stream.writeSSE({ event: "transition", data: JSON.stringify(await transitionOf(e)) });
             continue;
           }
           let timer: NodeJS.Timeout | undefined;
