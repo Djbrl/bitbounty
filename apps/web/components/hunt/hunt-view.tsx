@@ -55,7 +55,7 @@ function HunterCard({ data, t }: { data: HuntData; t: HuntText }) {
         <div className="grid min-w-0 flex-1 gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-xl font-extrabold tracking-tight">{me.user.name || login}</h2>
-            <span className={cx("font-mono text-[11px] font-semibold uppercase tracking-wider", tier ? TIER_TEXT[tier] : "text-muted")}>
+            <span className={cx("text-xs font-semibold", tier ? TIER_TEXT[tier] : "text-muted")}>
               {tier ? t.tier[tier] : t.noTier}
             </span>
           </div>

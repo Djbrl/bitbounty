@@ -124,7 +124,7 @@ function ConnectionPill({ conn }: { conn: LiveConnection }) {
     <span
       role="status"
       className={cx(
-        "inline-flex items-center gap-2 font-mono text-[clamp(0.8rem,0.95vw,1.15rem)] font-semibold uppercase tracking-wider",
+        "inline-flex items-center gap-2 text-[clamp(0.8rem,0.95vw,1.15rem)] font-semibold",
         live ? "text-money-bright" : "text-pending",
       )}
     >
@@ -153,7 +153,7 @@ function Lane({
       data-lane={status}
       className="flex min-h-[clamp(120px,22vh,320px)] flex-col gap-[clamp(8px,0.6vw,12px)] rounded-[var(--radius-card)] border border-rule bg-sheet p-[clamp(10px,0.8vw,16px)]"
     >
-      <h2 className="m-0 flex items-center gap-2 font-mono text-[clamp(0.8rem,0.85vw,1.1rem)] font-medium uppercase tracking-[0.08em] text-muted">
+      <h2 className="m-0 flex items-center gap-2 text-[clamp(0.8rem,0.85vw,1.1rem)] font-semibold text-muted">
         <i aria-hidden className={cx("inline-block size-2.5 shrink-0 rounded-full", dot)} />
         {meta.label}
         <span className="ml-auto tabular-nums text-muted/80">{cards.length}</span>

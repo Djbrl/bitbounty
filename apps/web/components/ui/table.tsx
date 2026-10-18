@@ -33,7 +33,7 @@ export function Th({ className, ...rest }: ThHTMLAttributes<HTMLTableCellElement
   return (
     <th
       className={cx(
-        "whitespace-nowrap border-b border-rule px-3 py-2.5 text-left font-mono text-[0.72rem] font-medium uppercase tracking-[0.06em] text-muted",
+        "whitespace-nowrap border-b border-rule px-3 py-2.5 text-left text-xs font-semibold text-muted",
         className,
       )}
       {...rest}

@@ -79,11 +79,11 @@ function HunterCard({ data }: { data: Data }) {
             {user.city ? ` · ${user.city}` : ""}
           </span>
           {tier ? (
-            <span className={cx("font-mono text-xs font-semibold uppercase tracking-wider", TIER_TEXT[tier])} data-tier={tier}>
+            <span className={cx("text-xs font-semibold", TIER_TEXT[tier])} data-tier={tier}>
               ● {TIER_LABEL[tier]} hunter
             </span>
           ) : (
-            <span className="font-mono text-xs uppercase tracking-wider text-muted">New hunter</span>
+            <span className="text-xs text-muted">New hunter</span>
           )}
         </div>
       </div>

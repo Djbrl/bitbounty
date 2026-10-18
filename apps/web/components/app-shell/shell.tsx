@@ -164,10 +164,7 @@ function AvatarMenu({ user, lang, canMaintain, authOn, switchMode, mode }: Omit<
               <span className="font-mono text-xs text-muted">@{user.login}</span>
             </div>
           ) : null}
-          <div className="grid gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-muted">{t.workspace}</span>
-            <ModeSwitch current={mode} canMaintain={canMaintain} lang={lang} switchMode={switchMode} />
-          </div>
+          <ModeSwitch current={mode} canMaintain={canMaintain} lang={lang} switchMode={switchMode} />
           <div className="grid gap-1 border-t border-rule pt-2 text-sm">
             <Link href="/me" className="rounded-md px-2 py-1.5 hover:bg-chip">
               {t.settings}
