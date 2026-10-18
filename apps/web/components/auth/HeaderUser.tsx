@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { SIGN_IN_PATH, safeCallbackUrl } from "../../lib/auth/paths";
 import { sessionToUser, type SessionUser } from "../../lib/auth/session-user";
+import { Avatar } from "../ui/avatar";
 
 export type HeaderSession = { kind: "off" } | { kind: "out" } | { kind: "in"; user: SessionUser };
 
@@ -38,9 +39,7 @@ export function HeaderUserView({ session, path = "/" }: { session: HeaderSession
   const { user } = session;
   return (
     <span className="inline-flex items-center gap-2">
-      {user.avatarUrl ? (
-        <img src={user.avatarUrl} alt="" width={28} height={28} className="size-7 rounded-full" />
-      ) : null}
+      {user.avatarUrl ? <Avatar initials={user.login.slice(0, 1)} src={user.avatarUrl} size="sm" /> : null}
       <a href={`https://github.com/${user.login}`} className="font-medium text-ink">
         @{user.login}
       </a>

@@ -1,13 +1,18 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { HeaderUser } from "../auth/HeaderUser";
+import { Avatar } from "./avatar";
 import { cx } from "./tone";
 
-/** The BitBounty mark: green "B" tile + wordmark. */
+/** The BitBounty mark from the landing nav: ink "b" stroke with a green dot + wordmark. */
 export function Mark({ label = "BitBounty", className }: { label?: string; className?: string }) {
   return (
-    <span className={cx("inline-flex items-center gap-2.5 font-display text-[1.05rem] font-extrabold", className)}>
-      <i className="grid size-[26px] place-items-center rounded-[7px] bg-money text-[0.95rem] not-italic text-on-solid">B</i>
+    <span className={cx("inline-flex items-center gap-2 text-base font-bold text-ink", className)}>
+      <svg width="22" height="22" viewBox="0 0 30 30" aria-hidden className="shrink-0">
+        <path d="M8 4v22" stroke="currentColor" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+        <path d="M8 9c0 6 4 9 10.5 9.5" stroke="currentColor" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+        <circle cx="21.5" cy="18.5" r="5.2" fill="var(--bb-money)" />
+      </svg>
       {label}
     </span>
   );
@@ -35,7 +40,7 @@ export function AppNav({ items = [], active, initials, right }: AppNavProps) {
       <Link href="/" aria-label="BitBounty home">
         <Mark />
       </Link>
-      <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13.5px] text-muted">
+      <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13.5px] text-ink-soft">
         {items.map((item) => (
           <Link
             key={item.href}
@@ -102,33 +107,5 @@ export function Section({ eyebrow, title, description, actions, children, id }: 
       )}
       {children}
     </section>
-  );
-}
-
-const AVATAR_COLORS = ["#2a62d6", "#c2662d", "#0d7a52", "#8250df", "#b7790b", "#c2412d"];
-
-export interface AvatarProps {
-  initials: string;
-  size?: "sm" | "md" | "lg";
-  /** Override the colour; default is derived from the initials (stable across renders). */
-  color?: string;
-}
-
-const AV_SIZE = {
-  sm: "size-7 text-xs",
-  md: "size-10 text-[15px]",
-  lg: "size-[76px] font-display text-[1.6rem] font-extrabold",
-} as const;
-
-export function Avatar({ initials, size = "md", color }: AvatarProps) {
-  const bg = color ?? AVATAR_COLORS[[...initials].reduce((n, c) => n + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
-  return (
-    <span
-      className={cx("grid shrink-0 place-items-center rounded-full font-bold text-white", AV_SIZE[size])}
-      style={{ background: bg }}
-      aria-hidden
-    >
-      {initials.slice(0, 2).toUpperCase()}
-    </span>
   );
 }

@@ -16,17 +16,17 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-16">
-      <h1 className="text-2xl font-semibold">Sign in to BitBounty</h1>
-      <p className="text-sm text-neutral-600">We use your GitHub account to know who claims and who gets paid.</p>
+      <h1 className="text-2xl">Sign in to BitBounty</h1>
+      <p className="text-sm text-muted">We use your GitHub account to know who claims and who gets paid.</p>
       {error ? (
-        <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-[10px] bg-danger-soft px-3 py-2 text-sm font-medium text-danger">
           {error}
         </p>
       ) : null}
       {authEnabled() ? (
         <UserMenu redirectTo={callbackUrl} />
       ) : (
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-muted">
           Sign-in is off: <code>AUTH_SECRET</code> is not set, so every page is public. See docs/auth.md.
         </p>
       )}

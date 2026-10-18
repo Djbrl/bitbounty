@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Amount, Avatar, Card, Eyebrow, Pill, StatCard, Tag, cx, formatXof } from "../ui";
+import { Amount, Avatar, Card, EmptyState, Eyebrow, Pill, StatCard, Tag, cx, formatXof } from "../ui";
 import { formatDay, formatMinutes, PROVIDER_LABEL, type ProfileView as Data, type WorkItem } from "./data";
 
 /** Proof-of-work profile (build kit screen 8): identity card on the left, numbers + receipts on the right. */
@@ -31,9 +31,9 @@ export function ProfileView({ data }: { data: Data }) {
               ))}
             </ul>
           ) : (
-            <Card className="text-sm text-muted">
-              No paid bounty yet. Every merged and paid PR by @{user.login} will show up here with a signed receipt.
-            </Card>
+            <EmptyState title="No paid bounty yet" align="start">
+              Every merged and paid PR by @{user.login} will show up here with a signed receipt.
+            </EmptyState>
           )}
         </section>
       </div>
@@ -54,7 +54,7 @@ function IdentityCard({ data }: { data: Data }) {
       <div className="flex items-center gap-3 md:grid md:gap-3">
         <Avatar initials={data.initials} size="lg" />
         <div className="grid min-w-0">
-          <h1 className="font-display text-[1.3rem] font-extrabold leading-tight">{user.name}</h1>
+          <h1 className="text-[1.3rem] font-extrabold leading-tight">{user.name}</h1>
           <span className="break-all text-[13px] text-muted">
             <a href={`https://github.com/${user.login}`} className="hover:text-ink hover:underline">
               @{user.login}

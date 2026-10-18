@@ -9,7 +9,7 @@ export function SignOutButton({ className }: { className?: string }) {
         await signOut({ redirectTo: "/" });
       }}
     >
-      <button type="submit" className={className ?? "text-sm text-neutral-600 underline hover:text-neutral-900"}>
+      <button type="submit" className={className ?? "text-sm text-muted underline hover:text-ink"}>
         Sign out
       </button>
     </form>

@@ -84,7 +84,7 @@ export function LiveBoard({ initial, speed = 1, stream = true }: LiveBoardProps)
   return (
     <div className="relative flex min-h-dvh flex-col gap-[clamp(14px,1.6vw,28px)] overflow-x-clip bg-forest px-4 py-5 text-white sm:px-[clamp(16px,2.2vw,44px)] sm:py-[clamp(18px,2vw,36px)]">
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <h1 className="m-0 font-display text-[clamp(1.7rem,2.6vw,3.2rem)] font-extrabold tracking-tight">BitBounty · live</h1>
+        <h1 className="m-0 text-[clamp(1.7rem,2.6vw,3.2rem)] font-extrabold tracking-tight">BitBounty · live</h1>
         <ConnectionPill conn={conn} />
       </header>
 
@@ -144,7 +144,8 @@ function Lane({
   flip: (id: string) => CardRef;
 }) {
   const meta = statusMeta(status);
-  const dot = meta.tone === "money" || meta.tone === "money-solid" ? "bg-money-bright" : TONE_DOT[meta.tone];
+  // Always on the dark forest background: the green and ink tones read as bright green there.
+  const dot = ["money", "money-solid", "bright", "ink"].includes(meta.tone) ? "bg-money-bright" : TONE_DOT[meta.tone];
   return (
     <div
       data-lane={status}

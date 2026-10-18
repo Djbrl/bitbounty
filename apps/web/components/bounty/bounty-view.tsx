@@ -4,8 +4,9 @@ import { formatXof, Amount } from "../ui/amount";
 import { buttonClass } from "../ui/button";
 import { Card, Eyebrow } from "../ui/card";
 import { Pill, Tag } from "../ui/pill";
+import { ProgressSteps } from "../ui/progress-steps";
 import { STATUS_META } from "../ui/status";
-import { StatusBadge } from "../ui/status-badge";
+import { StatusPill } from "../ui/status-pill";
 import { cx, TONE_DOT } from "../ui/tone";
 import type { BountyDetail } from "./data";
 import {
@@ -48,7 +49,7 @@ function KV({ k, children }: { k: ReactNode; children: ReactNode }) {
 function CardTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h2 className="font-display text-lg font-bold">{children}</h2>
+      <h2 className="text-lg font-bold">{children}</h2>
       {right}
     </div>
   );
@@ -69,7 +70,7 @@ export function BountyHeader({ b }: { b: BountyDetail }) {
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Amount xof={b.amountXof} size="xl" money={b.status === "paid"} />
-        <StatusBadge status={b.status} />
+        <StatusPill status={b.status} />
         {b.funderKind === "agent" ? (
           <Pill tone="agent" dot>
             Funded by an AI agent · @{b.funderLogin}
@@ -85,23 +86,7 @@ export function BountyHeader({ b }: { b: BountyDetail }) {
           ))}
         </div>
       )}
-      <ol className="flex flex-wrap gap-x-4 gap-y-2 text-[13px]" aria-label="Progress">
-        {steps.map((s) => (
-          <li key={s.label} data-done={s.done} className={cx("inline-flex items-center gap-1.5", !s.done && "text-muted")}>
-            <i
-              aria-hidden
-              className={cx(
-                "grid size-4 place-items-center rounded-full text-[10px] font-bold not-italic",
-                s.done ? "bg-money text-on-solid" : "bg-chip",
-              )}
-            >
-              {s.done ? "✓" : ""}
-            </i>
-            {s.label}
-            {s.at && <span className="font-mono text-[11.5px] text-muted">{formatDateTime(s.at)}</span>}
-          </li>
-        ))}
-      </ol>
+      <ProgressSteps steps={steps.map((s) => ({ ...s, at: s.at && formatDateTime(s.at) }))} />
       <p className="text-sm text-muted">{STATUS_META[b.status].hint}</p>
     </Card>
   );
@@ -257,7 +242,7 @@ export function Timeline({ b }: { b: BountyDetail }) {
               <div className="grid min-w-0 gap-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <b className="text-[15px]">{m.label}</b>
-                  <StatusBadge status={e.to} size="sm" />
+                  <StatusPill status={e.to} size="sm" />
                 </div>
                 <p className="text-sm break-words">{e.text}</p>
                 <span className="font-mono text-[11.5px] text-muted">

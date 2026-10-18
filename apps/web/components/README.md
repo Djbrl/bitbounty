@@ -1,72 +1,91 @@
-# Web components (W1 design base)
+# Web components (U0 design system)
 
-Every W page builds on these. Import from `@/components/ui`. Live catalogue: **`/dev`** (`pnpm --filter @bitbounty/web exec next dev -p 3100`, then http://localhost:3100/dev).
+One design system, taken from the landing (`Djbrl/bitbounty-landing`, `styles.css`). Every page builds on it: import from `@/components/ui`, never hard-code hex colours or fonts. Live catalogue, light and dark side by side: **`/dev/ui`** (`pnpm --filter @bitbounty/web dev -p 3100`, then http://localhost:3100/dev/ui; `/dev` redirects there).
 
-All components are server components (no `"use client"`); wrap them in your own client component when you need state.
+Components are server components unless noted; wrap them in your own client component when you need state.
 
 ## Tokens (`app/globals.css`)
 
-Raw values on `:root` (`--bb-*`), flipped for dark mode (OS setting, or force with `<html data-theme="dark|light">`), exposed to Tailwind through `@theme inline`. Use the utilities, never hex codes, and dark mode comes for free.
+Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@theme inline`. Use the utilities (`bg-paper`, `text-ink`, `border-rule`…) and dark mode comes for free.
 
-| Utility | Meaning |
-|---|---|
-| `bg-paper` / `bg-sheet` | page background / card surface |
-| `text-ink` / `text-muted` | main text / secondary text |
-| `border-rule`, `bg-chip` | hairlines, neutral chips |
-| `money`, `money-soft` | money held or landed (green) |
-| `pending`, `pending-soft` | waiting for funds / on hold (amber) |
-| `claim`, `claim-soft` | claimed / in progress (blue) |
-| `danger`, `danger-soft` | payout failed (red) |
-| `agent`, `agent-soft` | funded by an AI agent (purple, from the landing) |
-| `forest`, `money-bright` | landing dark green and bright green (projector screen) |
-| `on-solid` | text on a solid `money`/`danger` fill |
-| `font-display` / `font-body` / `font-mono` | Bricolage Grotesque / Instrument Sans / JetBrains Mono (via `next/font`) |
-| `rounded-[var(--radius-card)]` | 12 px card radius |
+- **Dark mode** follows the OS, or force it with `data-theme="dark|light"` on `<html>` **or on any element** (a subtree can be themed; `/dev/ui` does this). Give a themed subtree `bg-paper text-ink`.
+- **Dark palette** = the landing's dark band: ink background, ink-2 cards, line-dark hairlines, mint secondary text.
+
+| Utility | Landing name | Light / dark | Use |
+|---|---|---|---|
+| `paper` | paper | `#F5F6F3` / `#0B1F17` | page background |
+| `sheet` | white | `#FFFFFF` / `#13291F` | cards |
+| `ink` | ink | `#0B1F17` / `#F4F5F1` | main text |
+| `ink-2` | ink-2 | `#13291F` / `#1A3528` | deep green surface |
+| `ink-soft` | text-2 | `#2C4337` / `#CFE2D7` | secondary body text, nav links |
+| `muted` | muted | `#5B7366` / `#9DC4AE` | captions, labels |
+| `rule` | (list border) | `#E3E7E0` / `#2B4B3B` | hairlines, skeletons |
+| `line-dark` | line-dark | `#2B4B3B` | borders on dark surfaces (constant) |
+| `chip` | chip | `#EEF0EA` / `#1F3A2D` | chips, neutral pills |
+| `mint` | mint | `#9DC4AE` | text on dark surfaces (constant) |
+| `money`, `money-soft`, `money-strong` | green | `#167A45` / `#3CC77E` | money held or landed, primary buttons (`money-strong` = hover) |
+| `money-bright` | green-bright | `#3CC77E` | checks passed, "paying" (constant) |
+| `amber`, `on-amber` | amber | `#F2A007` on `#2B1A00` | awaiting funds (solid tag, constant) |
+| `pending`, `pending-soft` | (amber, text-safe) | `#855800` / `#F2B440` | on hold, warnings |
+| `claim`, `claim-soft` | (app only) | blue | a developer is on it |
+| `danger`, `danger-soft` | (app only) | red | payout failed, errors |
+| `agent`, `agent-soft` | purple | `#8250DF` / `#B392F0` | funded by an AI agent |
+| `tier-bronze/silver/gold` | | | Avatar tier rings (U3) |
+| `forest`, `on-forest` | ink | `#0B1F17` / `#F4F5F1` (constant) | always-dark surfaces: /live, toasts |
+| `on-solid` | | white / ink | text on a solid `money`/`danger`/`claim` fill |
+| `rounded-[var(--radius-card)]` / `--radius-card-lg` | | 16 px / 22 px | card radius (lg = landing `.card`) |
+
+**Fonts** (`next/font/google` in `app/layout.tsx`, self-hosted at build): as on the landing, **headings and text are Instrument Sans** (h1–h4 default to 700 with `-0.03em` tracking), **amounts and big numbers are Bricolage Grotesque 800** (`font-display`, variable with optical size), **hashes, ids, timers and secondary amounts are JetBrains Mono** (`font-mono`). Don't put `font-display` on headings.
 
 ## Components
 
 | Component | Props | Use |
 |---|---|---|
-| `Page` | `nav?: AppNavProps`, `width?: "narrow" \| "default" \| "wide"` | Page container, 16 px gutter on phones, optional top nav |
-| `AppNav` | `items?: {href,label}[]`, `active?`, `initials?`, `right?: ReactNode` | Top bar (mark + links + avatar). W9 puts its sign-in button in `right` |
-| `Mark` | `label?` | Green "B" tile + wordmark |
-| `Section` | `eyebrow?`, `title?`, `description?`, `actions?`, `id?` | Heading block + content |
-| `Card` | `emphasis?`, `padding?: "none"\|"sm"\|"md"\|"lg"`, `as?` + div attrs | White sheet, hairline border |
-| `StatCard` | `label`, `value`, `sub?`, `money?`, `emphasis?` | Dashboard / profile numbers |
-| `Eyebrow` | children | Mono uppercase label |
-| `StatusBadge` | `status: BountyStatus`, `lang?: "en" \| "fr"`, `size?` | Bounty status pill; colour + label from `STATUS_META` |
-| `STATUS_META` / `statusMeta()` | `Record<BountyStatus, {tone, label, labelFr, hint}>` | Same mapping for custom renderings (lanes on the live screen, dots) |
-| `Pill` | `tone?: Tone`, `dot?`, `size?: "sm"\|"md"` + span attrs | Filters, tags, labels |
+| `Button` / `buttonClass()` | `variant?: "primary" \| "secondary" \| "ghost" \| "dark" \| "danger"`, `size?: "sm" \| "md" \| "lg"`, `block?` + button attrs | Pill buttons. primary = landing green, secondary = hairline, ghost = green text link, dark = ink pill ("Installer"). `buttonClass({...})` styles a `<Link>`/`<a>` |
+| `Card` | `emphasis?`, `padding?: "none" \| "sm" \| "md" \| "lg"`, `as?` + attrs | White sheet, hairline border; `lg` gets the 22 px radius |
+| `StatCard` | `label`, `value`, `sub?`, `money?`, `emphasis?` | Big Bricolage number + label |
+| `Chip` | `selected?`, `onClick?`, `icon?`, `size?: "sm" \| "md"` + button attrs | Landing chip. With `selected` (true/false) or `onClick` it is a `<button aria-pressed>` toggle (filters, stack picker); otherwise a `<span>` label |
+| `StatusPill` | `status: BountyStatus`, `lang?: "en" \| "fr"`, `size?` | One distinct colour per bounty status (table below) |
+| `STATUS_META` / `statusMeta()` | `Record<BountyStatus, {tone, label, labelFr, hint}>` | Same mapping for custom renderings (lanes, dots) |
+| `Pill` | `tone?: Tone`, `dot?`, `size?` + span attrs | Free-form tag in any tone |
 | `Dot` | `tone?`, `pulse?` | Coloured dot ("live") |
-| `Tag` | children | Small square tag (language, label) |
-| `Button` / `buttonClass()` | `variant?: "primary"\|"secondary"\|"ghost"\|"danger"`, `size?`, `block?` + button attrs | Actions. `buttonClass({...})` styles a `<Link>` the same way |
-| `Amount` / `formatXof()` / `formatSats()` | `xof`, `size?: "sm"\|"md"\|"lg"\|"xl"`, `money?` | FCFA amounts, `62 500 F` (no `Intl`, so no hydration drift) |
+| `Tag` | children | Small square tag (labels on rows) |
+| `Amount` / `formatXof()` / `formatSats()` / `formatNgn()` | `xof`, `sats?`, `ngn?`, `currency?: "xof" \| "ngn" \| "sats"`, `size?: "sm" \| "md" \| "lg" \| "xl"`, `money?` | FCFA big (Bricolage) + sats small (mono) when `sats` is passed. `currency` puts the user's preferred currency big and FCFA small; falls back to FCFA when that value isn't passed. No conversion inside: pass the amounts you have. Without `sats`/`ngn` it renders exactly one span, as before |
+| `Avatar` | `initials`, `src?`, `size?: "sm" \| "md" \| "lg" \| "xl"`, `color?`, `tier?: "bronze" \| "silver" \| "gold"`, `label?` | Photo or initials; `tier` draws a ring with a transparent gap. Decorative unless `label` is given |
+| `ProgressSteps` | `steps: {label, done?, at?}[]`, `current?: number`, `label?` | Numbered steps joined by a rail, ✓ when done, green ring on `current`. Onboarding 1·2·3, bounty lifecycle |
+| `EmptyState` | `title`, children (body), `action?`, `icon?`, `align?: "start" \| "center"` | Dashed "nothing here yet" box |
+| `Skeleton` | `className` (size/shape) | Pulsing placeholder, hidden from screen readers, static with reduced motion |
+| `LoadingState`, `ErrorState` | `label?` / `title?`, `message`, `action?` | Route-level loading and error screens (I1) |
+| `Toast` | `tone?: "info" \| "success" \| "error"`, `title`, children, `action?`, `onClose?` | Dark notification card (landing `.notif`), `role="alert"` for errors |
+| `ToastProvider` / `useToast()` | `toast({ tone, title, children, action, duration? })` | Client. Provider is mounted in `app/layout.tsx`; call `useToast()` from any client component. `duration` ms, default 5000, 0 = sticky; 3 visible max |
+| `Page` | `nav?: AppNavProps`, `width?: "narrow" \| "default" \| "wide"` | Page container, 16 px gutter on phones, optional top nav |
+| `AppNav` | `items?`, `active?`, `initials?`, `right?` | Top bar (mark + links + avatar) |
+| `Mark` | `label?` | Landing logo ("b" stroke + green dot) + wordmark |
+| `Section` | `eyebrow?`, `title?`, `description?`, `actions?`, `id?` | Heading block + content |
+| `Eyebrow` | children | Mono uppercase label |
 | `Table`, `THead`, `TBody`, `Tr`, `Th`, `Td` | `Tr selected?`, `Td numeric?`, `Td mono?` | Bordered table, scrolls inside its border on phones |
-| `PhoneFrame` | `time?`, `lock?`, `fluid?` | Phone mockup. `fluid` = real developer page: full width on phones, bezel from `sm:` |
-| `PhoneNotification` | `title`, `body`, `icon?` | Wave payout push notification |
-| `BrowserFrame` | `url` | Browser chrome mockup |
-| `Avatar` | `initials`, `size?`, `color?` | Initials avatar, stable colour |
+| `PhoneFrame`, `PhoneNotification`, `BrowserFrame` | see source | Mockups (landing phone colours) |
 | `cx()` | class parts | Tiny class joiner |
 
-`Tone` = `neutral | money | money-solid | pending | claim | danger | agent | ink`.
+`Tone` = `neutral | outline | money | money-solid | bright | pending | amber | claim | claim-solid | danger | agent | ink`.
 
 ### Status mapping
 
-| status | tone | en | fr |
-|---|---|---|---|
-| unfunded | pending | Awaiting funds | En attente de fonds |
-| funded | money | Funded | Financé |
-| claimed | claim | Claimed | Réservé |
-| submitted | claim | PR submitted | PR soumise |
-| verified | money | Verified | Vérifié |
-| paying | money | Paying out | Paiement en cours |
-| paid | money-solid | Paid | Payé |
-| on_hold | pending | On hold | En pause |
-| payout_failed | danger | Payout failed | Paiement échoué |
-| refunded | neutral | Refunded | Remboursé |
-| cancelled | neutral | Cancelled | Annulé |
+| status | tone | look | en | fr |
+|---|---|---|---|---|
+| unfunded | amber | solid amber (landing tag) | Awaiting funds | En attente de fonds |
+| funded | money | soft green | Funded | Financé |
+| claimed | claim | soft blue | Claimed | Réservé |
+| submitted | claim-solid | solid blue | PR submitted | PR soumise |
+| verified | bright | bright green (landing ticks) | Verified | Vérifié |
+| paying | ink | ink pill | Paying out | Paiement en cours |
+| paid | money-solid | solid green | Paid | Payé |
+| on_hold | pending | soft amber | On hold | En pause |
+| payout_failed | danger | soft red | Payout failed | Paiement échoué |
+| refunded | neutral | grey chip | Refunded | Remboursé |
+| cancelled | outline | hairline only | Cancelled | Annulé |
 
-`STATUS_META` is typed `Record<BountyStatus, …>`: a new status in `@bitbounty/core` fails the typecheck until it gets a badge. Tests: `components/ui/ui.test.tsx`.
+`STATUS_META` is typed `Record<BountyStatus, …>`: a new status in `@bitbounty/core` fails the typecheck until it gets a pill; a test checks that no two statuses share a tone. Tests: `components/ui/ui.test.tsx`, `components/ui/design-system.test.tsx`.
 
 ## Note on `@bitbounty/core`
 

@@ -9,7 +9,7 @@ export interface PillProps extends HTMLAttributes<HTMLSpanElement> {
   children: ReactNode;
 }
 
-/** Rounded label: tags, filters, status text. */
+/** Rounded label (landing `.tag`): tags, status text. The dot takes the text colour, so it works on soft and solid tones. */
 export function Pill({ tone = "neutral", dot = false, size = "md", className, children, ...rest }: PillProps) {
   return (
     <span
@@ -21,7 +21,7 @@ export function Pill({ tone = "neutral", dot = false, size = "md", className, ch
       )}
       {...rest}
     >
-      {dot && <Dot tone={tone} className={tone === "money-solid" ? "bg-on-solid" : undefined} />}
+      {dot && <Dot className="bg-current" />}
       {children}
     </span>
   );
