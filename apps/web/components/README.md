@@ -31,7 +31,7 @@ Raw values on `--bb-*`, redefined for dark mode, exposed to Tailwind through `@t
 | `pending`, `pending-soft` | (amber, text-safe) | `#855800` / `#F2B440` | on hold, warnings |
 | `claim`, `claim-soft` | purple | `#7444D4` on `#F1EBFD` (light) | a developer is on it, PR submitted |
 | `danger`, `danger-soft` | (app only) | red | payout failed, errors |
-| `agent`, `agent-soft`, `agent-strong` | purple | `#8250DF` / `#B392F0` | funded by an AI agent (`agent-strong` = AA text on `agent-soft`) |
+| `agent`, `agent-soft`, `agent-strong` | purple | `#8250DF` / `#B392F0` | AI accents (verdict box, agent budget bar). U8: the **agent-funded pill** (`Pill tone="agent"`) is a neutral `chip` + `ink` label with 🤖, so it never looks like the purple claimed pill |
 | `tier-bronze/silver/gold` | | darker in light for 3:1 | Avatar tier rings (U3) |
 | `forest`, `on-forest` | ink | `#0B1F17` / `#F4F5F1` (constant) | always-dark surfaces: /live (also forces `data-theme="dark"`), toasts (in dark mode they sit on a same-colour page, outlined by `line-dark`) |
 | `on-solid` | | white / ink | text on a solid `money`/`danger`/`claim` fill |

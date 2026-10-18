@@ -44,7 +44,10 @@ export function ProfileView({ data }: { data: Data }) {
 const TIER_LABEL = { bronze: "Bronze", silver: "Silver", gold: "Gold" } as const;
 const TIER_TEXT = { bronze: "text-tier-bronze", silver: "text-tier-silver", gold: "text-tier-gold" } as const;
 
-/** U5 hunter card (same look as the U3 home card): avatar with tier ring, total earned in FCFA + sats, stack chips. */
+/**
+ * U5 hunter card: avatar with tier ring, total earned in FCFA + sats, stack chips.
+ * U8: light like the rest of the app (white sheet, ink text, purple top accent, green money), no longer forced dark.
+ */
 function HunterCard({ data }: { data: Data }) {
   const { user, stats, tier } = data;
   const rows: [string, ReactNode][] = [
@@ -57,9 +60,8 @@ function HunterCard({ data }: { data: Data }) {
     <Card
       as="section"
       padding="lg"
-      data-theme="dark"
       data-hunter-card
-      className="grid justify-items-start gap-4 bg-paper text-ink"
+      className="grid justify-items-start gap-4 border-t-[3px] border-t-claim text-ink"
       aria-label="Hunter card"
     >
       <div className="flex w-full items-center gap-4 md:grid md:justify-items-start">
