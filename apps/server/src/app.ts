@@ -1,7 +1,7 @@
 import { BitnobClient, readBitnobConfig } from "@bitbounty/bitnob";
 import { createDb } from "@bitbounty/db";
 import { Hono } from "hono";
-import { ActivityLog, readApiRoutes } from "./api/index.js";
+import { ActivityLog, DrizzleModeStore, InMemoryModeStore, modeRoutes, readApiRoutes } from "./api/index.js";
 import { DrizzleFundingReader, mergeFundings } from "./api/drizzle-read.js";
 import { bitnobWebhookRoutes } from "./bitnob/webhook.js";
 import { bitnobProxyRoutes } from "./dev/bitnob-proxy.js";
@@ -261,6 +261,15 @@ export function startPayouts(): void {
   void payoutService.resume().catch((err) => console.error(`[payouts] resume failed: ${err instanceof Error ? err.message : err}`));
   payoutService.startPolling();
 }
+// U2: the user's workspace (Maintainer / Hunter) for the web app shell, users.default_mode (L1).
+app.route(
+  "/",
+  modeRoutes({
+    store: database ? new DrizzleModeStore(database.db) : new InMemoryModeStore(),
+    repo: bountyRepo,
+    internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
+  }),
+);
 // I1: read API for the web pages (board, bounties, dashboard, profiles, receipts, /me, live SSE, funding).
 // Timelines and the live feed come from the internal events (ActivityLog, in memory).
 export const activityLog = new ActivityLog(bountyRepo).attach(eventBus);

@@ -1,4 +1,4 @@
-// W9: /dashboard, /me and /welcome (L1) need a GitHub session; everything else is public.
+// W9: /dashboard, /me, /welcome (L1) and /app (U2) need a GitHub session; everything else is public.
 // No-op when AUTH_SECRET is unset, so local dev on fixtures works without OAuth setup.
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "./auth";
@@ -17,4 +17,4 @@ export default function middleware(req: NextRequest) {
 }
 
 // Must be a literal for Next. Keep in sync with PROTECTED_PREFIXES in lib/auth/paths.ts (tested).
-export const config = { matcher: ["/dashboard/:path*", "/me/:path*", "/welcome/:path*"] };
+export const config = { matcher: ["/dashboard/:path*", "/me/:path*", "/welcome/:path*", "/app/:path*"] };

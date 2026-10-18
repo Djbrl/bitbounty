@@ -13,15 +13,24 @@ export const DASHBOARD_NAV = [
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export function DashboardView({ data }: { data: DashboardData }) {
+  return (
+    <Page nav={{ items: DASHBOARD_NAV, active: "/dashboard", initials: initialsOf(data.maintainer) }}>
+      <DashboardContent data={data} />
+    </Page>
+  );
+}
+
+/** The dashboard without the page frame, for the /app shell (U2). Section ids back the sidebar anchors. */
+export function DashboardContent({ data }: { data: DashboardData }) {
   const { stats, repos, backlog, needsAction } = data;
   const active = activeBounties(data.bounties);
   const openIssues = repos.reduce((n, r) => n + r.openIssues, 0);
   const backlogRepos = [...new Set(backlog.map((s) => s.repoFullName))];
 
   return (
-    <Page nav={{ items: DASHBOARD_NAV, active: "/dashboard", initials: initialsOf(data.maintainer) }}>
+    <>
       <h1 className="sr-only">Maintainer dashboard</h1>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div id="payouts" className="grid gap-3 sm:grid-cols-3">
         <StatCard
           emphasis
           label="Held for open bounties"
@@ -38,6 +47,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
       </div>
 
       <Section
+        id="backlog"
         title="Price my backlog"
         description={
           <>
@@ -77,7 +87,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         </Section>
       )}
 
-      <Section title="Active bounties" description={`${plural(active.length, "bounty", "bounties")} in flight across your repos.`}>
+      <Section id="review" title="Active bounties" description={`${plural(active.length, "bounty", "bounties")} in flight across your repos.`}>
         {active.length ? (
           <Table className="min-w-[620px]">
             <THead>
@@ -118,7 +128,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         )}
       </Section>
 
-      <Section title="Repositories">
+      <Section id="repos" title="Repositories">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {repos.map((r) => (
             <Card key={r.fullName} className="grid gap-2">
@@ -135,6 +145,6 @@ export function DashboardView({ data }: { data: DashboardData }) {
           ))}
         </div>
       </Section>
-    </Page>
+    </>
   );
 }

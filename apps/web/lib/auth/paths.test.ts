@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { authEnabled, isProtectedPath, safeCallbackUrl, signInErrorMessage, signInRedirectUrl } from "./paths";
 
 describe("isProtectedPath", () => {
-  it.each(["/dashboard", "/dashboard/", "/dashboard/acme/repo", "/me", "/me/", "/me/payout"])("protects %s", (p) => {
+  it.each(["/dashboard", "/dashboard/", "/dashboard/acme/repo", "/me", "/me/", "/me/payout", "/app", "/app/hunt", "/app/maintain"])("protects %s", (p) => {
     expect(isProtectedPath(p)).toBe(true);
   });
 
-  it.each(["/", "/signin", "/b/42", "/pay/42", "/board", "/live", "/meetup", "/dashboards", "/api/me", "/api/auth/session", "/api/health"])(
+  it.each(["/", "/signin", "/b/42", "/pay/42", "/board", "/live", "/meetup", "/dashboards", "/apple", "/apps", "/api/me", "/api/auth/session", "/api/health"])(
     "leaves %s public",
     (p) => {
       expect(isProtectedPath(p)).toBe(false);
