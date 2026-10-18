@@ -33,7 +33,7 @@ import {
   LightningFunding,
 } from "./funding/index.js";
 import { InMemoryPayoutStore, PayoutService, readBankCodeFallback } from "./payouts/index.js";
-import { beneficiaryFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement } from "./settlement/index.js";
+import { beneficiaryFromAccounts, readObjectionWindowMs, readPayoutAccounts, Settlement, statusExtras } from "./settlement/index.js";
 import type { Bounty } from "@bitbounty/core";
 
 export const app = new Hono();
@@ -114,7 +114,9 @@ if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && process.env.G
   void claimTimers.start();
   statusSync = async (bounty) => {
     const { writer } = await github(bounty.repoFullName);
-    await syncIssue(bounty, { writer, repo: bountyRepo, ...botSettings });
+    // I3: claim, PR and payout attempt / last error / receipt, so failures read cleanly on GitHub.
+    const extras = await statusExtras(bounty, { repo: bountyRepo, payouts: payoutStore });
+    await syncIssue(bounty, { writer, repo: bountyRepo, extras, ...botSettings });
   };
   // DEV ONLY: POST /dev/fund marks a bounty paid until Bitnob funding is wired (see github/claims/dev-fund.ts).
   if (process.env.DEV_HOOK_TOKEN) {
@@ -196,6 +198,8 @@ export const lightningFunding =
 // paying / paid / payout_failed; funding, PR and payout events re-render the status comment.
 // Payouts need Bitnob keys; where to pay comes from PAYOUT_ACCOUNTS until W4/B3 store accounts.
 let payoutService: PayoutService | null = null;
+/** B2's store, shared with the read API (I1) so /b/:id, receipts and profiles show live payouts. */
+export const payoutStore = new InMemoryPayoutStore();
 export const settlement = new Settlement({
   repo: bountyRepo,
   bus: eventBus,
@@ -212,7 +216,7 @@ if (process.env.BITNOB_CLIENT_ID && process.env.BITNOB_CLIENT_SECRET) {
   payoutService = new PayoutService({
     rails: new BitnobClient(readBitnobConfig()),
     // In-memory until a Drizzle PayoutStore lands (keep update() a compare-and-set, see payouts/README.md).
-    store: new InMemoryPayoutStore(),
+    store: payoutStore,
     emit: settlement.applyPayoutEvent,
     getBeneficiary: beneficiaryFromAccounts(readPayoutAccounts()),
     callbackUrl: process.env.BITNOB_CALLBACK_URL || "https://example.com/webhooks/bitnob",
@@ -233,8 +237,8 @@ app.route(
     activity: activityLog,
     // Live fundings from memory, plus whatever is in Postgres (seed, later the Drizzle stores).
     fundings: database ? mergeFundings(fundingStore, new DrizzleFundingReader(database.db)) : fundingStore,
-    // The payout service (B2) isn't wired into app.ts yet: show the payouts table when there is one.
-    payouts: database ? new DrizzlePayoutReader(database.db) : undefined,
+    // Live payouts from B2's service; without Bitnob keys, whatever the payouts table holds.
+    payouts: payoutService ? payoutStore : database ? new DrizzlePayoutReader(database.db) : undefined,
     lightning: lightningFunding,
     internalToken: process.env.INTERNAL_API_TOKEN?.trim() || undefined,
   }),
