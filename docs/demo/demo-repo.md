@@ -15,7 +15,7 @@ scripts/demo-repo.sh             # creates Djbrl/bitbounty-demo, labels, 6 issue
 ```
 Then:
 1. Install the BitBounty GitHub App on `Djbrl/bitbounty-demo` (github.com/settings/installations → the app → Repository access).
-2. Fund the issues that should already show on the board (comment on each, as Djbrl): `/bounty 15000` on the Wolof issue, `/bounty 7500` on the rate issue, `/bounty 5000` on the docs issue. Leave **issue 1 unfunded**: it is funded live.
+2. Fund the issues that should already show on the board (comment on each, as Djbrl): `/bounty 7500` on the rate issue, `/bounty 5000` on the docs issue. Leave **issue 1 unfunded**: it is funded live. Leave **issue 2 (Wolof) without any bounty**: Claude Code posts it through MCP in the agent demo ([agent-demo.md](agent-demo.md)), and an issue gets one bounty, ever.
 3. Check that `main` is green in the Actions tab.
 
 ## On stage: the live bug (issue 1)
@@ -71,7 +71,7 @@ Where to look: `groupThousands` in `src/fcfa.js`, used by both functions.
 <!-- issue-body:end -->
 
 ### Issue 2 · Add a Wolof (wo) translation of the messages
-Labels: `translation` `good first issue` `help wanted` · Bounty: 15 000 FCFA, funded before the demo
+Labels: `translation` `good first issue` `help wanted` · Bounty: 15 000 FCFA, posted live by Claude Code through MCP ([agent-demo.md](agent-demo.md)), then funded by the owner
 
 <!-- issue-body:start -->
 Most people who use this library in Senegal speak Wolof first. The messages only exist in English and French (`locales/en.json`, `locales/fr.json`).
