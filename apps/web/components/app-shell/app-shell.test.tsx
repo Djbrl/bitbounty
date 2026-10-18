@@ -49,7 +49,9 @@ describe("U2 shell helpers", () => {
   it("has the five entries of each workspace", () => {
     expect(navFor("hunt", "awa", "en").map((i) => i.label)).toEqual(["Home", "Explore", "My claims", "Earnings", "Profile"]);
     expect(navFor("hunt", "awa", "en").at(-1)?.href).toBe("/u/awa");
-    expect(navFor("maintain", "awa", "en").map((i) => i.label)).toEqual(["Home", "Repos", "Review queue", "Payouts", "Price my backlog"]);
+    const maintain = navFor("maintain", "awa", "en").map((i) => i.label);
+    expect(maintain.slice(0, 2)).toEqual(["Home", "Explore"]);
+    expect(maintain).toEqual(expect.arrayContaining(["Repos", "Review queue", "Payouts", "Price my backlog"]));
   });
 });
 
@@ -57,11 +59,29 @@ describe("U2 AppShell", () => {
   it("renders the greeting, the hunter sidebar and the page", () => {
     const html = render();
     expect(html).toContain("Salut Awa 👋");
-    expect(html).toContain('href="/explore"');
+    expect(html).toContain('href="/app/explore"');
+    expect(html).toContain('action="/app/explore"');
     expect(html).toContain('href="/u/awa-ndiaye"');
     expect(html).toContain('aria-current="page"');
     expect(html).toContain("page body");
     expect(html).toContain('id="app-content"');
+  });
+
+  it("has no @login block in the sidebar; the header profile shows @login and is clickable", () => {
+    const html = render();
+    const aside = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+    expect(aside).not.toContain("@awa-ndiaye");
+    expect(aside).not.toContain('href="/me"');
+    const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+    expect(header).toContain("@awa-ndiaye");
+    expect(header).toContain("cursor-pointer");
+    expect(navFor("hunt", "awa", "fr").find((i) => i.key === "claims")?.label).toBe("Mes claims");
+  });
+
+  it("is not busy until a workspace switch starts", () => {
+    const html = render();
+    expect(html).not.toContain('role="progressbar"');
+    expect(html).not.toContain("aria-busy");
   });
 
   it("follows the URL for the maintainer sidebar", () => {

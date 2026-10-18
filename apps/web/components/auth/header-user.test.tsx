@@ -37,7 +37,15 @@ describe("header sign-in", () => {
       <HeaderUserView session={{ kind: "in", user: { githubId: 1, login: "awa-ndiaye", avatarUrl: null } }} />,
     );
     expect(signedIn).toContain("@awa-ndiaye");
-    expect(signedIn).toContain("Sign out");
+    expect(signedIn).toContain("cursor-pointer"); // reads as clickable
+    expect(signedIn).toContain('href="/u/awa-ndiaye"');
+    expect(signedIn).toContain('href="/me"'); // Lightning Address lives in the profile menu
+    expect(signedIn).toContain("Se déconnecter");
+    const en = renderToStaticMarkup(
+      <HeaderUserView lang="en" session={{ kind: "in", user: { githubId: 1, login: "awa-ndiaye", avatarUrl: null } }} />,
+    );
+    expect(en).toContain("Sign out");
+    expect(en).toContain("Payout address");
   });
 
   it("never builds an off-site callback", () => {

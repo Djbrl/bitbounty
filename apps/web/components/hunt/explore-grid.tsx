@@ -8,7 +8,23 @@ import { huntText, type Lang } from "./text";
 
 const SELECT = "rounded-full border border-rule bg-sheet px-3 py-1.5 text-[13px] focus-visible:outline-2 focus-visible:outline-money";
 
-export function ExploreGrid({ bounties, lang, now, q = "" }: { bounties: BountySummary[]; lang: Lang; now: number; q?: string }) {
+export function ExploreGrid({
+  bounties,
+  lang,
+  now,
+  q = "",
+  title,
+  fixedRepo,
+}: {
+  bounties: BountySummary[];
+  lang: Lang;
+  now: number;
+  q?: string;
+  /** Heading; defaults to "Issues payées". Pass null to hide it. */
+  title?: string | null;
+  /** Explore drilled into one project: the repo filter is fixed and hidden. */
+  fixedRepo?: string;
+}) {
   const t = huntText(lang);
   const { languages, repos } = useMemo(() => exploreOptions(bounties), [bounties]);
   const [f, setF] = useState<ExploreFilter>({ ...NO_FILTER, q });
@@ -17,7 +33,7 @@ export function ExploreGrid({ bounties, lang, now, q = "" }: { bounties: BountyS
 
   return (
     <div className="grid min-w-0 content-start gap-4">
-      <h2 className="text-[1.6rem] font-extrabold tracking-tight">{t.paidIssues}</h2>
+      {title === null ? null : <h2 className="text-[1.6rem] font-extrabold tracking-tight">{title ?? t.paidIssues}</h2>}
 
       {bounties.length > 0 ? (
         <div role="group" aria-label={t.filters} className="grid gap-3">
@@ -33,7 +49,7 @@ export function ExploreGrid({ bounties, lang, now, q = "" }: { bounties: BountyS
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-[12px] text-muted">
+            {fixedRepo ? null : <label className="grid gap-1 text-[12px] text-muted">
               {t.repo}
               <select className={SELECT} value={f.repo} onChange={(e) => set({ repo: e.target.value })}>
                 <option value="all">{t.all}</option>
@@ -43,10 +59,10 @@ export function ExploreGrid({ bounties, lang, now, q = "" }: { bounties: BountyS
                   </option>
                 ))}
               </select>
-            </label>
+            </label>}
             <label className="grid min-w-0 flex-1 basis-full gap-1 text-[12px] text-muted sm:basis-auto sm:max-w-64">
               {t.search}
-              <input type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} className={`${SELECT} w-full min-w-0`} />
+              <input type="search" placeholder={t.searchIssues} value={f.q} onChange={(e) => set({ q: e.target.value })} className={`${SELECT} w-full min-w-0`} />
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-1.5" aria-label={t.amount} role="group">

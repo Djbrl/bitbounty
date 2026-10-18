@@ -6,6 +6,7 @@ import type { BountyDetail, Dashboard } from "../../../../fixtures/types";
 import { ToastProvider } from "../ui";
 import { decideBounty, suggestBacklog } from "./actions";
 import { MaintainView } from "./maintain-view";
+import { MaintainAgents, MaintainPayouts, MaintainRepos, MaintainStats } from "./sections";
 import { formatMinutes, mockHome, type MaintainHome } from "./shape";
 
 const home = () => mockHome(bounties as unknown as BountyDetail[], dashboard as unknown as Dashboard, new Date("2026-10-18T10:00:00Z"));
@@ -46,24 +47,41 @@ describe("mockHome (fixtures mode)", () => {
 });
 
 describe("MaintainView", () => {
-  it("renders the summary, the queue and the sidebar anchors in French by default", () => {
+  it("home: backlog hero first, then funded PRs to decide, other sections behind 'Voir tout' (fr)", () => {
     const html = render(home());
-    for (const id of ["review", "repos", "payouts", "backlog"]) expect(html).toContain(`id="${id}"`);
-    expect(html).toContain("À relire");
-    expect(html).toContain("Payé ce mois-ci");
+    for (const id of ["review", "backlog"]) expect(html).toContain(`id="${id}"`);
+    expect(html).not.toContain('id="payouts"');
+    expect(html).not.toContain('id="repos"');
+    expect(html.indexOf('data-tour="price-backlog"')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('data-tour="price-backlog"')).toBeLessThan(html.indexOf('data-tour="funded-prs"'));
+    expect(html).toContain("Chiffrer mon backlog");
+    expect(html).toContain("PR financées à décider");
     expect(html).toContain("Payer");
     expect(html).toContain("Bloquer");
+    expect(html).toContain("Voir tout ›");
+    for (const href of ["/app/maintain/repos", "/app/maintain/payouts", "/app/maintain/stats"]) expect(html).toContain(`href="${href}"`);
     expect(html).toContain("https://github.com/apps/bitbounty-dakar");
-    expect(html).toContain("Le portefeuille du développeur ne répond pas.");
-    expect(html).not.toContain("walletofsatoshi");
-    expect(html).toMatch(/href="\/r\/[^"]+"/);
+    expect(html).not.toContain("Payé ce mois-ci");
   });
 
   it("speaks English with bb_lang=en", () => {
     const html = render(home(), "en");
-    expect(html).toContain("Review queue");
+    expect(html).toContain("Funded PRs to decide");
     expect(html).toContain("Install on more repos");
-    expect(html).toContain("Paid this month");
+    expect(html).toContain("See all ›");
+  });
+
+  it("section pages render what moved off the home", () => {
+    const h = home();
+    const payouts = renderToStaticMarkup(<MaintainPayouts data={h} lang="fr" />);
+    expect(payouts).toContain('id="payouts"');
+    expect(payouts).toContain("Le portefeuille du développeur ne répond pas.");
+    expect(payouts).not.toContain("walletofsatoshi");
+    expect(payouts).toMatch(/href="\/r\/[^"]+"/);
+    expect(renderToStaticMarkup(<MaintainRepos data={h} lang="fr" />)).toContain('id="repos"');
+    expect(renderToStaticMarkup(<MaintainStats data={h} lang="fr" />)).toContain("Payé ce mois-ci");
+    expect(renderToStaticMarkup(<MaintainStats data={h} lang="en" />)).toContain("Paid this month");
+    expect(renderToStaticMarkup(<MaintainAgents data={h} lang="en" />)).toContain("claude-code");
   });
 
   it("shows the empty state without repos or bounties", () => {
