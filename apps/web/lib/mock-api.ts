@@ -143,6 +143,12 @@ export function handleMock(
     return ok({ count: picked.length, suggestions: picked.map((s) => s.id), bountyIds: picked.map((s) => backlogBountyId(s.id)), session: fundingSession(fx, { amountXof: amount }, (body.rail as FundingRail) ?? 'lightning', now) });
   }
 
+  // U2: the app shell's workspace. Stateless here: the web remembers the choice in a cookie too.
+  if (root === 'me' && id === 'mode') {
+    if (method === 'GET') return ok({ defaultMode: null, installedRepos: (fx.dashboard?.repos ?? []).map((r) => r.fullName) });
+    if (method === 'POST') return body.mode === 'hunt' || body.mode === 'maintain' ? ok({ defaultMode: body.mode }) : err(400, 'invalid_mode');
+  }
+
   if (root === 'me') {
     const S = fx.me.states;
     if (method === 'GET' && !id) {

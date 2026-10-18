@@ -32,7 +32,7 @@ In middleware / route handlers wrapped with `auth(...)`, use `sessionToUser(req.
 |---|---|
 | `apps/web/auth.ts` | Auth.js config: GitHub provider, JWT session (7 days), callbacks that store / expose the fields above |
 | `apps/web/app/api/auth/[...nextauth]/route.ts` | Auth.js endpoints. The static `auth` segment wins over the mock catch-all `app/api/[...path]`, so `/api/me`, `/api/dashboard`... keep serving fixtures |
-| `apps/web/middleware.ts` | Redirects signed-out visitors of `/dashboard`, `/me` and `/welcome` (and sub-paths) to `/signin?callbackUrl=...`. Everything else is public. The landing CTAs (`/`) point at `/welcome?intent=maintain\|hunt`, so they go through GitHub sign-in first (L1) |
+| `apps/web/middleware.ts` | Redirects signed-out visitors of `/dashboard`, `/me`, `/welcome` and `/app` (U2 app shell) (and sub-paths) to `/signin?callbackUrl=...`. Everything else is public. The landing CTAs (`/`) point at `/welcome?intent=maintain\|hunt`, so they go through GitHub sign-in first (L1) |
 | `apps/web/app/signin/page.tsx` | Sign-in page; also shows Auth.js errors (`?error=OAuthCallbackError` when the user refuses on GitHub) |
 | `apps/web/components/auth/` | `SignInButton`, `SignOutButton`, `UserMenu` (server components, no client JS). Drop `<UserMenu />` in any header |
 | `apps/web/lib/auth/session-user.ts` | Pure mapping profile / token / session → `{ githubId, login, avatarUrl }` (tested) |
