@@ -8,7 +8,7 @@ export const MAINTENANCE_PATH = "/maintenance";
 export const BACK_ON = { fr: "23 octobre", en: "23 October" } as const;
 
 /** Where "contact us" points. Empty hides the contact line. */
-export const CONTACT_EMAIL = "";
+export const CONTACT_EMAIL = "sydjbrl@gmail.com";
 
 export const FLY_URL = "https://fly.io";
 
